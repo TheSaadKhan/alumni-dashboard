@@ -1,53 +1,68 @@
-### File Structure ###
+🗂️ Project Structure
+
+This is the structure of the Alumni Portal project using Next.js App Router, Tailwind CSS, and TypeScript:
+
 /alumni-portal/
 │
-├── /app/                     # App directory (Next.js App Router)
-│   ├── /dashboard/           # Dashboard routes (protected)
-│   │   └── page.tsx          # Dashboard Home
+├── app/                     # Application routes (Next.js App Router)
+│   ├── dashboard/           # Protected dashboard pages
+│   │   └── page.tsx         # Dashboard homepage
 │   │
-│   ├── /auth/                # Auth routes (login, register)
-│   │   ├── /login/
+│   ├── auth/                # Authentication routes
+│   │   ├── login/           # Login page
 │   │   │   └── page.tsx
-│   │   ├── /register/
+│   │   ├── register/        # Registration page
 │   │   │   └── page.tsx
 │   │
-│   ├── /layout.tsx          # Root layout for the app
-│   ├── /page.tsx            # Home page
-│   └── /globals.css         # Global CSS
+│   ├── layout.tsx           # Root layout for the entire app
+│   ├── page.tsx             # Public home/landing page
+│   └── globals.css          # Global styles (Tailwind base, etc.)
 │
-├── /components/
-│   ├── /ui/                  # UI primitives and shared components
-│   │   ├── sidebar.tsx
-│   │   ├── sidebar-menu.tsx
+├── components/              # Reusable UI and layout components
+│   ├── ui/                  # UI elements (buttons, inputs, etc.)
 │   │   ├── button.tsx
-│   │   └── input.tsx
+│   │   ├── input.tsx
+│   │   ├── sidebar.tsx
+│   │   └── sidebar-menu.tsx
 │   │
-│   ├── /layout/             # Layout components
+│   ├── layout/              # Layout wrappers
 │   │   └── SidebarLayout.tsx
 │   │
-│   └── /shared/             # Reusable logic or wrappers
+│   └── shared/              # Shared logic/components
 │       └── SidebarProvider.tsx
 │
-├── /lib/                    # Utility functions and services
-│   ├── auth.ts              # Auth-related helpers
-│   └── api.ts               # API call abstraction
-│
-├── /context/                # React context providers
+├── context/                 # React Context for global state
 │   └── SidebarContext.tsx
 │
-├── /hooks/                  # Custom React hooks
+├── hooks/                   # Custom React hooks
 │   └── useSidebar.ts
 │
-├── /types/                  # TypeScript types
+├── lib/                     # Utility functions and services
+│   ├── api.ts               # API abstraction layer
+│   └── auth.ts              # Auth helper functions
+│
+├── types/                   # Global TypeScript types
 │   └── index.ts
 │
-├── /public/                 # Static assets (images, icons)
+├── public/                  # Static files and assets
 │   └── logo.svg
 │
-├── /styles/                # Custom styles if any
+├── styles/                  # Custom or third-party CSS
 │   └── sidebar.css
 │
-├── tsconfig.json
-├── tailwind.config.js
-├── next.config.js
-└── package.json
+├── tsconfig.json            # TypeScript configuration
+├── tailwind.config.js       # Tailwind CSS configuration
+├── next.config.js           # Next.js configuration
+└── package.json             # Project dependencies and scripts
+
+✅ Notes:
+
+The project uses App Router (Next.js 13+).
+
+All routes are in the app/ directory.
+
+Components are organized by type (UI, layout, shared).
+
+Context and hooks are decoupled for reusability.
+
+Static files like images or icons are kept in public/.
