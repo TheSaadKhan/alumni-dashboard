@@ -28,11 +28,14 @@ let users = [
   },
 ];
 
+// ✅ Works with Next.js 15+ (params is sometimes typed as a Promise)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const user = users.find((u) => u.id === params.id);
+  const { id } = await context.params; // note the await
+
+  const user = users.find((u) => u.id === id);
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -43,10 +46,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
+
   try {
-    const userIndex = users.findIndex((u) => u.id === params.id);
+    const userIndex = users.findIndex((u) => u.id === id);
 
     if (userIndex === -1) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -72,10 +77,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
+
   try {
-    const userIndex = users.findIndex((u) => u.id === params.id);
+    const userIndex = users.findIndex((u) => u.id === id);
 
     if (userIndex === -1) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
