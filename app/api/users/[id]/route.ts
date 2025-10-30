@@ -12,7 +12,7 @@ let users = [
     degree: 'Computer Science',
     location: 'San Francisco, CA',
     company: 'TechCorp',
-    position: 'Engineering Manager'
+    position: 'Engineering Manager',
   },
   {
     id: '2',
@@ -24,45 +24,39 @@ let users = [
     degree: 'Business Administration',
     location: 'New York, NY',
     company: 'StartupXYZ',
-    position: 'Product Director'
-  }
+    position: 'Product Director',
+  },
 ];
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  const user = users.find(u => u.id === params.id);
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const user = users.find((u) => u.id === params.id);
 
   if (!user) {
-    return NextResponse.json(
-      { error: 'User not found' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
   return NextResponse.json(user);
 }
 
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const userIndex = users.findIndex(u => u.id === params.id);
+    const userIndex = users.findIndex((u) => u.id === params.id);
 
     if (userIndex === -1) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     const body = await request.json();
     const updatedUser = {
       ...users[userIndex],
       ...body,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
     users[userIndex] = updatedUser;
@@ -76,15 +70,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const userIndex = users.findIndex(u => u.id === params.id);
+    const userIndex = users.findIndex((u) => u.id === params.id);
 
     if (userIndex === -1) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     users.splice(userIndex, 1);
