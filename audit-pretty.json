@@ -1,0 +1,271 @@
+﻿-- Enable extensions commonly used in Supabase projects
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";       -- for gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";        -- optional: trigram indexes for search
+
+-- 1) CORE: Users & Profiles
+-- Note: Supabase Auth has its own auth.users table. We keep a local profiles table pointing at auth user id.
+CREATE TABLE public.profiles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  auth_user_id uuid NOT NULL,                     -- references auth.users.id at app-level (no FK)
+  email text NOT NULL,
+  full_name text,
+  headline text,
+  avatar_url text,
+  bio text,
+  location text,
+  graduation_year smallint CHECK (graduation_year >= 1900 AND graduation_year <= 2100),
+  degree text,
+  major text,
+  skills jsonb,                                   -- array/object of skills, proficiency, etc.
+  metadata jsonb,                                 -- flexible fields (privacy settings, preferences)
+  tenant_id uuid,                                 -- multi-tenant id or org id
+  created_at timestamptz DEFAULT now() NOT NULL,
+  updated_at timestamptz DEFAULT now() NOT NULL,
+  is_active boolean DEFAULT true,
+  UNIQUE (auth_user_id),
+  UNIQUE (tenant_id, email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_auth_user_id ON public.profiles (auth_user_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_tenant_id ON public.profiles (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_graduation_year ON public.profiles (graduation_year);
+CREATE INDEX IF NOT EXISTS idx_profiles_fulltext ON public.profiles USING gin (
+  (to_tsvector('english', coalesce(full_name,'') || ' ' || coalesce(headline,'')))
+);
+
+-- 2) ORGANIZATIONS / TENANTS
+CREATE TABLE public.organizations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  slug text NOT NULL,
+  website text,
+  address jsonb,
+  metadata jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  is_active boolean DEFAULT true,
+  UNIQUE (slug)
+);
+
+CREATE INDEX IF NOT EXISTS idx_org_slug ON public.organizations (slug);
+
+-- 3) EVENTS
+CREATE TABLE public.events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organizer_id uuid NOT NULL,            -- profiles.id or organizations.id (no FK)
+  tenant_id uuid,
+  title text NOT NULL,
+  description text,
+  location text,
+  address jsonb,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  capacity integer CHECK (capacity >= 0),
+  is_virtual boolean DEFAULT false,
+  status text DEFAULT 'draft' CHECK (status IN ('draft','published','cancelled','archived')),
+  metadata jsonb,                        -- tickets, links, tags etc.
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_tenant_id ON public.events (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_events_starts_at ON public.events (starts_at);
+CREATE INDEX IF NOT EXISTS idx_events_organizer_id ON public.events (organizer_id);
+
+-- 4) EVENT ATTENDEES (many-to-many)
+CREATE TABLE public.event_attendees (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL,
+  attendee_id uuid NOT NULL,            -- profiles.id
+  status text NOT NULL DEFAULT 'registered' CHECK (status IN ('registered','checked_in','cancelled','no_show')),
+  ticket_type text,
+  checked_in_at timestamptz,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (event_id, attendee_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_attendees_event_id ON public.event_attendees (event_id);
+CREATE INDEX IF NOT EXISTS idx_event_attendees_attendee_id ON public.event_attendees (attendee_id);
+
+-- 5) JOBS / JOB POSTS
+CREATE TABLE public.jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  poster_id uuid NOT NULL,               -- profiles.id
+  tenant_id uuid,
+  title text NOT NULL,
+  company_name text,
+  location text,
+  description text,
+  employment_type text CHECK (employment_type IN ('full_time','part_time','contract','internship','remote')),
+  salary_range jsonb,                    -- {min: int, max: int, currency: 'USD'}
+  tags text[],
+  metadata jsonb,
+  status text DEFAULT 'open' CHECK (status IN ('open','closed','paused')),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_jobs_poster_id ON public.jobs (poster_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_tenant_id ON public.jobs (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_tags_gin ON public.jobs USING gin (tags);
+
+-- 6) JOB APPLICATIONS
+CREATE TABLE public.job_applications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id uuid NOT NULL,
+  applicant_id uuid NOT NULL,            -- profiles.id
+  resume_url text,
+  cover_letter text,
+  status text DEFAULT 'applied' CHECK (status IN ('applied','reviewing','interview','rejected','accepted')),
+  applied_at timestamptz DEFAULT now(),
+  metadata jsonb,
+  UNIQUE (job_id, applicant_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_job_applications_job_id ON public.job_applications (job_id);
+CREATE INDEX IF NOT EXISTS idx_job_applications_applicant_id ON public.job_applications (applicant_id);
+
+-- 7) CONVERSATIONS & MESSAGES
+CREATE TABLE public.conversations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid,
+  subject text,
+  type text CHECK (type IN ('direct','group','announcement')),
+  metadata jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_tenant_id ON public.conversations (tenant_id);
+
+CREATE TABLE public.messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id uuid NOT NULL,
+  sender_id uuid NOT NULL,              -- profiles.id
+  body text,
+  attachments jsonb,                     -- list of file ids / URLs + metadata
+  is_read boolean DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON public.messages (conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON public.messages (sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON public.messages (created_at);
+
+-- 8) NETWORK (connections, follows)
+CREATE TABLE public.network_connections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_a uuid NOT NULL,
+  user_b uuid NOT NULL,
+  status text DEFAULT 'pending' CHECK (status IN ('pending','accepted','declined','blocked')),
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (user_a, user_b)
+);
+
+CREATE INDEX IF NOT EXISTS idx_network_user_a ON public.network_connections (user_a);
+CREATE INDEX IF NOT EXISTS idx_network_user_b ON public.network_connections (user_b);
+
+-- 9) DONATIONS / TRANSACTIONS
+CREATE TABLE public.donations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  donor_id uuid,                         -- profiles.id or guest (NULL)
+  tenant_id uuid,
+  amount numeric(12,2) CHECK (amount >= 0),
+  currency char(3) DEFAULT 'USD',
+  status text DEFAULT 'pending' CHECK (status IN ('pending','succeeded','failed','refunded')),
+  provider_transaction_id text,
+  metadata jsonb,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_donations_donor_id ON public.donations (donor_id);
+CREATE INDEX IF NOT EXISTS idx_donations_tenant_id ON public.donations (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_donations_created_at ON public.donations (created_at);
+
+-- 10) STORIES / CONTENT
+CREATE TABLE public.stories (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_id uuid NOT NULL,               -- profiles.id
+  slug text NOT NULL,
+  title text NOT NULL,
+  summary text,
+  content text,
+  status text DEFAULT 'draft' CHECK (status IN ('draft','published','archived')),
+  published_at timestamptz,
+  tags text[],
+  metadata jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE (slug)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stories_author_id ON public.stories (author_id);
+CREATE INDEX IF NOT EXISTS idx_stories_tags_gin ON public.stories USING gin (tags);
+
+-- 11) NOTIFICATIONS
+CREATE TABLE public.notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipient_id uuid NOT NULL,
+  type text NOT NULL,
+  payload jsonb,
+  is_read boolean DEFAULT false,
+  delivered boolean DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON public.notifications (recipient_id);
+
+-- 12) SETTINGS & USER PREFERENCES
+CREATE TABLE public.user_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  preferences jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON public.user_settings (user_id);
+
+-- 13) ADMIN / AUDIT
+CREATE TABLE public.admin_audit_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_user_id uuid,                    -- profiles.id that has admin role
+  action text NOT NULL,
+  resource_type text,
+  resource_id uuid,
+  before_snapshot jsonb,
+  after_snapshot jsonb,
+  ip_address inet,
+  user_agent text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_admin_user_id ON public.admin_audit_logs (admin_user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_resource ON public.admin_audit_logs (resource_type, resource_id);
+
+-- 14) SIMPLE ANALYTICS / EVENTS
+CREATE TABLE public.analytics_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid,
+  actor_id uuid,                          -- optional profile id
+  event_type text NOT NULL,
+  event_props jsonb,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_event_type ON public.analytics_events (event_type);
+CREATE INDEX IF NOT EXISTS idx_analytics_tenant_created ON public.analytics_events (tenant_id, created_at DESC);
+
+-- 15) ASSETS / FILES
+CREATE TABLE public.assets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id uuid,                          -- profiles.id
+  url text NOT NULL,
+  filename text,
+  mime_type text,
+  size_bytes bigint,
+  metadata jsonb,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_assets_owner_id ON public.assets (owner_id);

@@ -177,3 +177,18 @@ Inspired by a shared vision to connect alumni worldwide through community, techn
 ---
 
 > “You’re not building a tool — you’re crafting an emotion.”
+
+
+# alumni-dashboard (DB + Backend scaffold)
+
+This directory contains production-ready starter files for:
+- supabase/ — migrations, policies, triggers, views, seeds.
+- db/ — backend client, generated types, queries, optional Drizzle schema, helpers and repositories.
+
+Steps to use:
+1. Edit the SQL migration files in supabase/migrations/ to match your final schema.
+2. Enable necessary extensions by running supabase/extensions/0000_extensions.sql.
+3. Push migrations to your Supabase project in order.
+4. Fill in RLS policies in supabase/policies/** before opening database to clients.
+5. Populate db/types/supabase.ts by running: supabase gen types typescript --schema public > db/types/supabase.ts
+6. Securely set SUPABASE_SERVICE_ROLE_KEY in server environment variables (only for server).

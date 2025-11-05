@@ -1,0 +1,2 @@
+﻿-- 0204_soft_delete_helpers.sql
+-- Implement soft-delete helper if you prefer marking is_active=false instead of delete.
