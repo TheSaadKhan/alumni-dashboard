@@ -3,17 +3,15 @@ import { Database } from '@/db/types/supabase';
 
 type Conversation = Database['public']['Tables']['conversations']['Row'];
 type Message = Database['public']['Tables']['messages']['Row'];
+type ConversationInsert = Database['public']['Tables']['conversations']['Insert'];
 
 export const messageQueries = {
-  // Get user conversations
+  // Get user conversations - FIXED: Remove conversation_participants reference
   async getUserConversations(profileId: string): Promise<Conversation[]> {
     const { data, error } = await supabase
       .from('conversations')
       .select(`
         *,
-        conversation_participants!inner (
-          profile_id
-        ),
         messages (
           id,
           content,
@@ -21,8 +19,10 @@ export const messageQueries = {
           sender_id
         )
       `)
-      .eq('conversation_participants.profile_id', profileId)
-      .order('last_message_at', { ascending: false });
+      // Filter conversations where the user is a participant
+      // This assumes you have a different way to track participants, perhaps in metadata
+      .or(`metadata->participants->>${profileId}.is.not.null,created_by.eq.${profileId}`)
+      .order('updated_at', { ascending: false });
     
     if (error) throw error;
     return data || [];
@@ -59,41 +59,60 @@ export const messageQueries = {
     
     if (error) throw error;
 
-    // Update conversation last message time
+    // Update conversation updated_at time
     await supabase
       .from('conversations')
-      .update({ last_message_at: new Date().toISOString() })
+      .update({ updated_at: new Date().toISOString() })
       .eq('id', message.conversation_id);
 
     return data;
   },
 
-  // Create conversation
+  // Create conversation - FIXED: Store participants in metadata instead of separate table
   async createConversation(createdBy: string, participantIds: string[], title?: string) {
+    const allParticipants = [createdBy, ...participantIds.filter(id => id !== createdBy)];
+    
+    const conversationData: ConversationInsert = {
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      metadata: {
+        created_by: createdBy,
+        participants: allParticipants,
+        participant_count: allParticipants.length
+      },
+      subject: title || null,
+      type: allParticipants.length > 2 ? 'group' : 'direct'
+    };
+
     const { data: conversation, error } = await supabase
       .from('conversations')
-      .insert({
-        created_by: createdBy,
-        title,
-        conversation_type: participantIds.length > 2 ? 'group' : 'direct'
-      })
+      .insert(conversationData)
       .select()
       .single();
     
     if (error) throw error;
 
-    // Add participants
-    const participants = [createdBy, ...participantIds].map(profileId => ({
-      conversation_id: conversation.id,
-      profile_id: profileId
-    }));
-
-    const { error: participantError } = await supabase
-      .from('conversation_participants')
-      .insert(participants);
-    
-    if (participantError) throw participantError;
-
     return conversation;
+  },
+
+  // Alternative: Get conversations by participant (if using metadata)
+  async getConversationsByParticipant(profileId: string): Promise<Conversation[]> {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select(`
+        *,
+        messages (
+          id,
+          content,
+          created_at,
+          sender_id
+        )
+      `)
+      // Filter conversations where the user is in the participants metadata
+      .contains('metadata->participants', [profileId])
+      .order('updated_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
   }
 };

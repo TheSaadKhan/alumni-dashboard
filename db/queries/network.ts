@@ -5,18 +5,17 @@ type Connection = Database['public']['Tables']['network_connections']['Row']
 
 export const networkQueries = {
   // Send connection request
-  async sendConnectionRequest(requesterId: string, receiverId: string, note?: string): Promise<Connection | null> {
+  async sendConnectionRequest(userA: string, userB: string): Promise<Connection | null> {
     const { data, error } = await supabase
       .from('network_connections')
       .insert({
-        requester_id: requesterId,
-        receiver_id: receiverId,
-        connection_note: note,
+        user_a: userA,
+        user_b: userB,
         status: 'pending'
       })
       .select()
       .single()
-    
+
     if (error) {
       console.error('Error sending connection request:', error)
       return null
@@ -32,7 +31,7 @@ export const networkQueries = {
       .eq('id', connectionId)
       .select()
       .single()
-    
+
     if (error) {
       console.error('Error accepting connection:', error)
       return null
@@ -40,18 +39,18 @@ export const networkQueries = {
     return data
   },
 
-  // Get user's connections
+  // Get user's accepted connections
   async getUserConnections(userId: string): Promise<Connection[]> {
     const { data, error } = await supabase
       .from('network_connections')
       .select(`
         *,
-        requester:requester_id (*),
-        receiver:receiver_id (*)
+        user_a_profile:user_a (*),
+        user_b_profile:user_b (*)
       `)
-      .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`)
+      .or(`user_a.eq.${userId},user_b.eq.${userId}`)
       .eq('status', 'accepted')
-    
+
     if (error) {
       console.error('Error fetching connections:', error)
       return []
@@ -59,38 +58,19 @@ export const networkQueries = {
     return data || []
   },
 
-  // Get pending connection requests
+  // Get pending connection requests (where current user is receiver)
   async getPendingRequests(userId: string): Promise<Connection[]> {
     const { data, error } = await supabase
       .from('network_connections')
       .select(`
         *,
-        requester:requester_id (*)
+        user_a_profile:user_a (*)
       `)
-      .eq('receiver_id', userId)
+      .eq('user_b', userId)
       .eq('status', 'pending')
-    
+
     if (error) {
       console.error('Error fetching pending requests:', error)
-      return []
-    }
-    return data || []
-  },
-
-  // Get connection recommendations
-  async getConnectionRecommendations(userId: string, limit = 10): Promise<any[]> {
-    const { data, error } = await supabase
-      .from('connection_recommendations')
-      .select(`
-        *,
-        recommended_profile:recommended_profile_id (*)
-      `)
-      .eq('profile_id', userId)
-      .order('score', { ascending: false })
-      .limit(limit)
-    
-    if (error) {
-      console.error('Error fetching recommendations:', error)
       return []
     }
     return data || []
@@ -102,7 +82,7 @@ export const networkQueries = {
       .from('network_connections')
       .delete()
       .eq('id', connectionId)
-    
+
     if (error) {
       console.error('Error removing connection:', error)
       throw error

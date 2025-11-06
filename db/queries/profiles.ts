@@ -1,11 +1,17 @@
 ﻿import { supabase } from "@/db/client/supabase-browser";
 import type { Database } from "@/db/types/supabase";
 
-// Type-safe mappings to your Supabase schema
+/**
+ * ✅ Type-safe mappings from your Supabase schema
+ */
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 
+/**
+ * 🔹 Centralized profile query methods
+ * All functions return typed data or throw typed errors
+ */
 export const profileQueries = {
   /** 🔹 Get profile by database ID */
   async getProfileById(id: string): Promise<Profile | null> {
@@ -63,7 +69,7 @@ export const profileQueries = {
       graduationYear?: number;
       industry?: string;
       location?: string;
-      degree?: string; // ✅ added support for degree
+      degree?: string;
     }
   ): Promise<Profile[]> {
     let queryBuilder = supabase
@@ -71,7 +77,7 @@ export const profileQueries = {
       .select("*")
       .eq("is_active", true);
 
-    // 🔍 Match query text across multiple text fields
+    // 🔍 Text search
     if (query) {
       queryBuilder = queryBuilder.or(
         `full_name.ilike.%${query}%,headline.ilike.%${query}%,bio.ilike.%${query}%,degree.ilike.%${query}%`
@@ -80,13 +86,10 @@ export const profileQueries = {
 
     // 🎓 Graduation year filter
     if (filters?.graduationYear) {
-      queryBuilder = queryBuilder.eq(
-        "graduation_year",
-        filters.graduationYear
-      );
+      queryBuilder = queryBuilder.eq("graduation_year", filters.graduationYear);
     }
 
-    // 🏢 Industry filter (assuming stored in metadata JSON)
+    // 🏢 Industry filter (assuming industry is stored inside metadata JSON)
     if (filters?.industry) {
       queryBuilder = queryBuilder.ilike(
         "metadata->>industry",
@@ -122,3 +125,5 @@ export const profileQueries = {
     return data ?? [];
   },
 };
+
+export default profileQueries;

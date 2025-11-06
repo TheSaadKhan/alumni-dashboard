@@ -4,6 +4,7 @@ import { Database } from '@/db/types/supabase'
 type Event = Database['public']['Tables']['events']['Row']
 type EventInsert = Database['public']['Tables']['events']['Insert']
 type EventAttendee = Database['public']['Tables']['event_attendees']['Row']
+type EventAttendeeInsert = Database['public']['Tables']['event_attendees']['Insert']
 
 export const eventQueries = {
   // Get upcoming events
@@ -53,13 +54,13 @@ export const eventQueries = {
     return data
   },
 
-  // Register for event
+  // Register for event - FIXED
   async registerForEvent(eventId: string, profileId: string): Promise<EventAttendee | null> {
     const { data, error } = await supabase
       .from('event_attendees')
       .insert({
         event_id: eventId,
-        profile_id: profileId,
+        attendee_id: profileId, // Changed from profile_id to attendee_id
         status: 'registered'
       })
       .select()
@@ -78,7 +79,7 @@ export const eventQueries = {
       .from('event_attendees')
       .select(`
         *,
-        profiles:profile_id (*)
+        profiles:attendee_id (*) // Changed from profile_id to attendee_id
       `)
       .eq('event_id', eventId)
     
@@ -97,7 +98,7 @@ export const eventQueries = {
         *,
         events:event_id (*)
       `)
-      .eq('profile_id', profileId)
+      .eq('attendee_id', profileId) // Changed from profile_id to attendee_id
       .order('created_at', { ascending: false })
     
     if (error) {
