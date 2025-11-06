@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { GraduationCap, Loader2, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/db/client/supabase-browser";
+import Image from "next/image";
 
 export default function ResetPasswordPage() {
   const [formData, setFormData] = useState({
@@ -124,9 +125,18 @@ export default function ResetPasswordPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <GraduationCap className="h-6 w-6 text-white" />
-            </div>
+              <div className="relative w-24 h-24 flex items-center justify-center group">
+                         <Image
+                           src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/logo.png`}
+                           alt="Alumni Connect Logo"
+                           fill
+                           priority
+                           className="object-contain transition-transform duration-300 group-hover:scale-105"
+                           unoptimized
+                           sizes="96px"
+                         />
+           
+                       </div>
           </div>
           <CardTitle className="text-2xl">Set New Password</CardTitle>
           <CardDescription>

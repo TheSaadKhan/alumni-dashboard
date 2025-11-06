@@ -13,6 +13,7 @@ import { GraduationCap, Loader2, MapPin, Building, Briefcase, User, Globe } from
 import { toast } from "sonner";
 import { useAuthContext } from "@/context/AuthContext";
 import { profileQueries } from "@/db/queries/profiles";
+import Image from "next/image";
 
 // Data for dropdowns
 const graduationYears = Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i);
@@ -617,9 +618,18 @@ export default function CompleteProfilePage() {
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <GraduationCap className="h-6 w-6 text-white" />
-            </div>
+             <div className="relative w-24 h-24 flex items-center justify-center group">
+                        <Image
+                          src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/logo.png`}
+                          alt="Alumni Connect Logo"
+                          fill
+                          priority
+                          className="object-contain transition-transform duration-300 group-hover:scale-105"
+                          unoptimized
+                          sizes="96px"
+                        />
+          
+                      </div>
           </div>
           <CardTitle className="text-2xl">Complete Your Profile</CardTitle>
           <CardDescription>

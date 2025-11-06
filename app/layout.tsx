@@ -17,6 +17,11 @@ export const metadata: Metadata = {
     default: "AlumniConnect - Bridging Graduates, Building Futures",
     template: "%s | AlumniConnect",
   },
+  icons: {
+    icon: "/favicon-32x32.png",       // example path (one of them)
+    shortcut: "/favicon.ico",         // as provided
+    apple: "/apple-touch-icon.png"    // if generated
+  },
   description:
     "Reconnect with your alma mater, discover career opportunities, mentor students, and make a lasting impact on your community.",
   keywords: "alumni, network, career, mentorship, community, graduates",

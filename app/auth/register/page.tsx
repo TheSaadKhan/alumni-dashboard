@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { GraduationCap, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/db/client/supabase-browser";
+import Image from "next/image";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -32,7 +33,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords don't match", {
@@ -83,7 +84,7 @@ export default function RegisterPage() {
         const fullName = `${formData.firstName} ${formData.lastName}`;
         const degreeMap: { [key: string]: string } = {
           'bsc': "Bachelor's",
-          'msc': "Master's", 
+          'msc': "Master's",
           'phd': "PhD",
           'other': "Other"
         };
@@ -110,8 +111,8 @@ export default function RegisterPage() {
         }
 
         toast.success("Account Created Successfully!", {
-          description: authData.session 
-            ? "You have been automatically signed in." 
+          description: authData.session
+            ? "You have been automatically signed in."
             : "Please check your email to verify your account.",
           action: authData.session ? {
             label: "Go to Dashboard",
@@ -139,7 +140,7 @@ export default function RegisterPage() {
 
   const handleDemoRegister = async () => {
     setLoading(true);
-    
+
     try {
       const demoEmail = `demo-${Date.now()}@alumniconnect.com`;
       const demoPassword = "demo123456";
@@ -216,8 +217,17 @@ export default function RegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <GraduationCap className="h-6 w-6 text-white" />
+            <div className="relative w-24 h-24 flex items-center justify-center group">
+              <Image
+                src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/logo.png`}
+                alt="Alumni Connect Logo"
+                fill
+                priority
+                className="object-contain transition-transform duration-300 group-hover:scale-105"
+                unoptimized
+                sizes="96px"
+              />
+
             </div>
           </div>
           <CardTitle className="text-2xl">Join AlumniConnect</CardTitle>
@@ -234,7 +244,7 @@ export default function RegisterPage() {
                   id="firstName"
                   placeholder="John"
                   value={formData.firstName}
-                  onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   required
                   disabled={loading}
                 />
@@ -245,13 +255,13 @@ export default function RegisterPage() {
                   id="lastName"
                   placeholder="Doe"
                   value={formData.lastName}
-                  onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   required
                   disabled={loading}
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email *</Label>
               <Input
@@ -259,7 +269,7 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="john@example.com"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
                 disabled={loading}
               />
@@ -268,9 +278,9 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="graduationYear">Graduation Year</Label>
-                <Select 
-                  value={formData.graduationYear} 
-                  onValueChange={(value) => setFormData({...formData, graduationYear: value})}
+                <Select
+                  value={formData.graduationYear}
+                  onValueChange={(value) => setFormData({ ...formData, graduationYear: value })}
                   disabled={loading}
                 >
                   <SelectTrigger>
@@ -287,9 +297,9 @@ export default function RegisterPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="degree">Degree</Label>
-                <Select 
-                  value={formData.degree} 
-                  onValueChange={(value) => setFormData({...formData, degree: value})}
+                <Select
+                  value={formData.degree}
+                  onValueChange={(value) => setFormData({ ...formData, degree: value })}
                   disabled={loading}
                 >
                   <SelectTrigger>
@@ -313,7 +323,7 @@ export default function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Create a password (min. 6 characters)"
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
                   disabled={loading}
                   minLength={6}
@@ -334,7 +344,7 @@ export default function RegisterPage() {
                 </Button>
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password *</Label>
               <div className="relative">
@@ -343,7 +353,7 @@ export default function RegisterPage() {
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm your password"
                   value={formData.confirmPassword}
-                  onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   required
                   disabled={loading}
                 />
@@ -364,9 +374,9 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <Button
+              type="submit"
+              className="w-full"
               disabled={loading}
             >
               {loading ? (
@@ -402,11 +412,11 @@ export default function RegisterPage() {
             ) : null}
             Try Demo Account
           </Button>
-          
+
           <div className="mt-6 text-center text-sm">
             Already have an account?{" "}
-            <Link 
-              href="/auth/login" 
+            <Link
+              href="/auth/login"
               className="text-indigo-600 hover:text-indigo-500 font-medium transition-colors"
             >
               Sign in

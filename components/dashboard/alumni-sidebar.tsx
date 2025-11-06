@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import clsx from "clsx";
+import Image from "next/image";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home, badge: null },
@@ -40,7 +41,7 @@ export function AlumniSidebar({ mobileMenuOpen, setMobileMenuOpen }: AlumniSideb
 
   // Update active nav based on current path
   useEffect(() => {
-    const currentNav = navigation.find(item => 
+    const currentNav = navigation.find(item =>
       pathname === item.href || pathname.startsWith(item.href + '/')
     );
     if (currentNav) {
@@ -97,17 +98,24 @@ export function AlumniSidebar({ mobileMenuOpen, setMobileMenuOpen }: AlumniSideb
         aria-label="Main navigation"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200/50 dark:border-gray-700/50">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="h-12 w-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <GraduationCap className="h-6 w-6 text-white" />
+        <div className="flex items-center justify-between p-6 border-b border-gray-200/50 dark:border-gray-700/50 bg-white/70 dark:bg-gray-900/60 backdrop-blur-xl transition-all duration-500">
+          <div className="flex items-center gap-4">
+            {/* Logo with online indicator */}
+            <div className="relative flex items-center justify-center">
+              <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center rounded-2xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-md shadow-md group transition-all duration-300 hover:shadow-lg hover:bg-white/80 dark:hover:bg-gray-800/80">
+                <Image
+                  src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/bannerLogo.png`}
+                  alt="Banner Logo"
+                  fill
+                  priority
+                  className="object-contain transition-transform duration-300 group-hover:scale-105"
+                  unoptimized
+                  sizes="96px"
+                />
               </div>
-              <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-400 rounded-full border-2 border-white dark:border-gray-900"></div>
-            </div>
-            <div className="flex flex-col">
-              <h2 className="font-bold text-gray-900 dark:text-white text-lg">AlumniConnect</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Welcome back!</p>
+
+              {/* Online status indicator */}
+              <div className="absolute bottom-1 right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-900 shadow-md"></div>
             </div>
           </div>
 
@@ -115,16 +123,17 @@ export function AlumniSidebar({ mobileMenuOpen, setMobileMenuOpen }: AlumniSideb
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden h-8 w-8 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="md:hidden h-8 w-8 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
             onClick={() => setMobileMenuOpen?.(false)}
             aria-label="Close sidebar"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </Button>
         </div>
 
+
         {/* User Profile Quick Info */}
-      
+
 
         {/* Navigation */}
         <nav className="flex-1 p-4">

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { GraduationCap, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/db/client/supabase-browser";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -65,7 +66,7 @@ export default function LoginPage() {
 
   const handleDemoLogin = async () => {
     setLoading(true);
-    
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: "demo@alumniconnect.com",
@@ -82,7 +83,7 @@ export default function LoginPage() {
       toast.success("Demo Mode Activated", {
         description: "Exploring AlumniConnect with demo account.",
       });
-      
+
       router.push('/dashboard');
     } catch (error) {
       toast.error("Demo login failed", {
@@ -98,12 +99,23 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <GraduationCap className="h-6 w-6 text-white" />
+            {/* add 'group' to enable group-hover on the image */}
+            <div className="relative w-24 h-24 flex items-center justify-center group">
+              <Image
+                src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/logo.png`}
+                alt="Alumni Connect Logo"
+                fill
+                priority
+                className="object-contain transition-transform duration-300 group-hover:scale-105"
+                unoptimized
+                sizes="96px"
+              />
+
             </div>
           </div>
-          <CardTitle className="text-2xl">Welcome Back</CardTitle>
-          <CardDescription>
+
+          <CardTitle className="text-2xl font-semibold">Welcome Back</CardTitle>
+          <CardDescription className="text-gray-500">
             Sign in to your AlumniConnect account
           </CardDescription>
         </CardHeader>
@@ -116,7 +128,7 @@ export default function LoginPage() {
                 type="email"
                 placeholder="Enter your email"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
                 disabled={loading}
               />
@@ -124,8 +136,8 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <Link 
-                  href="/auth/forgot-password" 
+                <Link
+                  href="/auth/forgot-password"
                   className="text-sm text-indigo-600 hover:text-indigo-500 transition-colors"
                 >
                   Forgot password?
@@ -136,14 +148,14 @@ export default function LoginPage() {
                 type="password"
                 placeholder="Enter your password"
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
                 disabled={loading}
               />
             </div>
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <Button
+              type="submit"
+              className="w-full"
               disabled={loading}
             >
               {loading ? (
@@ -179,11 +191,11 @@ export default function LoginPage() {
             ) : null}
             Try Demo Account
           </Button>
-          
+
           <div className="mt-6 text-center text-sm">
             Don't have an account?{" "}
-            <Link 
-              href="/auth/register" 
+            <Link
+              href="/auth/register"
               className="text-indigo-600 hover:text-indigo-500 font-medium transition-colors"
             >
               Sign up
