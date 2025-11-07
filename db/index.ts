@@ -1,8 +1,19 @@
-// Main database exports
-export { supabase } from './client/supabase-browser'
-export { createServerClient, createClientClient } from './client/supabase-server'
+// ============================================================
+// 🧱 Main Database Entry Point
+// ============================================================
 
-// Export all queries
+// ✅ Supabase Clients
+export {
+  createSupabaseServerClient,
+  createSupabaseBrowserClient,
+  createSupabaseAdminClient,
+  getSupabaseClient,
+} from './client/supabase'
+
+// ============================================================
+// 🔍 Query Modules
+// ============================================================
+
 export * from './queries/profiles'
 export * from './queries/events'
 export * from './queries/jobs'
@@ -12,10 +23,16 @@ export * from './queries/stories'
 export * from './queries/messages'
 export * from './queries/analytics'
 
-// Export helpers
+// ============================================================
+// ⚙️ Helper Utilities
+// ============================================================
+
 export * from './helpers/pagination'
 export * from './helpers/filters'
 export * from './helpers/errors'
 
-// Export types
+// ============================================================
+// 🧩 Types
+// ============================================================
+
 export type { Database } from './types/supabase'
