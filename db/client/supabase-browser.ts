@@ -1,25 +1,25 @@
-﻿import { createClient } from '@supabase/supabase-js';
-import { Database } from '../types/supabase';
+﻿// 📄 src/db/client/supabase-browser.ts
+import { createBrowserClient } from '@supabase/ssr'
+import type { Database } from '../types/supabase'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-  db: {
-    schema: 'public'
-  }
-});
+export const supabase = createBrowserClient<Database>(
+  supabaseUrl,
+  supabaseAnonKey
+)
 
-// Auth state change listener
-export const authStateChange = (callback: (event: 'SIGNED_IN' | 'SIGNED_OUT', session: any) => void) => {
+/**
+ * 🔹 Auth state change listener (client-side only)
+ * Use inside React components or hooks.
+ */
+export const authStateChange = (
+  callback: (event: 'SIGNED_IN' | 'SIGNED_OUT', session: any) => void
+) => {
   return supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-      callback(event, session);
+      callback(event, session)
     }
-  });
-};
+  })
+}
