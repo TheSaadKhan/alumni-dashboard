@@ -1,0 +1,1 @@
+export default function DemoPage() { return <div className='p-8 text-center'><h1 className='text-3xl font-bold'>Demo Page</h1><p>Coming soon...</p></div> }

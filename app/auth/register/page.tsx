@@ -68,7 +68,7 @@ export default function RegisterPage() {
             first_name: formData.firstName,
             last_name: formData.lastName,
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/callback`,
         }
       });
 
@@ -80,7 +80,7 @@ export default function RegisterPage() {
       }
 
       if (authData.user) {
-        // Create profile in database
+        // Create profile in database matching your schema
         const fullName = `${formData.firstName} ${formData.lastName}`;
         const degreeMap: { [key: string]: string } = {
           'bsc': "Bachelor's",
@@ -94,20 +94,36 @@ export default function RegisterPage() {
           .insert({
             auth_user_id: authData.user.id,
             email: formData.email,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
             full_name: fullName,
             graduation_year: parseInt(formData.graduationYear),
             degree: degreeMap[formData.degree],
             is_active: true,
             is_verified: false,
+            // Optional fields that can be null
+            headline: null,
+            avatar_url: null,
+            bio: null,
+            location: null,
+            skills: {},
+            metadata: {
+              registration_source: "web",
+              registration_date: new Date().toISOString(),
+              degree_type: formData.degree
+            },
+            tenant_id: null // Set to your tenant ID if using multi-tenant setup
           });
 
         if (profileError) {
           console.error('Profile creation error:', profileError);
+
+          // If profile creation fails, we should handle this appropriately
+          // You might want to delete the auth user or mark them for cleanup
           toast.error("Profile Creation Failed", {
             description: "Account created but profile setup failed. Please contact support.",
           });
+
+          // Still proceed since auth user was created, but log the error
+          console.error('Profile creation failed for user:', authData.user.id, profileError);
         }
 
         toast.success("Account Created Successfully!", {
@@ -122,7 +138,7 @@ export default function RegisterPage() {
 
         if (authData.session) {
           // User is automatically signed in (email confirmation might be disabled)
-          router.push('/auth/complete-profile');
+          router.push('/dashboard');
         } else {
           // Email confirmation required
           router.push('/auth/verify-email');
@@ -138,79 +154,6 @@ export default function RegisterPage() {
     }
   };
 
-  const handleDemoRegister = async () => {
-    setLoading(true);
-
-    try {
-      const demoEmail = `demo-${Date.now()}@alumniconnect.com`;
-      const demoPassword = "demo123456";
-
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: demoEmail,
-        password: demoPassword,
-        options: {
-          data: {
-            first_name: "Demo",
-            last_name: "User",
-          }
-        }
-      });
-
-      if (authError) {
-        toast.error("Demo Registration Failed", {
-          description: authError.message,
-        });
-        return;
-      }
-
-      if (authData.user) {
-        // Create demo profile
-        await supabase
-          .from('profiles')
-          .insert({
-            auth_user_id: authData.user.id,
-            email: demoEmail,
-            first_name: "Demo",
-            last_name: "User",
-            full_name: "Demo User",
-            graduation_year: currentYear - 2,
-            degree: "Bachelor's",
-            current_position: "Software Engineer",
-            company: "Tech Company",
-            industry: "Technology",
-            location: "San Francisco, CA",
-            bio: "This is a demo account to explore AlumniConnect features.",
-            is_active: true,
-            is_verified: true,
-          });
-
-        // Sign in with demo account
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: demoEmail,
-          password: demoPassword,
-        });
-
-        if (signInError) {
-          toast.error("Demo Login Failed", {
-            description: "Please try signing in manually with the demo credentials.",
-          });
-          return;
-        }
-
-        toast.success("Demo Account Created!", {
-          description: "You're now signed in with a demo account.",
-        });
-
-        router.push('/dashboard');
-      }
-    } catch (error: any) {
-      toast.error("Demo Registration Failed", {
-        description: error.message || "Please try again later.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
@@ -401,17 +344,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleDemoRegister}
-            disabled={loading}
-          >
-            {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
-            Try Demo Account
-          </Button>
+
 
           <div className="mt-6 text-center text-sm">
             Already have an account?{" "}

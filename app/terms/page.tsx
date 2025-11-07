@@ -1,0 +1,1 @@
+export default function TermsPage() { return <div className='p-8 text-center'><h1 className='text-3xl font-bold'>Terms & Conditions</h1><p>Our terms will appear here.</p></div> }

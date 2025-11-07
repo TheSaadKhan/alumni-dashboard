@@ -138,30 +138,28 @@ export default function HomePage() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-  <Link href="/" className="flex items-center group">
-    <div
-      className={`relative h-10 sm:h-12 flex items-center justify-center rounded-xl transition-all duration-500 ease-in-out ${
-        isScrolled
-          ? 'bg-transparent'
-          : 'bg-white/60 dark:bg-gray-900/70 backdrop-blur-xl shadow-lg px-3 py-2'
-      }`}
-    >
-      <Image
-        src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/bannerLogo.png`}
-        alt="Alumni Connect Logo"
-        width={120}
-        height={120}
-        className={`h-full w-full object-contain transition-all duration-500 ease-in-out group-hover:scale-105 ${
-          isScrolled
-            ? 'brightness-100 contrast-100'
-            : 'brightness-125 contrast-110'
-        }`}
-        unoptimized
-      />
-    </div>
-  </Link>
-</motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link href="/" className="flex items-center group">
+                <div
+                  className={`relative h-10 sm:h-12 flex items-center justify-center rounded-xl transition-all duration-500 ease-in-out ${isScrolled
+                    ? 'bg-transparent'
+                    : 'bg-white/60 dark:bg-gray-900/70 backdrop-blur-xl shadow-lg px-3 py-2'
+                    }`}
+                >
+                  <Image
+                    src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/bannerLogo.png`}
+                    alt="Alumni Connect Logo"
+                    width={120}
+                    height={120}
+                    className={`h-full w-full object-contain transition-all duration-500 ease-in-out group-hover:scale-105 ${isScrolled
+                      ? 'brightness-100 contrast-100'
+                      : 'brightness-125 contrast-110'
+                      }`}
+                    unoptimized
+                  />
+                </div>
+              </Link>
+            </motion.div>
 
 
 
@@ -300,13 +298,13 @@ export default function HomePage() {
               preload="auto"
               className={`w-full h-full object-cover transition-opacity duration-1000 ease-out ${isVideoLoaded ? "opacity-100 scale-100" : "opacity-0 scale-105"
                 }`}
-              poster="/images/hero-poster.jpg"
+              poster="/assets/image/hero-poster.jpg"
               onLoadedData={() => setIsVideoLoaded(true)}
               onError={() => setVideoError(true)}
             >
               <source
-                src="https://kjqrtnkgenvqnpugefdx.supabase.co/storage/v1/object/public/Assets/hero-bg.mp4"
-                type="video/mp4"
+                src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/hero-bg.mp4`}
+              type="video/mp4"
               />
             </motion.video>
           )}
@@ -317,37 +315,25 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Subtle Poster Image Placeholder */}
-        {!isVideoLoaded && !videoError && (
-          <img
-            src="/images/hero-poster.jpg"
-            alt="Hero background placeholder"
-            className="absolute inset-0 w-full h-full object-cover blur-sm scale-105 opacity-70"
-          />
-        )}
-
-        {/* Loading Spinner Overlay */}
-        {!isVideoLoaded && !videoError && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 bg-black/40 z-20 flex items-center justify-center backdrop-blur-sm"
-          >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full"
+        {/* Image Placeholder (shown while video loads or if video fails) */}
+        {(!isVideoLoaded || videoError) && (
+          <div className="absolute inset-0 w-full h-full z-0">
+            <img
+              src="/assets/image/hero-poster.jpg"
+              alt="Hero background"
+              className="w-full h-full object-cover"
             />
-            <p className="ml-4 text-white/90 font-medium tracking-wide">Loading video...</p>
-          </motion.div>
+            {/* Optional overlay to match video gradient */}
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/70 to-purple-900/50" />
+          </div>
         )}
 
-        {/* Hero Content */}
+        {/* Hero Content - Always Visible */}
         <div className="relative z-20 text-center text-white px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto w-full">
           <motion.div
             variants={containerVariants}
             initial="hidden"
-            animate={isVideoLoaded ? "visible" : "hidden"}
+            animate="visible"
             className="space-y-6 sm:space-y-8"
           >
             {/* Trust Badge */}

@@ -1,0 +1,1 @@
+export default function PricingPage() { return <div className='p-8 text-center'><h1 className='text-3xl font-bold'>Pricing Page</h1><p>Details coming soon...</p></div> }

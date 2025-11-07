@@ -1,0 +1,1 @@
+export default function SupportPage() { return <div className='p-8 text-center'><h1 className='text-3xl font-bold'>Support</h1><p>Contact us for assistance.</p></div> }
