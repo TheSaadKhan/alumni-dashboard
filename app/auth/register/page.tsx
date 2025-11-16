@@ -8,28 +8,66 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GraduationCap, Loader2, Eye, EyeOff } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Eye, EyeOff, Building2, Users, MapPin, Mail, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/db/client/supabase-browser";
 import Image from "next/image";
 
-export default function RegisterPage() {
+export default function OrganizationRegisterPage() {
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
+    // Organization details
+    organizationName: "",
+    organizationType: "educational",
     email: "",
     password: "",
     confirmPassword: "",
-    graduationYear: new Date().getFullYear().toString(),
-    degree: "bsc"
+    
+    // Contact person (will become super admin)
+    contactPerson: "",
+    phoneNumber: "",
+    jobTitle: "Principal",
+    
+    // Organization info
+    website: "",
+    employeeCount: "",
+    address: "",
+    city: "",
+    country: "",
+    description: ""
   });
+  
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
 
-  const currentYear = new Date().getFullYear();
-  const graduationYears = Array.from({ length: 50 }, (_, i) => currentYear - i);
+  const organizationTypes = [
+    { value: "educational", label: "Educational Institute" },
+    { value: "corporate", label: "Corporate Organization" },
+    { value: "non_profit", label: "Non-Profit Organization" },
+    { value: "government", label: "Government Agency" },
+    { value: "other", label: "Other" }
+  ];
+
+  const employeeRanges = [
+    { value: "1-10", label: "1-10 employees" },
+    { value: "11-50", label: "11-50 employees" },
+    { value: "51-200", label: "51-200 employees" },
+    { value: "201-500", label: "201-500 employees" },
+    { value: "501-1000", label: "501-1000 employees" },
+    { value: "1000+", label: "1000+ employees" }
+  ];
+
+  const jobTitles = [
+    { value: "Principal", label: "Principal" },
+    { value: "CEO", label: "CEO" },
+    { value: "Director", label: "Director" },
+    { value: "President", label: "President" },
+    { value: "Head", label: "Head of Organization" },
+    { value: "Founder", label: "Founder" },
+    { value: "Other", label: "Other" }
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,16 +80,16 @@ export default function RegisterPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
+    if (formData.password.length < 8) {
       toast.error("Password too short", {
-        description: "Password must be at least 6 characters long.",
+        description: "Password must be at least 8 characters long.",
       });
       return;
     }
 
-    if (!formData.firstName || !formData.lastName) {
+    if (!formData.organizationName || !formData.contactPerson) {
       toast.error("Missing information", {
-        description: "Please provide your first and last name.",
+        description: "Please provide organization name and contact person.",
       });
       return;
     }
@@ -59,14 +97,15 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // Create auth user
+      // Create auth user for the super admin
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
+            organization_name: formData.organizationName,
+            contact_person: formData.contactPerson,
+            user_type: "organization_admin"
           },
           emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/callback`,
         }
@@ -80,67 +119,139 @@ export default function RegisterPage() {
       }
 
       if (authData.user) {
-        // Create profile in database matching your schema
-        const fullName = `${formData.firstName} ${formData.lastName}`;
-        const degreeMap: { [key: string]: string } = {
-          'bsc': "Bachelor's",
-          'msc': "Master's",
-          'phd': "PhD",
-          'other': "Other"
-        };
+        // First, create the organization
+        const slug = formData.organizationName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '');
 
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .insert({
+            name: formData.organizationName,
+            slug: slug,
+            website: formData.website || null,
+            contact_email: formData.email,
+            phone_number: formData.phoneNumber || null,
+            organization_type: formData.organizationType,
+            employee_count_range: formData.employeeCount || null,
+            address: formData.address ? {
+              street: formData.address,
+              city: formData.city,
+              country: formData.country
+            } : null,
+            description: formData.description || null,
+            is_active: true,
+            is_verified: false,
+            created_by: authData.user.id,
+            metadata: {
+              registration_source: "web",
+              registration_date: new Date().toISOString(),
+              employee_range: formData.employeeCount
+            }
+          })
+          .select()
+          .single();
+
+        if (orgError) {
+          console.error('Organization creation error:', orgError);
+          toast.error("Organization Creation Failed", {
+            description: "Account created but organization setup failed. Please contact support.",
+          });
+          return;
+        }
+
+        // Create organization settings
+        await supabase
+          .from('organization_settings')
+          .insert({
+            organization_id: orgData.id,
+            settings: {
+              allow_member_invites: true,
+              require_approval: false,
+              max_members: null,
+              allowed_domains: [],
+              theme: "default",
+              features: {
+                alumni_network: true,
+                events: true,
+                job_postings: true,
+                donations: true
+              }
+            }
+          });
+
+        // Create default roles for the organization
+        await supabase.rpc('create_default_organization_roles', { org_id: orgData.id });
+
+        // Get the super admin role
+        const { data: superAdminRole } = await supabase
+          .from('organization_roles')
+          .select('id')
+          .eq('organization_id', orgData.id)
+          .eq('name', 'super_admin')
+          .single();
+
+        // Create user profile
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
             auth_user_id: authData.user.id,
             email: formData.email,
-            full_name: fullName,
-            graduation_year: parseInt(formData.graduationYear),
-            degree: degreeMap[formData.degree],
+            full_name: formData.contactPerson,
+            primary_organization_id: orgData.id,
+            user_type: 'admin',
+            headline: formData.jobTitle,
             is_active: true,
             is_verified: false,
-            // Optional fields that can be null
-            headline: null,
-            avatar_url: null,
-            bio: null,
-            location: null,
-            skills: {},
             metadata: {
               registration_source: "web",
               registration_date: new Date().toISOString(),
-              degree_type: formData.degree
-            },
-            tenant_id: null // Set to your tenant ID if using multi-tenant setup
+              organization_role: "super_admin"
+            }
           });
 
         if (profileError) {
           console.error('Profile creation error:', profileError);
-
-          // If profile creation fails, we should handle this appropriately
-          // You might want to delete the auth user or mark them for cleanup
           toast.error("Profile Creation Failed", {
-            description: "Account created but profile setup failed. Please contact support.",
+            description: "Organization created but profile setup failed.",
           });
-
-          // Still proceed since auth user was created, but log the error
-          console.error('Profile creation failed for user:', authData.user.id, profileError);
         }
 
-        toast.success("Account Created Successfully!", {
+        // Create organization member record for super admin
+        const { error: memberError } = await supabase
+          .from('organization_members')
+          .insert({
+            organization_id: orgData.id,
+            user_id: authData.user.id,
+            role_id: superAdminRole.id,
+            title: formData.jobTitle,
+            is_active: true,
+            is_verified: true,
+            membership_status: 'active',
+            metadata: {
+              is_creator: true,
+              registration_date: new Date().toISOString()
+            }
+          });
+
+        if (memberError) {
+          console.error('Member creation error:', memberError);
+        }
+
+        toast.success("Organization Registered Successfully!", {
           description: authData.session
-            ? "You have been automatically signed in."
+            ? "You have been automatically signed in as Super Admin."
             : "Please check your email to verify your account.",
           action: authData.session ? {
             label: "Go to Dashboard",
-            onClick: () => router.push('/dashboard')
+            onClick: () => router.push('/organization/dashboard')
           } : undefined,
         });
 
         if (authData.session) {
-          // User is automatically signed in (email confirmation might be disabled)
-          router.push('/dashboard');
+          router.push('/organization/dashboard');
         } else {
-          // Email confirmation required
           router.push('/auth/verify-email');
         }
       }
@@ -154,10 +265,16 @@ export default function RegisterPage() {
     }
   };
 
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="relative w-24 h-24 flex items-center justify-center group">
@@ -170,150 +287,285 @@ export default function RegisterPage() {
                 unoptimized
                 sizes="96px"
               />
-
             </div>
           </div>
-          <CardTitle className="text-2xl">Join AlumniConnect</CardTitle>
+          <CardTitle className="text-2xl flex items-center justify-center gap-2">
+            <Building2 className="h-6 w-6" />
+            Register Your Organization
+          </CardTitle>
           <CardDescription>
-            Create your account to connect with fellow alumni
+            Create your organization account and set up your hierarchical member system
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name *</Label>
-                <Input
-                  id="firstName"
-                  placeholder="John"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  required
-                  disabled={loading}
-                />
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Organization Details */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Organization Information
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="organizationName">Organization Name *</Label>
+                  <Input
+                    id="organizationName"
+                    placeholder="University of Example"
+                    value={formData.organizationName}
+                    onChange={(e) => handleInputChange('organizationName', e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="organizationType">Organization Type *</Label>
+                  <Select
+                    value={formData.organizationType}
+                    onValueChange={(value) => handleInputChange('organizationType', value)}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizationTypes.map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Official Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="admin@organization.edu"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="employeeCount">Organization Size</Label>
+                  <Select
+                    value={formData.employeeCount}
+                    onValueChange={(value) => handleInputChange('employeeCount', value)}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employeeRanges.map(range => (
+                        <SelectItem key={range.value} value={range.value}>
+                          {range.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Person (Super Admin) */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Super Administrator Details
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contactPerson">Contact Person *</Label>
+                  <Input
+                    id="contactPerson"
+                    placeholder="John Smith"
+                    value={formData.contactPerson}
+                    onChange={(e) => handleInputChange('contactPerson', e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="jobTitle">Your Position *</Label>
+                  <Select
+                    value={formData.jobTitle}
+                    onValueChange={(value) => handleInputChange('jobTitle', value)}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select position" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jobTitles.map(title => (
+                        <SelectItem key={title.value} value={title.value}>
+                          {title.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name *</Label>
+                <Label htmlFor="phoneNumber">
+                  <Phone className="inline h-4 w-4 mr-1" />
+                  Phone Number
+                </Label>
                 <Input
-                  id="lastName"
-                  placeholder="Doe"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  required
+                  id="phoneNumber"
+                  type="tel"
+                  placeholder="+1 (555) 123-4567"
+                  value={formData.phoneNumber}
+                  onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
                   disabled={loading}
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="john@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            {/* Additional Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Additional Information
+              </h3>
+              
               <div className="space-y-2">
-                <Label htmlFor="graduationYear">Graduation Year</Label>
-                <Select
-                  value={formData.graduationYear}
-                  onValueChange={(value) => setFormData({ ...formData, graduationYear: value })}
-                  disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {graduationYears.map(year => (
-                      <SelectItem key={year} value={year.toString()}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="degree">Degree</Label>
-                <Select
-                  value={formData.degree}
-                  onValueChange={(value) => setFormData({ ...formData, degree: value })}
-                  disabled={loading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select degree" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bsc">Bachelor's</SelectItem>
-                    <SelectItem value="msc">Master's</SelectItem>
-                    <SelectItem value="phd">PhD</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <div className="relative">
+                <Label htmlFor="website">Website</Label>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create a password (min. 6 characters)"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                  disabled={loading}
-                  minLength={6}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password *</Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirm your password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  required
+                  id="website"
+                  type="url"
+                  placeholder="https://www.organization.edu"
+                  value={formData.website}
+                  onChange={(e) => handleInputChange('website', e.target.value)}
                   disabled={loading}
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Input
+                    id="address"
+                    placeholder="123 Organization Street"
+                    value={formData.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    placeholder="New York"
+                    value={formData.city}
+                    onChange={(e) => handleInputChange('city', e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Input
+                    id="country"
+                    placeholder="United States"
+                    value={formData.country}
+                    onChange={(e) => handleInputChange('country', e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Organization Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Brief description of your organization, mission, and values..."
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
                   disabled={loading}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            {/* Security */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Security
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create a password (min. 8 characters)"
+                      value={formData.password}
+                      onChange={(e) => handleInputChange('password', e.target.value)}
+                      required
+                      disabled={loading}
+                      minLength={8}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={loading}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm your password"
+                      value={formData.confirmPassword}
+                      onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                      required
+                      disabled={loading}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      disabled={loading}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -321,14 +573,18 @@ export default function RegisterPage() {
               type="submit"
               className="w-full"
               disabled={loading}
+              size="lg"
             >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Account...
+                  Creating Organization Account...
                 </>
               ) : (
-                "Create Account"
+                <>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Register Organization
+                </>
               )}
             </Button>
           </form>
@@ -339,20 +595,30 @@ export default function RegisterPage() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground">
-                Or
+                Already Registered?
               </span>
             </div>
           </div>
 
-
-
-          <div className="mt-6 text-center text-sm">
-            Already have an account?{" "}
+          <div className="text-center">
             <Link
-              href="/auth/login"
+              href="/auth/organization-login"
               className="text-indigo-600 hover:text-indigo-500 font-medium transition-colors"
             >
-              Sign in
+              <Button variant="outline" className="w-full">
+                <Users className="mr-2 h-4 w-4" />
+                Sign in to Organization Account
+              </Button>
+            </Link>
+          </div>
+
+          <div className="mt-6 text-center text-sm">
+            Looking for individual account?{" "}
+            <Link
+              href="/auth/register"
+              className="text-indigo-600 hover:text-indigo-500 font-medium transition-colors"
+            >
+              Register as Individual
             </Link>
           </div>
 
