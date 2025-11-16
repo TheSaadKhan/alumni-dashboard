@@ -1,617 +1,248 @@
-﻿-- 0601_seed_orgs.sql
-
--- Enable UUID generation
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
--- Insert sample organizations with different types
-INSERT INTO public.organizations (
-  id, 
-  name, 
-  slug, 
-  organization_type, 
-  description, 
-  website, 
-  contact_email, 
-  is_active, 
-  is_verified,
-  created_at,
-  updated_at
-) VALUES 
-(
-  'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  'Stanford University Alumni', 
-  'stanford-university', 
-  'educational',
-  'Official alumni network for Stanford University graduates. Connecting leaders, innovators, and change-makers worldwide.',
-  'https://alumni.stanford.edu',
-  'alumni@stanford.edu',
-  true,
-  true,
-  now(),
-  now()
-),
-(
-  'b2c3d4e5-f6g7-8901-bcde-f23456789012',
-  'Tech Innovators Inc.', 
-  'tech-innovators', 
-  'corporate',
-  'Leading technology company focused on AI and machine learning solutions for enterprise clients.',
-  'https://techinnovators.com',
-  'careers@techinnovators.com',
-  true,
-  true,
-  now(),
-  now()
-),
-(
-  'c3d4e5f6-g7h8-9012-cdef-345678901234',
-  'Global Health Foundation', 
-  'global-health', 
-  'non_profit',
-  'Non-profit organization dedicated to improving healthcare access in underserved communities worldwide.',
-  'https://globalhealth.org',
-  'info@globalhealth.org',
-  true,
-  true,
-  now(),
-  now()
-),
-(
-  'd4e5f6g7-h8i9-0123-defg-456789012345',
-  'MIT Engineering Alumni', 
-  'mit-engineering', 
-  'educational',
-  'MIT School of Engineering alumni community. Fostering innovation and collaboration among engineering graduates.',
-  'https://engineering.mit.edu/alumni',
-  'engineering-alumni@mit.edu',
-  true,
-  true,
-  now(),
-  now()
-)
-ON CONFLICT (slug) DO UPDATE SET
-  name = EXCLUDED.name,
-  organization_type = EXCLUDED.organization_type,
-  description = EXCLUDED.description,
-  website = EXCLUDED.website,
-  contact_email = EXCLUDED.contact_email,
-  updated_at = now();
-
--- Create organization settings for each organization
-INSERT INTO public.organization_settings (
-  organization_id,
-  settings,
-  created_at,
-  updated_at
-) 
+﻿-- Insert default organization roles
+INSERT INTO public.organization_roles (id, organization_id, name, display_name, hierarchy_level, permissions)
 SELECT 
-  id,
-  jsonb_build_object(
-    'allow_member_invites', true,
-    'require_approval', false,
-    'max_members', null,
-    'allowed_domains', CASE 
-      WHEN slug = 'stanford-university' THEN '["stanford.edu", "alumni.stanford.edu"]'::jsonb
-      WHEN slug = 'mit-engineering' THEN '["mit.edu", "alum.mit.edu"]'::jsonb
-      ELSE '[]'::jsonb
-    END,
-    'theme', 'default',
-    'features', jsonb_build_object(
-      'alumni_network', true,
-      'events', true,
-      'job_postings', true,
-      'donations', true,
-      'mentorship', true
-    )
-  ),
-  now(),
-  now()
-FROM public.organizations
-ON CONFLICT (organization_id) DO UPDATE SET
-  settings = EXCLUDED.settings,
-  updated_at = now();
-
--- Create default roles for each organization using the function
-DO $$ 
-DECLARE
-  org_record RECORD;
-BEGIN
-  FOR org_record IN SELECT id FROM public.organizations 
-  LOOP
-    -- Call the function to create default roles for this organization
-    PERFORM public.create_default_organization_roles(org_record.id);
-  END LOOP;
-END $$;
-
--- Create sample admin users for each organization
-INSERT INTO public.profiles (
-  id,
-  auth_user_id,
-  email,
-  full_name,
-  headline,
-  user_type,
-  primary_organization_id,
-  is_active,
-  is_verified,
-  created_at,
-  updated_at
-) VALUES 
--- Stanford University Admins
-(
-  'f1a2b3c4-d5e6-7890-abcd-ef1234567890',
   gen_random_uuid(),
-  'president@stanford.edu',
-  'Dr. Sarah Chen',
-  'President - Stanford Alumni Association',
-  'admin',
-  'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  true,
-  true,
-  now(),
-  now()
-),
-(
-  'f2b3c4d5-e6f7-8901-bcde-f23456789012',
-  gen_random_uuid(),
-  'dean.engineering@stanford.edu',
-  'Dr. Michael Rodriguez',
-  'Dean of Engineering - Stanford University',
-  'admin',
-  'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  true,
-  true,
-  now(),
-  now()
-),
--- Tech Innovators Admins
-(
-  'f3c4d5e6-f7g8-9012-cdef-345678901234',
-  gen_random_uuid(),
-  'ceo@techinnovators.com',
-  'Jennifer Parker',
-  'CEO - Tech Innovators Inc.',
-  'admin',
-  'b2c3d4e5-f6g7-8901-bcde-f23456789012',
-  true,
-  true,
-  now(),
-  now()
-),
-(
-  'f4d5e6f7-g8h9-0123-defg-456789012345',
-  gen_random_uuid(),
-  'cto@techinnovators.com',
-  'David Kim',
-  'CTO - Tech Innovators Inc.',
-  'admin',
-  'b2c3d4e5-f6g7-8901-bcde-f23456789012',
-  true,
-  true,
-  now(),
-  now()
-),
--- Global Health Foundation Admins
-(
-  'f5e6f7g8-h9i0-1234-efgh-567890123456',
-  gen_random_uuid(),
-  'director@globalhealth.org',
-  'Dr. Maria Gonzalez',
-  'Executive Director - Global Health Foundation',
-  'admin',
-  'c3d4e5f6-g7h8-9012-cdef-345678901234',
-  true,
-  true,
-  now(),
-  now()
-),
--- MIT Engineering Admins
-(
-  'f6f7g8h9-i0j1-2345-fghi-678901234567',
-  gen_random_uuid(),
-  'chair@mit.edu',
-  'Dr. Robert Thompson',
-  'Department Chair - MIT Engineering',
-  'admin',
-  'd4e5f6g7-h8i9-0123-defg-456789012345',
-  true,
-  true,
-  now(),
-  now()
-)
-ON CONFLICT (email) DO UPDATE SET
-  full_name = EXCLUDED.full_name,
-  headline = EXCLUDED.headline,
-  primary_organization_id = EXCLUDED.primary_organization_id,
-  updated_at = now();
-
--- Create organization members for admin users
-INSERT INTO public.organization_members (
-  organization_id,
-  user_id,
-  role_id,
-  title,
-  department,
-  is_active,
-  is_verified,
-  membership_status,
-  created_at,
-  updated_at
-)
-SELECT 
-  p.primary_organization_id,
-  p.id,
-  r.id,
-  CASE 
-    WHEN p.email = 'president@stanford.edu' THEN 'President'
-    WHEN p.email = 'dean.engineering@stanford.edu' THEN 'Dean of Engineering'
-    WHEN p.email = 'ceo@techinnovators.com' THEN 'Chief Executive Officer'
-    WHEN p.email = 'cto@techinnovators.com' THEN 'Chief Technology Officer'
-    WHEN p.email = 'director@globalhealth.org' THEN 'Executive Director'
-    WHEN p.email = 'chair@mit.edu' THEN 'Department Chair'
-    ELSE 'Administrator'
-  END,
-  CASE 
-    WHEN p.email = 'president@stanford.edu' THEN 'Alumni Association'
-    WHEN p.email = 'dean.engineering@stanford.edu' THEN 'School of Engineering'
-    WHEN p.email LIKE '%@techinnovators.com' THEN 'Executive Leadership'
-    WHEN p.email = 'director@globalhealth.org' THEN 'Executive Office'
-    WHEN p.email = 'chair@mit.edu' THEN 'Engineering Department'
-    ELSE 'Administration'
-  END,
-  true,
-  true,
-  'active',
-  now(),
-  now()
-FROM public.profiles p
-JOIN public.organizations o ON p.primary_organization_id = o.id
-JOIN public.organization_roles r ON r.organization_id = o.id AND r.name = 'super_admin'
-WHERE p.email IN (
-  'president@stanford.edu',
-  'dean.engineering@stanford.edu',
-  'ceo@techinnovators.com',
-  'cto@techinnovators.com',
-  'director@globalhealth.org',
-  'chair@mit.edu'
-)
-ON CONFLICT (organization_id, user_id) DO UPDATE SET
-  role_id = EXCLUDED.role_id,
-  title = EXCLUDED.title,
-  department = EXCLUDED.department,
-  updated_at = now();
-
--- Update organizations with created_by references
-UPDATE public.organizations 
-SET created_by = p.id
-FROM public.profiles p
-WHERE (organizations.slug = 'stanford-university' AND p.email = 'president@stanford.edu')
-   OR (organizations.slug = 'tech-innovators' AND p.email = 'ceo@techinnovators.com')
-   OR (organizations.slug = 'global-health' AND p.email = 'director@globalhealth.org')
-   OR (organizations.slug = 'mit-engineering' AND p.email = 'chair@mit.edu');
-
--- Create sample department/sub-admin roles for larger organizations
-INSERT INTO public.organization_roles (
-  organization_id,
-  name,
-  display_name,
-  hierarchy_level,
-  permissions,
-  can_invite_roles,
-  is_system_role,
-  created_at,
-  updated_at
-) 
-SELECT 
   o.id,
-  'department_head',
-  'Department Head',
-  1, -- Between super_admin and faculty
-  '{
-    "manage_members": true,
-    "manage_content": true,
-    "manage_events": true,
-    "view_analytics": true,
-    "invite_members": true,
-    "manage_stories": true
-  }'::jsonb,
-  ARRAY['faculty', 'staff', 'student', 'alumni'],
-  false,
-  now(),
-  now()
+  role_data.name,
+  role_data.display_name,
+  role_data.hierarchy_level,
+  role_data.permissions
 FROM public.organizations o
-WHERE o.slug IN ('stanford-university', 'mit-engineering')
-ON CONFLICT (organization_id, name) DO UPDATE SET
-  display_name = EXCLUDED.display_name,
-  permissions = EXCLUDED.permissions,
-  updated_at = now();
+CROSS JOIN (VALUES 
+  ('super_admin', 'Super Admin', 1, '{"manage_organization": true, "manage_members": true, "manage_roles": true, "manage_events": true, "manage_jobs": true, "manage_content": true, "view_analytics": true, "manage_settings": true}'::jsonb),
+  ('admin', 'Administrator', 2, '{"manage_members": true, "manage_events": true, "manage_jobs": true, "manage_content": true, "view_analytics": true}'::jsonb),
+  ('manager', 'Manager', 3, '{"manage_events": true, "manage_jobs": true, "manage_content": true, "view_analytics": true}'::jsonb),
+  ('member', 'Member', 4, '{"create_events": true, "create_content": true, "view_analytics": false}'::jsonb),
+  ('guest', 'Guest', 5, '{"view_events": true, "view_content": true, "view_analytics": false}'::jsonb)
+) AS role_data(name, display_name, hierarchy_level, permissions)
+WHERE NOT EXISTS (SELECT 1 FROM public.organization_roles WHERE organization_id = o.id);
 
--- Create sample faculty/staff members
-INSERT INTO public.profiles (
-  id,
-  auth_user_id,
-  email,
-  full_name,
-  headline,
-  user_type,
-  primary_organization_id,
-  graduation_year,
-  location,
-  is_active,
-  is_verified,
-  created_at,
-  updated_at
-) VALUES 
--- Stanford Faculty/Staff
-(
-  gen_random_uuid(),
-  gen_random_uuid(),
-  'professor.miller@stanford.edu',
-  'Dr. James Miller',
-  'Professor of Computer Science',
-  'faculty',
-  'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  1995,
-  'Stanford, CA',
-  true,
-  true,
-  now(),
-  now()
-),
-(
-  gen_random_uuid(),
-  gen_random_uuid(),
-  'alumni.coordinator@stanford.edu',
-  'Lisa Wong',
-  'Alumni Relations Coordinator',
-  'staff',
-  'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  2010,
-  'Palo Alto, CA',
-  true,
-  true,
-  now(),
-  now()
-),
--- Tech Innovators Employees
-(
-  gen_random_uuid(),
-  gen_random_uuid(),
-  'engineering.manager@techinnovators.com',
-  'Alex Johnson',
-  'Engineering Manager',
-  'employee',
-  'b2c3d4e5-f6g7-8901-bcde-f23456789012',
-  2012,
-  'San Francisco, CA',
-  true,
-  true,
-  now(),
-  now()
-),
-(
-  gen_random_uuid(),
-  gen_random_uuid(),
-  'hr.director@techinnovators.com',
-  'Sarah Williams',
-  'HR Director',
-  'employee',
-  'b2c3d4e5-f6g7-8901-bcde-f23456789012',
-  2008,
-  'San Francisco, CA',
-  true,
-  true,
-  now(),
-  now()
-)
-ON CONFLICT (email) DO NOTHING;
-
--- Add faculty/staff to organization members with appropriate roles
-INSERT INTO public.organization_members (
-  organization_id,
-  user_id,
-  role_id,
-  title,
-  department,
-  reports_to,
-  is_active,
-  is_verified,
-  membership_status,
-  created_at,
-  updated_at
-)
-SELECT 
-  p.primary_organization_id,
-  p.id,
-  r.id,
-  CASE 
-    WHEN p.email = 'professor.miller@stanford.edu' THEN 'Professor'
-    WHEN p.email = 'alumni.coordinator@stanford.edu' THEN 'Alumni Relations Coordinator'
-    WHEN p.email = 'engineering.manager@techinnovators.com' THEN 'Engineering Manager'
-    WHEN p.email = 'hr.director@techinnovators.com' THEN 'HR Director'
-  END,
-  CASE 
-    WHEN p.email = 'professor.miller@stanford.edu' THEN 'Computer Science'
-    WHEN p.email = 'alumni.coordinator@stanford.edu' THEN 'Alumni Relations'
-    WHEN p.email = 'engineering.manager@techinnovators.com' THEN 'Engineering'
-    WHEN p.email = 'hr.director@techinnovators.com' THEN 'Human Resources'
-  END,
-  om.id, -- Report to the super admin
-  true,
-  true,
-  'active',
-  now(),
-  now()
-FROM public.profiles p
-JOIN public.organizations o ON p.primary_organization_id = o.id
-JOIN public.organization_roles r ON r.organization_id = o.id AND (
-  (p.user_type = 'faculty' AND r.name = 'faculty') OR
-  (p.user_type = 'staff' AND r.name = 'staff') OR
-  (p.user_type = 'employee' AND r.name = 'employee')
-)
-JOIN public.organization_members om ON om.organization_id = o.id AND om.role_id IN (
-  SELECT id FROM public.organization_roles WHERE name = 'super_admin'
-)
-WHERE p.email IN (
-  'professor.miller@stanford.edu',
-  'alumni.coordinator@stanford.edu',
-  'engineering.manager@techinnovators.com',
-  'hr.director@techinnovators.com'
-)
-ON CONFLICT (organization_id, user_id) DO NOTHING;
-
--- Create sample events for organizations
+-- Insert default event types
 INSERT INTO public.events (
-  id,
-  organizer_id,
-  organization_id,
-  created_by_member_id,
-  title,
-  description,
-  event_type,
-  visibility,
-  location,
-  starts_at,
-  ends_at,
-  capacity,
-  is_virtual,
-  status,
-  created_at,
-  updated_at
+  id, organizer_id, organization_id, created_by_member_id,
+  title, description, event_type, status, visibility,
+  starts_at, ends_at, is_virtual, location
 )
 SELECT 
   gen_random_uuid(),
   p.id,
-  o.id,
+  p.primary_organization_id,
   om.id,
-  CASE 
-    WHEN o.slug = 'stanford-university' THEN 'Annual Alumni Reunion 2024'
-    WHEN o.slug = 'tech-innovators' THEN 'Tech Innovation Summit 2024'
-    WHEN o.slug = 'global-health' THEN 'Global Health Conference 2024'
-    WHEN o.slug = 'mit-engineering' THEN 'Engineering Symposium 2024'
-  END,
-  CASE 
-    WHEN o.slug = 'stanford-university' THEN 'Join us for the annual Stanford University alumni reunion. Network with fellow graduates and celebrate our shared legacy.'
-    WHEN o.slug = 'tech-innovators' THEN 'Annual technology summit featuring the latest innovations in AI, machine learning, and cloud computing.'
-    WHEN o.slug = 'global-health' THEN 'International conference on global health challenges and innovative solutions for healthcare access.'
-    WHEN o.slug = 'mit-engineering' THEN 'Symposium showcasing cutting-edge research and developments in engineering disciplines.'
-  END,
-  'conference',
-  'public',
-  CASE 
-    WHEN o.slug = 'stanford-university' THEN 'Stanford Campus, Palo Alto, CA'
-    WHEN o.slug = 'tech-innovators' THEN 'Moscone Center, San Francisco, CA'
-    WHEN o.slug = 'global-health' THEN 'Virtual Event'
-    WHEN o.slug = 'mit-engineering' THEN 'MIT Campus, Cambridge, MA'
-  END,
-  now() + INTERVAL '30 days',
-  now() + INTERVAL '31 days',
-  500,
-  o.slug = 'global-health',
+  event_data.title,
+  event_data.description,
+  event_data.event_type,
   'published',
-  now(),
-  now()
-FROM public.organizations o
-JOIN public.profiles p ON p.primary_organization_id = o.id AND p.email LIKE '%@' || 
-  CASE 
-    WHEN o.slug = 'stanford-university' THEN 'stanford.edu'
-    WHEN o.slug = 'tech-innovators' THEN 'techinnovators.com'
-    WHEN o.slug = 'global-health' THEN 'globalhealth.org'
-    WHEN o.slug = 'mit-engineering' THEN 'mit.edu'
-  END
-JOIN public.organization_members om ON om.user_id = p.id AND om.organization_id = o.id
-WHERE p.email IN (
-  'president@stanford.edu',
-  'ceo@techinnovators.com',
-  'director@globalhealth.org',
-  'chair@mit.edu'
-)
-ON CONFLICT DO NOTHING;
+  'public',
+  NOW() + (event_data.days_offset || ' days')::interval,
+  NOW() + (event_data.days_offset || ' days')::interval + INTERVAL '2 hours',
+  event_data.is_virtual,
+  event_data.location
+FROM public.profiles p
+JOIN public.organization_members om ON p.id = om.user_id AND p.primary_organization_id = om.organization_id
+CROSS JOIN (VALUES 
+  ('Welcome Event', 'Organization onboarding and welcome session', 'meetup', 7, false, 'Main Conference Room'),
+  ('Team Building', 'Quarterly team building activities', 'workshop', 14, false, 'Office Campus'),
+  ('Tech Talk', 'Latest technology trends and discussions', 'conference', 21, true, 'Virtual'),
+  ('Networking Mixer', 'Professional networking event', 'networking', 28, false, 'Downtown Hub')
+) AS event_data(title, description, event_type, days_offset, is_virtual, location)
+WHERE NOT EXISTS (SELECT 1 FROM public.events WHERE organizer_id = p.id LIMIT 1)
+LIMIT 1;
 
--- Create sample job postings
+-- Insert default job categories
 INSERT INTO public.jobs (
-  id,
-  poster_id,
-  organization_id,
-  created_by_member_id,
-  title,
-  company_name,
-  location,
-  description,
-  employment_type,
-  experience_level,
-  department,
-  salary_range,
-  status,
-  visibility,
-  created_at,
-  updated_at
+  id, poster_id, organization_id, created_by_member_id,
+  title, description, employment_type, experience_level,
+  department, location, status, application_deadline
 )
 SELECT 
   gen_random_uuid(),
   p.id,
+  p.primary_organization_id,
+  om.id,
+  job_data.title,
+  job_data.description,
+  job_data.employment_type,
+  job_data.experience_level,
+  job_data.department,
+  job_data.location,
+  'open',
+  NOW() + INTERVAL '30 days'
+FROM public.profiles p
+JOIN public.organization_members om ON p.id = om.user_id AND p.primary_organization_id = om.organization_id
+CROSS JOIN (VALUES 
+  ('Software Engineer', 'Develop and maintain software solutions', 'full_time', 'mid_level', 'Engineering', 'Remote'),
+  ('Product Manager', 'Lead product development and strategy', 'full_time', 'senior', 'Product', 'San Francisco'),
+  ('Marketing Specialist', 'Drive marketing campaigns and outreach', 'full_time', 'entry_level', 'Marketing', 'New York'),
+  ('Data Analyst', 'Analyze business data and provide insights', 'contract', 'mid_level', 'Analytics', 'Remote')
+) AS job_data(title, description, employment_type, experience_level, department, location)
+WHERE NOT EXISTS (SELECT 1 FROM public.jobs WHERE poster_id = p.id LIMIT 1)
+LIMIT 1;
+
+-- Insert default notification templates
+INSERT INTO public.notification_templates (
+  id, organization_id, name, type, category, 
+  title_template, body_template, is_active
+)
+SELECT 
+  gen_random_uuid(),
+  o.id,
+  template_data.name,
+  template_data.type,
+  template_data.category,
+  template_data.title_template,
+  template_data.body_template,
+  true
+FROM public.organizations o
+CROSS JOIN (VALUES 
+  ('welcome', 'email', 'user', 'Welcome to {{organization_name}}', 'Hello {{user_name}}, welcome to {{organization_name}}! We are excited to have you on board.'),
+  ('event_invite', 'push', 'event', 'You are invited: {{event_title}}', 'You have been invited to {{event_title}} on {{event_date}}.'),
+  ('application_received', 'email', 'job', 'Application Received', 'Thank you for applying to {{job_title}}. We will review your application shortly.'),
+  ('new_message', 'push', 'message', 'New message from {{sender_name}}', '{{sender_name}} sent you a new message: {{message_preview}}')
+) AS template_data(name, type, category, title_template, body_template)
+WHERE NOT EXISTS (SELECT 1 FROM public.notification_templates WHERE organization_id = o.id LIMIT 1);
+
+-- Insert default donation campaigns
+INSERT INTO public.donation_campaigns (
+  id, organization_id, title, description,
+  goal_amount, current_amount, start_date, end_date,
+  is_active, donor_count
+)
+SELECT 
+  gen_random_uuid(),
+  o.id,
+  campaign_data.title,
+  campaign_data.description,
+  campaign_data.goal_amount,
+  0,
+  NOW(),
+  NOW() + INTERVAL '90 days',
+  true,
+  0
+FROM public.organizations o
+CROSS JOIN (VALUES 
+  ('Annual Fundraiser', 'Support our annual fundraising campaign to continue our mission', 50000.00),
+  ('Scholarship Program', 'Help provide scholarships for deserving students', 25000.00),
+  ('Community Outreach', 'Fund our community outreach and support programs', 15000.00)
+) AS campaign_data(title, description, goal_amount)
+WHERE NOT EXISTS (SELECT 1 FROM public.donation_campaigns WHERE organization_id = o.id LIMIT 1);
+
+-- Insert default asset collections
+INSERT INTO public.asset_collections (
+  id, organization_id, name, description,
+  visibility, is_public, slug
+)
+SELECT 
+  gen_random_uuid(),
+  o.id,
+  collection_data.name,
+  collection_data.description,
+  'organization',
+  true,
+  LOWER(REPLACE(collection_data.name, ' ', '-'))
+FROM public.organizations o
+CROSS JOIN (VALUES 
+  ('Marketing Materials', 'Brand assets and marketing collateral'),
+  ('Team Photos', 'Company team and event photos'),
+  ('Document Templates', 'Standard document templates and forms'),
+  ('Presentation Decks', 'Sales and presentation slide decks')
+) AS collection_data(name, description)
+WHERE NOT EXISTS (SELECT 1 FROM public.asset_collections WHERE organization_id = o.id LIMIT 1);
+
+-- Insert default analytics metrics
+INSERT INTO public.analytics_metrics (
+  id, organization_id, metric_name, metric_type,
+  metric_category, description, calculation_query
+)
+SELECT 
+  gen_random_uuid(),
+  o.id,
+  metric_data.metric_name,
+  metric_data.metric_type,
+  metric_data.metric_category,
+  metric_data.description,
+  metric_data.calculation_query
+FROM public.organizations o
+CROSS JOIN (VALUES 
+  ('daily_active_users', 'unique', 'user', 'Number of unique active users per day', 'SELECT COUNT(DISTINCT actor_id) FROM analytics_events WHERE organization_id = {{organization_id}} AND DATE(created_at) = CURRENT_DATE'),
+  ('user_registrations', 'count', 'user', 'New user registrations per day', 'SELECT COUNT(*) FROM profiles WHERE primary_organization_id = {{organization_id}} AND DATE(created_at) = CURRENT_DATE'),
+  ('event_attendance_rate', 'rate', 'event', 'Percentage of registered users who attend events', 'SELECT (COUNT(*) FILTER (WHERE status = ''attended'')::decimal / COUNT(*)::decimal) * 100 FROM event_attendees WHERE organization_id = {{organization_id}}'),
+  ('donation_conversion', 'rate', 'revenue', 'Percentage of visitors who make donations', 'SELECT (COUNT(DISTINCT CASE WHEN event_type = ''donation'' THEN actor_id END)::decimal / COUNT(DISTINCT actor_id)::decimal) * 100 FROM analytics_events WHERE organization_id = {{organization_id}}')
+) AS metric_data(metric_name, metric_type, metric_category, description, calculation_query)
+WHERE NOT EXISTS (SELECT 1 FROM public.analytics_metrics WHERE organization_id = o.id LIMIT 1);
+
+-- Insert default audit log configurations
+INSERT INTO public.audit_log_configurations (
+  id, organization_id, name, description,
+  is_active, severity_level, action_categories
+)
+SELECT 
+  gen_random_uuid(),
+  o.id,
+  config_data.name,
+  config_data.description,
+  true,
+  config_data.severity_level,
+  config_data.action_categories
+FROM public.organizations o
+CROSS JOIN (VALUES 
+  ('User Management', 'Track all user management activities', 'medium', '{"user_management", "authentication"}'::jsonb),
+  ('Content Moderation', 'Monitor content creation and modifications', 'low', '{"content", "moderation"}'::jsonb),
+  ('Financial Transactions', 'Audit all financial transactions', 'high', '{"donations", "payments"}'::jsonb),
+  ('Security Events', 'Track security-related activities', 'critical', '{"security", "authentication"}'::jsonb)
+) AS config_data(name, description, severity_level, action_categories)
+WHERE NOT EXISTS (SELECT 1 FROM public.audit_log_configurations WHERE organization_id = o.id LIMIT 1);
+
+-- Create default conversation for organization
+INSERT INTO public.conversations (
+  id, organization_id, created_by_member_id,
+  title, description, is_public, is_archived
+)
+SELECT 
+  gen_random_uuid(),
   o.id,
   om.id,
-  CASE 
-    WHEN o.slug = 'stanford-university' THEN 'Senior Software Engineer'
-    WHEN o.slug = 'tech-innovators' THEN 'Machine Learning Engineer'
-    WHEN o.slug = 'global-health' THEN 'Program Director'
-    WHEN o.slug = 'mit-engineering' THEN 'Research Scientist'
-  END,
-  o.name,
-  CASE 
-    WHEN o.slug = 'stanford-university' THEN 'Palo Alto, CA'
-    WHEN o.slug = 'tech-innovators' THEN 'San Francisco, CA (Remote)'
-    WHEN o.slug = 'global-health' THEN 'New York, NY'
-    WHEN o.slug = 'mit-engineering' THEN 'Cambridge, MA'
-  END,
-  CASE 
-    WHEN o.slug = 'stanford-university' THEN 'Looking for experienced software engineers to join our technology team.'
-    WHEN o.slug = 'tech-innovators' THEN 'Join our AI research team to develop cutting-edge machine learning solutions.'
-    WHEN o.slug = 'global-health' THEN 'Lead global health initiatives and manage international partnerships.'
-    WHEN o.slug = 'mit-engineering' THEN 'Conduct innovative research in engineering and technology fields.'
-  END,
-  'full_time',
-  'senior',
-  CASE 
-    WHEN o.slug = 'stanford-university' THEN 'Technology'
-    WHEN o.slug = 'tech-innovators' THEN 'AI Research'
-    WHEN o.slug = 'global-health' THEN 'Program Management'
-    WHEN o.slug = 'mit-engineering' THEN 'Research & Development'
-  END,
-  '{"min": 120000, "max": 180000, "currency": "USD", "period": "yearly"}'::jsonb,
-  'open',
-  'public',
-  now(),
-  now()
+  'General Discussion',
+  'General organization discussion and announcements',
+  true,
+  false
 FROM public.organizations o
-JOIN public.profiles p ON p.primary_organization_id = o.id AND p.email LIKE '%@' || 
-  CASE 
-    WHEN o.slug = 'stanford-university' THEN 'stanford.edu'
-    WHEN o.slug = 'tech-innovators' THEN 'techinnovators.com'
-    WHEN o.slug = 'global-health' THEN 'globalhealth.org'
-    WHEN o.slug = 'mit-engineering' THEN 'mit.edu'
-  END
-JOIN public.organization_members om ON om.user_id = p.id AND om.organization_id = o.id
-WHERE p.email IN (
-  'dean.engineering@stanford.edu',
-  'cto@techinnovators.com',
-  'director@globalhealth.org',
-  'chair@mit.edu'
-)
-ON CONFLICT DO NOTHING;
+JOIN public.organization_members om ON o.id = om.organization_id
+WHERE om.role_id IN (SELECT id FROM public.organization_roles WHERE name = 'super_admin')
+  AND NOT EXISTS (SELECT 1 FROM public.conversations WHERE organization_id = o.id AND title = 'General Discussion')
+LIMIT 1;
 
--- Refresh materialized views to include seed data
-SELECT public.refresh_materialized_views();
+-- Add all organization members to general conversation
+INSERT INTO public.conversation_participants (
+  id, conversation_id, participant_id,
+  role, is_active, settings
+)
+SELECT 
+  gen_random_uuid(),
+  c.id,
+  om.user_id,
+  'member',
+  true,
+  '{"muted": false, "notifications": true}'::jsonb
+FROM public.conversations c
+JOIN public.organization_members om ON c.organization_id = om.organization_id
+WHERE c.title = 'General Discussion'
+  AND om.is_active = true
+  AND NOT EXISTS (
+    SELECT 1 FROM public.conversation_participants cp 
+    WHERE cp.conversation_id = c.id AND cp.participant_id = om.user_id
+  );
 
 -- Output success message
 DO $$ 
 BEGIN
-  RAISE NOTICE 'Successfully seeded organizations hierarchy with:';
-  RAISE NOTICE '- 4 organizations (educational, corporate, non-profit)';
-  RAISE NOTICE '- Super admin users for each organization';
-  RAISE NOTICE '- Default role hierarchies';
-  RAISE NOTICE '- Sample faculty/staff members';
-  RAISE NOTICE '- Sample events and job postings';
-  RAISE NOTICE '- Organization settings and configurations';
+    RAISE NOTICE 'Default data inserted successfully:';
+    RAISE NOTICE '- Organization roles with permissions';
+    RAISE NOTICE '- Sample events for testing';
+    RAISE NOTICE '- Job listings for careers section';
+    RAISE NOTICE '- Notification templates for communication';
+    RAISE NOTICE '- Donation campaigns for fundraising';
+    RAISE NOTICE '- Asset collections for file organization';
+    RAISE NOTICE '- Analytics metrics for tracking';
+    RAISE NOTICE '- Audit log configurations for security';
+    RAISE NOTICE '- General conversation for team communication';
 END $$;

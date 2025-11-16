@@ -91,9 +91,9 @@ BEGIN
         action_severity,
         change_summary
     ) VALUES (
-        p_profile_id, -- Self-deletion or could be an admin
+        p_profile_id,
         (SELECT primary_organization_id FROM public.profiles WHERE id = p_profile_id),
-        NULL, -- Could be set if we know who performed the deletion
+        NULL,
         'profile_soft_deleted',
         'profile',
         p_profile_id,
@@ -213,19 +213,6 @@ BEGIN
     IF NOT FOUND THEN
         RETURN false;
     END IF;
-    
-    -- Notify attendees about cancellation
-    PERFORM public.create_notification_from_template(
-        ea.attendee_id,
-        'event_cancelled',
-        jsonb_build_object(
-            'event_title', (SELECT title FROM public.events WHERE id = p_event_id),
-            'event_id', p_event_id
-        ),
-        (SELECT organization_id FROM public.events WHERE id = p_event_id)
-    )
-    FROM public.event_attendees ea
-    WHERE ea.event_id = p_event_id AND ea.status IN ('registered', 'attended');
     
     -- Update attendee statuses
     UPDATE public.event_attendees
@@ -353,7 +340,6 @@ BEGIN
     SELECT COUNT(*) INTO v_deleted_count FROM deleted_users;
     
     -- Perform cascade soft deletion for each deleted user
-    -- This would be more efficient with a job queue in production
     IF v_deleted_count > 0 THEN
         -- Update related tables in bulk where possible
         UPDATE public.organization_members
@@ -539,6 +525,3 @@ BEGIN
     RAISE NOTICE '- Audit logging for all soft delete operations';
     RAISE NOTICE '- Safety checks and validation functions';
 END $$;
-
-
-

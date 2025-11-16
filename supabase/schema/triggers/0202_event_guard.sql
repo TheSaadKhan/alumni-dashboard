@@ -1,6 +1,6 @@
 ﻿-- 0019_event_triggers.sql
 
--- Event update triggers (Enhanced for organization system)
+-- Event update triggers
 DROP TRIGGER IF EXISTS update_events_updated_at ON public.events;
 CREATE TRIGGER update_events_updated_at 
     BEFORE UPDATE ON public.events 
@@ -147,21 +147,6 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Handle event cancellation
     IF NEW.status = 'cancelled' AND OLD.status != 'cancelled' THEN
-        -- Notify attendees (this would integrate with your notification system)
-        PERFORM public.create_notification_from_template(
-            ea.attendee_id,
-            'event_cancelled',
-            jsonb_build_object(
-                'event_title', NEW.title,
-                'event_id', NEW.id,
-                'organizer_name', (SELECT full_name FROM public.profiles WHERE id = NEW.organizer_id)
-            ),
-            NEW.organization_id
-        )
-        FROM public.event_attendees ea
-        WHERE ea.event_id = NEW.id 
-          AND ea.status IN ('registered', 'attended');
-        
         -- Log cancellation
         INSERT INTO public.admin_audit_logs (
             admin_user_id,
@@ -189,23 +174,6 @@ BEGIN
     
     -- Handle event rescheduling
     IF NEW.starts_at IS DISTINCT FROM OLD.starts_at AND OLD.starts_at IS NOT NULL THEN
-        -- Notify attendees of rescheduling
-        PERFORM public.create_notification_from_template(
-            ea.attendee_id,
-            'event_rescheduled',
-            jsonb_build_object(
-                'event_title', NEW.title,
-                'event_id', NEW.id,
-                'old_start_time', OLD.starts_at,
-                'new_start_time', NEW.starts_at,
-                'organizer_name', (SELECT full_name FROM public.profiles WHERE id = NEW.organizer_id)
-            ),
-            NEW.organization_id
-        )
-        FROM public.event_attendees ea
-        WHERE ea.event_id = NEW.id 
-          AND ea.status IN ('registered', 'attended');
-        
         -- Log rescheduling
         INSERT INTO public.admin_audit_logs (
             admin_user_id,

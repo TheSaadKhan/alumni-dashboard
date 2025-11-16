@@ -1,6 +1,6 @@
 ﻿-- 0017_utility_functions.sql
 
--- Function to update updated_at timestamp (Enhanced)
+-- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -9,7 +9,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to handle soft deletes (Enhanced)
+-- Function to handle soft deletes
 CREATE OR REPLACE FUNCTION public.soft_delete_record()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -179,7 +179,7 @@ BEGIN
             action_severity,
             change_summary
         ) VALUES (
-            NEW.user_id, -- Assuming the change was made by the user themselves or a system admin
+            NEW.user_id,
             NEW.organization_id,
             NEW.id,
             'role_change',
@@ -325,19 +325,6 @@ BEGIN
     updated_at = NOW()
     WHERE id = p_organization_id;
     
-    -- Log the ownership transfer
-    PERFORM public.create_audit_log(
-        p_current_owner_id,
-        'transfer_ownership',
-        'organization',
-        p_organization_id,
-        NULL,
-        jsonb_build_object('new_owner_id', p_new_owner_id),
-        p_organization_id,
-        'security',
-        'high'
-    );
-    
     RETURN true;
 END;
 $$;
@@ -474,6 +461,30 @@ BEGIN
 END;
 $$;
 
+-- Function for organization slug generation
+CREATE OR REPLACE FUNCTION public.generate_slug_from_name()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    NEW.slug := public.generate_slug(NEW.name, 'organizations');
+    RETURN NEW;
+END;
+$$;
+
+-- Function for story slug generation
+CREATE OR REPLACE FUNCTION public.generate_story_slug()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.slug IS NULL OR NEW.slug = '' THEN
+        NEW.slug := public.generate_slug(NEW.title, 'stories');
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
 -- Create triggers for utility functions
 
 -- Organization deletion cascade trigger
@@ -506,30 +517,6 @@ CREATE TRIGGER generate_organization_slug
     FOR EACH ROW
     WHEN (NEW.slug IS NULL OR NEW.slug = '')
     EXECUTE FUNCTION public.generate_slug_from_name();
-
--- Create function for organization slug generation
-CREATE OR REPLACE FUNCTION public.generate_slug_from_name()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    NEW.slug := public.generate_slug(NEW.name, 'organizations');
-    RETURN NEW;
-END;
-$$;
-
--- Create function for story slug generation
-CREATE OR REPLACE FUNCTION public.generate_story_slug()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    IF NEW.slug IS NULL OR NEW.slug = '' THEN
-        NEW.slug := public.generate_slug(NEW.title, 'stories');
-    END IF;
-    RETURN NEW;
-END;
-$$;
 
 DROP TRIGGER IF EXISTS generate_story_slug ON public.stories;
 CREATE TRIGGER generate_story_slug
