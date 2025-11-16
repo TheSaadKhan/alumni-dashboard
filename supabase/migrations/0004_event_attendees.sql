@@ -1,4 +1,5 @@
 -- 0004_event_attendees.sql
+
 CREATE TABLE IF NOT EXISTS public.event_attendees (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id uuid NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
@@ -29,3 +30,4 @@ CREATE TABLE IF NOT EXISTS public.event_attendees (
   
   UNIQUE (event_id, attendee_id)
 );
+

@@ -2,6 +2,7 @@
 -- Core public schema setup
 -- =========================================
 SET search_path TO public;
+CREATE EXTENSION IF NOT EXISTS citext;
 
 -- =========================================
 -- Organizations table: core organization data

@@ -43,7 +43,19 @@ CREATE INDEX IF NOT EXISTS idx_event_attendees_attendee_id ON public.event_atten
 CREATE INDEX IF NOT EXISTS idx_event_attendees_organization_id ON public.event_attendees (organization_id);
 CREATE INDEX IF NOT EXISTS idx_event_attendees_status ON public.event_attendees (status);
 CREATE INDEX IF NOT EXISTS idx_event_attendees_checked_in_at ON public.event_attendees (checked_in_at);
-CREATE INDEX IF NOT EXISTS idx_event_attendees_check_in_code ON public.event_attendees (check_in_code);
+-- Safe way to create index only if column exists
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'event_attendees' 
+        AND column_name = 'check_in_code'
+        AND table_schema = 'public'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_event_attendees_check_in_code 
+        ON public.event_attendees (check_in_code);
+    END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_event_attendees_attendee_member ON public.event_attendees (attendee_member_id);
 
 -- Indexes for jobs
