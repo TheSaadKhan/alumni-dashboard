@@ -9,16 +9,26 @@ import { createOrganizationAction } from "@/app/actions/createOrganization";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 import { toast } from "sonner";
-import { Building2, Globe, ImageIcon, FileText } from "lucide-react";
+import {
+  Building2,
+  Globe,
+  ImageIcon,
+  FileText,
+  Loader2,
+  Shield,
+  CheckCircle2,
+  Camera,
+} from "lucide-react";
 
 export default function SetupOrganizationPage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
 
   const [loading, setLoading] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
   const [form, setForm] = useState({
     name: "",
@@ -28,46 +38,45 @@ export default function SetupOrganizationPage() {
     cover_image_url: "",
   });
 
-  /** -----------------------------
-   *  AUTO SLUG PREVIEW
-   * ------------------------------*/
+  /* ---------------- SLUG PREVIEW ---------------- */
   const slugPreview =
     form.name
       ?.toLowerCase()
       ?.replace(/[^a-z0-9]+/g, "-")
       ?.replace(/(^-|-$)/g, "") || "";
 
-  /** -----------------------------
-   *  PROTECT ROUTE → ONLY SUPER ADMIN + CHECK PROFILE COMPLETE
-   * ------------------------------*/
+  /* ---------------- ACCESS CHECK ---------------- */
   useEffect(() => {
     async function checkAccess() {
-      if (!isLoaded || !user) {
+      if (!isLoaded) return;
+      if (!user) {
         router.push("/");
         return;
       }
 
       try {
-        // Get profile
-        const res = await fetch(`/api/profile?authUserId=${user.id}`);
+        const res = await fetch(`/api/profile?authUserId=${user.id}`, {
+          cache: "no-store",
+        });
+
         if (!res.ok) {
           toast.error("Failed to load profile");
           router.push("/auth/complete-profile");
           return;
         }
 
-        const data = await res.json();
-        const profile = data.profile;
+        const { profile } = await res.json();
 
         if (!profile) {
           router.push("/auth/complete-profile");
           return;
         }
 
-        // Check if profile is complete
         const metadata = (profile.metadata as any) || {};
         const isProfileComplete =
-          profile.degree && profile.degree.trim() !== "" && metadata.major;
+          profile.degree?.trim() &&
+          metadata.major &&
+          String(metadata.major).trim();
 
         if (!isProfileComplete) {
           toast.error("Please complete your profile first");
@@ -75,35 +84,23 @@ export default function SetupOrganizationPage() {
           return;
         }
 
-        // Check if user is super_admin
         if (profile.user_type !== "super_admin") {
           toast.error("Only Super Admin can create an organization.");
           router.push("/dashboard");
           return;
         }
-
-        // Check if organization already exists
-        const orgRes = await fetch("/api/organizations");
-        if (orgRes.ok) {
-          const orgsData = await orgRes.json();
-          if (orgsData.organizations && orgsData.organizations.length > 0) {
-            // Organization exists, allow access but show info
-            // User can still create additional organizations if needed
-          }
-        }
       } catch (err) {
-        console.error("Access check failed:", err);
-        toast.error("Failed to verify access");
+        toast.error("Access verification failed");
         router.push("/dashboard");
+      } finally {
+        setCheckingAccess(false);
       }
     }
 
     checkAccess();
   }, [isLoaded, user, router]);
 
-  /** -----------------------------
-   *  SUBMIT FORM → CREATE ORG
-   * ------------------------------*/
+  /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -117,138 +114,154 @@ export default function SetupOrganizationPage() {
     try {
       const result = await createOrganizationAction(form);
 
-      toast.success("Organization created successfully!");
+      toast.success("Organization created successfully!", {
+        description: "Redirecting you to your new organization…",
+      });
 
       router.push(`/organization/${result.slug}`);
     } catch (err: any) {
-      console.error("❌ Create org failed:", err);
       toast.error(err.message || "Failed to create organization");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
-  /** -----------------------------
-   *  PAGE UI
-   * ------------------------------*/
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-gray-900 dark:to-gray-800 flex justify-center items-center p-6">
-      <Card className="w-full max-w-2xl shadow-xl border border-gray-200 dark:border-gray-700">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold text-center flex items-center justify-center gap-3">
-            <Building2 className="h-8 w-8 text-indigo-600" />
-            Setup Your Organization
-          </CardTitle>
-          <p className="text-center text-gray-500 dark:text-gray-300 mt-1">
-            This will become your institution’s main identity.
+  /* ---------------- ACCESS LOADING ---------------- */
+  if (checkingAccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/60">
+        <div className="glass-card px-8 py-6 rounded-2xl shadow-glow flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            Checking your access…
           </p>
-        </CardHeader>
+        </div>
+      </div>
+    );
+  }
 
-        <CardContent>
+  /* ---------------- UI ---------------- */
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/40 to-background flex justify-center items-center px-4 py-10">
+      <Card className="w-full max-w-3xl overflow-hidden glass-card shadow-glow border border-border/60">
+
+        {/* ✅ BANNER HEADER WITH LOGO + TITLE */}
+        <div className="relative h-48 bg-muted overflow-hidden">
+          {form.cover_image_url ? (
+            <img
+              src={form.cover_image_url}
+              alt="Cover"
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) =>
+                ((e.target as HTMLImageElement).style.display = "none")
+              }
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/30 to-purple-500/30" />
+          )}
+
+          <div className="absolute inset-0 bg-black/30" />
+
+          {/* Logo */}
+          <div className="absolute left-1/2 -translate-x-1/2 -bottom-10 flex flex-col items-center gap-2">
+            <div className="w-20 h-20 rounded-2xl bg-background shadow-xl flex items-center justify-center overflow-hidden border">
+              {form.logo_url ? (
+                <img
+                  src={form.logo_url}
+                  alt="Logo"
+                  className="w-full h-full object-contain"
+                  onError={(e) =>
+                    ((e.target as HTMLImageElement).style.display = "none")
+                  }
+                />
+              ) : (
+                <Building2 className="h-10 w-10 text-muted-foreground" />
+              )}
+            </div>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Camera className="h-3 w-3" /> Logo Preview
+            </span>
+          </div>
+
+          {/* Banner Title */}
+          <div className="absolute top-6 w-full text-center px-4">
+            <h1 className="text-3xl font-bold text-white drop-shadow">
+              {form.name || "Your Organization"}
+            </h1>
+            <p className="text-white/80 text-sm mt-1">
+              Public URL:{" "}
+              <span className="font-medium">
+                /organization/{slugPreview || "organization-slug"}
+              </span>
+            </p>
+          </div>
+        </div>
+
+        {/* ✅ MAIN FORM */}
+        <CardContent className="pt-16 space-y-8">
           <form onSubmit={handleSubmit} className="space-y-8">
 
-            {/* ------------------ BASIC INFO ------------------ */}
-            <div className="bg-white/70 dark:bg-gray-800/50 p-5 rounded-xl space-y-4 shadow-sm border">
+            {/* BASIC INFO */}
+            <section className="bg-background/60 p-5 rounded-xl space-y-4 border">
               <h3 className="font-semibold text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5 text-indigo-600" />
+                <FileText className="h-5 w-5 text-primary" />
                 Basic Information
               </h3>
 
-              <div>
-                <label className="block font-medium mb-1">
-                  Organization Name *
-                </label>
-                <Input
-                  placeholder="Ex: Stanford University"
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm({ ...form, name: e.target.value })
-                  }
-                  required
-                />
-              </div>
+              <Input
+                placeholder="Organization Name"
+                value={form.name}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+                className="focus-visible:ring-primary"
+                required
+              />
 
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>Slug Preview:</strong>{" "}
-                <span className="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">
-                  {slugPreview || "organization-slug"}
-                </span>
-              </div>
+              <Textarea
+                placeholder="Short description about your institution..."
+                value={form.description}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                className="min-h-[90px] resize-none"
+              />
+            </section>
 
-              <div>
-                <label className="block font-medium mb-1">Description</label>
-                <Textarea
-                  placeholder="Write a short description..."
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            {/* ------------------ BRANDING ------------------ */}
-            <div className="bg-white/70 dark:bg-gray-800/50 p-5 rounded-xl space-y-4 shadow-sm border">
+            {/* BRANDING */}
+            <section className="bg-background/60 p-5 rounded-xl space-y-4 border">
               <h3 className="font-semibold text-lg flex items-center gap-2">
-                <ImageIcon className="h-5 w-5 text-indigo-600" />
+                <ImageIcon className="h-5 w-5 text-primary" />
                 Branding
               </h3>
 
-              <div>
-                <label className="block font-medium mb-1">Logo URL</label>
-                <Input
-                  placeholder="https://example.com/logo.png"
-                  value={form.logo_url}
-                  onChange={(e) =>
-                    setForm({ ...form, logo_url: e.target.value })
-                  }
-                />
-              </div>
+              <Input
+                placeholder="Logo Image URL"
+                value={form.logo_url}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, logo_url: e.target.value }))
+                }
+              />
 
-              {form.logo_url && (
-                <div className="flex justify-center">
-                  <img
-                    src={form.logo_url}
-                    alt="Logo Preview"
-                    className="w-24 h-24 object-contain rounded-lg shadow"
-                    onError={(e) =>
-                      ((e.target as HTMLImageElement).style.display = "none")
-                    }
-                  />
-                </div>
-              )}
+              <Input
+                placeholder="Cover Banner Image URL"
+                value={form.cover_image_url}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    cover_image_url: e.target.value,
+                  }))
+                }
+              />
+            </section>
 
-              <div>
-                <label className="block font-medium mb-1">
-                  Cover Image URL
-                </label>
-                <Input
-                  placeholder="https://example.com/banner.jpg"
-                  value={form.cover_image_url}
-                  onChange={(e) =>
-                    setForm({ ...form, cover_image_url: e.target.value })
-                  }
-                />
-              </div>
-
-              {form.cover_image_url && (
-                <div className="flex justify-center mt-2">
-                  <img
-                    src={form.cover_image_url}
-                    alt="Cover Preview"
-                    className="w-full max-h-32 object-cover rounded-lg shadow"
-                    onError={(e) =>
-                      ((e.target as HTMLImageElement).style.display = "none")
-                    }
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* ------------------ WEBSITE ------------------ */}
-            <div className="bg-white/70 dark:bg-gray-800/50 p-5 rounded-xl space-y-4 shadow-sm border">
+            {/* WEBSITE */}
+            <section className="bg-background/60 p-5 rounded-xl space-y-4 border">
               <h3 className="font-semibold text-lg flex items-center gap-2">
-                <Globe className="h-5 w-5 text-indigo-600" />
+                <Globe className="h-5 w-5 text-primary" />
                 Website
               </h3>
 
@@ -256,17 +269,25 @@ export default function SetupOrganizationPage() {
                 placeholder="https://www.university.edu"
                 value={form.website}
                 onChange={(e) =>
-                  setForm({ ...form, website: e.target.value })
+                  setForm((prev) => ({ ...prev, website: e.target.value }))
                 }
               />
-            </div>
+            </section>
 
+            {/* SUBMIT */}
             <Button
               type="submit"
               disabled={loading}
-              className="w-full text-lg py-5 font-semibold"
+              className="w-full py-4 text-base font-semibold gradient-primary text-white shadow-glow hover:opacity-95"
             >
-              {loading ? "Creating..." : "Create Organization"}
+              {loading ? (
+                <span className="flex items-center gap-2 justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating organization…
+                </span>
+              ) : (
+                "Create Organization"
+              )}
             </Button>
           </form>
         </CardContent>

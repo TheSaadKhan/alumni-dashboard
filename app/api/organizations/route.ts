@@ -6,6 +6,13 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+/* =========================
+ ✅ GET ORGANIZATIONS
+ ✅ Supports:
+    - /api/organizations        → all user orgs
+    - /api/organizations?slug= → single org
+========================= */
+
 export async function GET(req: Request) {
   try {
     const clerkUser = await currentUser();
@@ -14,6 +21,8 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url);
+    const slug = url.searchParams.get("slug");
+
     const profile = await prisma.profiles.findUnique({
       where: { auth_user_id: clerkUser.id },
     });
@@ -22,7 +31,47 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // Get user's organizations
+    // ✅ IF SLUG EXISTS → GET SINGLE ORG
+    if (slug) {
+      const membership = await prisma.organization_members.findFirst({
+        where: {
+          user_id: profile.id,
+          organizations: { slug },
+        },
+        include: {
+          organizations: true,
+          organization_roles: {
+            select: {
+              id: true,
+              name: true,
+              display_name: true,
+              hierarchy_level: true,
+              permissions: true,
+            },
+          },
+        },
+      });
+
+      if (!membership) {
+        return NextResponse.json(
+          { error: "Organization not found" },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        id: membership.organizations.id,
+        name: membership.organizations.name,
+        slug: membership.organizations.slug,
+        description: membership.organizations.description,
+        logo_url: membership.organizations.logo_url,
+        role: membership.organization_roles.name,
+        roleDisplay: membership.organization_roles.display_name,
+        permissions: membership.organization_roles.permissions,
+      });
+    }
+
+    // ✅ NO SLUG → GET ALL USER ORGS
     const memberships = await prisma.organization_members.findMany({
       where: { user_id: profile.id },
       include: {
@@ -60,6 +109,10 @@ export async function GET(req: Request) {
   }
 }
 
+/* =========================
+ ✅ POST ORGANIZATION
+========================= */
+
 export async function POST(req: Request) {
   try {
     const clerkUser = await currentUser();
@@ -70,14 +123,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, description, website, logo_url, cover_image_url } = body;
 
-    if (!name) {
+    if (!name?.trim()) {
       return NextResponse.json(
         { error: "Organization name is required" },
         { status: 400 }
       );
     }
 
-    // Use the server action
     const { createOrganizationAction } = await import(
       "@/app/actions/createOrganization"
     );
@@ -99,4 +151,3 @@ export async function POST(req: Request) {
     );
   }
 }
-

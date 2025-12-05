@@ -1,301 +1,298 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  Calendar, 
-  Briefcase, 
-  DollarSign, 
-  TrendingUp, 
+import {
+  Users,
+  Calendar,
+  Briefcase,
+  DollarSign,
+  TrendingUp,
   AlertCircle,
   MessageCircle,
   UserPlus,
-  Loader2
+  Loader2,
+  BarChart3,
+  Clock,
+  RefreshCw,
+  Eye,
+  Download,
+  Filter,
+  MoreVertical,
+  TrendingDown,
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 
+type AdminStats = {
+  totalUsers: number;
+  newUsers: number;
+  activeEvents: number;
+  pendingJobs: number;
+  totalDonations: number;
+  growthRate: number;
+};
+
 export default function AdminDashboardPage() {
   const { user } = useUser();
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    newUsers: 0,
-    activeEvents: 0,
-    pendingJobs: 0,
-    totalDonations: 0,
-    growthRate: 0,
-  });
+
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
 
+  // ✅ REAL API LOAD
   useEffect(() => {
-    async function loadData() {
+    async function loadDashboard() {
       if (!user) return;
 
       try {
-        // Get user's organizations
-        const orgsRes = await fetch("/api/organizations");
-        if (!orgsRes.ok) throw new Error("Failed to load organizations");
-        const orgsData = await orgsRes.json();
-        
-        if (orgsData.organizations && orgsData.organizations.length > 0) {
-          const primaryOrg = orgsData.organizations[0];
-          setOrganizationId(primaryOrg.id);
+        setLoading(true);
 
-          // Load stats
-          const statsRes = await fetch(
-            `/api/admin/stats?organizationId=${primaryOrg.id}`
-          );
-          if (!statsRes.ok) throw new Error("Failed to load stats");
-          const statsData = await statsRes.json();
-          setStats(statsData);
+        // 1️⃣ Get user's organizations
+        const orgRes = await fetch("/api/organizations", { cache: "no-store" });
+        if (!orgRes.ok) throw new Error("Failed to load organizations");
+
+        const orgData = await orgRes.json();
+        const primaryOrg = orgData.organizations?.[0];
+
+        if (!primaryOrg?.id) {
+          toast.error("No organization assigned");
+          return;
         }
-      } catch (err: any) {
-        console.error("Failed to load admin data:", err);
+
+        setOrganizationId(primaryOrg.id);
+
+        // 2️⃣ Load admin stats
+        const statsRes = await fetch(
+          `/api/admin/stats?organizationId=${primaryOrg.id}`,
+          { cache: "no-store" }
+        );
+
+        if (!statsRes.ok) throw new Error("Failed to load stats");
+
+        const statsData = await statsRes.json();
+        setStats(statsData);
+      } catch (err) {
+        console.error(err);
         toast.error("Failed to load dashboard data");
       } finally {
         setLoading(false);
       }
     }
 
-    loadData();
+    loadDashboard();
   }, [user]);
 
-  const recentActivity = [
-    {
-      id: 1,
-      user: "Sarah Chen",
-      action: "created new event",
-      target: "Tech Industry Panel",
-      time: "2 hours ago",
-      type: "event"
-    },
-    {
-      id: 2,
-      user: "Mike Rodriguez",
-      action: "posted job",
-      target: "Senior Product Manager",
-      time: "4 hours ago",
-      type: "job"
-    },
-    {
-      id: 3,
-      user: "Emily Davis",
-      action: "made donation",
-      target: "$1,000",
-      time: "1 day ago",
-      type: "donation"
-    },
-    {
-      id: 4,
-      user: "Alex Johnson",
-      action: "updated profile",
-      target: "",
-      time: "1 day ago",
-      type: "user"
-    }
-  ];
+  // ✅ REAL REFRESH
+  const handleRefresh = async () => {
+    if (!organizationId) return;
 
-  const pendingApprovals = [
-    { id: 1, type: "event", title: "Alumni Golf Tournament", submittedBy: "David Wilson", days: 2 },
-    { id: 2, type: "job", title: "Frontend Developer", submittedBy: "TechStart Inc", days: 1 },
-    { id: 3, type: "user", title: "Profile Verification", submittedBy: "Maria Garcia", days: 3 }
-  ];
+    setRefreshing(true);
+    try {
+      const statsRes = await fetch(
+        `/api/admin/stats?organizationId=${organizationId}`,
+        { cache: "no-store" }
+      );
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case "event": return <Calendar className="h-4 w-4 text-blue-500" />;
-      case "job": return <Briefcase className="h-4 w-4 text-green-500" />;
-      case "donation": return <DollarSign className="h-4 w-4 text-green-500" />;
-      case "user": return <UserPlus className="h-4 w-4 text-purple-500" />;
-      default: return <MessageCircle className="h-4 w-4 text-gray-500" />;
+      if (!statsRes.ok) throw new Error();
+      const statsData = await statsRes.json();
+      setStats(statsData);
+
+      toast.success("Dashboard refreshed");
+    } catch {
+      toast.error("Failed to refresh");
+    } finally {
+      setRefreshing(false);
     }
   };
 
-  const getApprovalBadge = (type: string) => {
-    const styles = {
-      event: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      job: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      user: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-    };
-    return styles[type as keyof typeof styles] || "bg-gray-100 text-gray-800";
-  };
-
-  if (loading) {
+  if (loading || !stats) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
-          <p className="text-gray-600 dark:text-gray-400">Welcome to the AlumniConnect admin panel</p>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-xl gradient-primary shadow-glow">
+            <BarChart3 className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold gradient-text">
+              Admin Dashboard
+            </h1>
+            <p className="text-muted-foreground">
+              Real-time alumni insights & analytics
+            </p>
+          </div>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700">
-          Generate Report
-        </Button>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${
+                refreshing ? "animate-spin" : ""
+              }`}
+            />
+            Refresh
+          </Button>
+
+          <Button className="gradient-primary text-white shadow-glow">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* ✅ STATS GRID (REAL API DATA) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalUsers}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Users</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-            <div className="flex items-center mt-2">
-              <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
-              <span className="text-sm text-green-600">{stats.growthRate}% growth</span>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Total Users"
+          value={stats.totalUsers.toLocaleString()}
+          icon={<Users />}
+          trend={`+${stats.growthRate}%`}
+          color="from-[var(--chart-4)] to-[var(--primary)]"
+        />
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.newUsers}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">New This Week</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                <UserPlus className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="New Users"
+          value={stats.newUsers}
+          icon={<UserPlus />}
+          color="from-[var(--chart-1)] to-[var(--chart-4)]"
+        />
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.activeEvents}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Active Events</p>
-              </div>
-              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Active Events"
+          value={stats.activeEvents}
+          icon={<Calendar />}
+          color="from-[var(--chart-2)] to-[var(--chart-4)]"
+        />
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">${(stats.totalDonations / 1000).toFixed(0)}K</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Donations</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Total Donations"
+          value={`$${(stats.totalDonations / 1000).toFixed(1)}K`}
+          icon={<DollarSign />}
+          color="from-[var(--chart-3)] to-[var(--chart-5)]"
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activity */}
-        <Card>
+      {/* ✅ QUICK STATS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="card-hover border-0">
+          <CardHeader>
+            <CardTitle>Quick Stats</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <QuickStat
+              title="Pending Jobs"
+              value={stats.pendingJobs}
+              icon={<Briefcase />}
+              down
+            />
+          </CardContent>
+        </Card>
+
+        {/* ✅ ACTIVITY PLACEHOLDER (until API exists) */}
+        <Card className="card-hover border-0 lg:col-span-2">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest actions from users</CardDescription>
+            <CardDescription>
+              Activity feed API pending integration
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3">
-                  {getActivityIcon(activity.type)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      <span className="font-medium">{activity.user}</span> {activity.action}
-                      {activity.target && (
-                        <span className="font-medium"> {activity.target}</span>
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-500">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pending Approvals */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <AlertCircle className="h-5 w-5 mr-2 text-orange-500" />
-              Pending Approvals
-            </CardTitle>
-            <CardDescription>Items waiting for review</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {pendingApprovals.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <Badge className={getApprovalBadge(item.type)}>
-                        {item.type}
-                      </Badge>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {item.title}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500">Submitted by {item.submittedBy}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-500">{item.days}d ago</span>
-                    <Button size="sm">Review</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <CardContent className="text-muted-foreground text-sm">
+            This section will auto-sync once messaging/activity APIs are added.
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common administrative tasks</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button variant="outline" className="h-16 flex-col">
-              <Users className="h-5 w-5 mb-1" />
-              <span>Manage Users</span>
-            </Button>
-            <Button variant="outline" className="h-16 flex-col">
-              <Calendar className="h-5 w-5 mb-1" />
-              <span>Create Event</span>
-            </Button>
-            <Button variant="outline" className="h-16 flex-col">
-              <Briefcase className="h-5 w-5 mb-1" />
-              <span>Post Job</span>
-            </Button>
-            <Button variant="outline" className="h-16 flex-col">
-              <DollarSign className="h-5 w-5 mb-1" />
-              <span>View Donations</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+/* ---------------- COMPONENTS ---------------- */
+
+function StatCard({
+  title,
+  value,
+  icon,
+  trend,
+  color,
+}: {
+  title: string;
+  value: string | number;
+  icon: React.ReactNode;
+  trend?: string;
+  color: string;
+}) {
+  return (
+    <Card className="border-0 glass card-hover">
+      <CardContent className="p-6 flex justify-between items-center">
+        <div>
+          <p className="text-xl font-bold">{value}</p>
+          <p className="text-muted-foreground text-sm">{title}</p>
+          {trend && (
+            <div className="flex items-center mt-2 text-emerald-500 text-sm">
+              <TrendingUp className="h-4 w-4 mr-1" />
+              {trend}
+            </div>
+          )}
+        </div>
+        <div
+          className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${color}`}
+        >
+          <div className="text-white">{icon}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuickStat({
+  title,
+  value,
+  icon,
+  down,
+}: {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  down?: boolean;
+}) {
+  return (
+    <div className="flex justify-between items-center">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-muted">{icon}</div>
+        <div>
+          <p className="text-sm text-muted-foreground">{title}</p>
+          <p className="text-lg font-semibold">{value}</p>
+        </div>
+      </div>
+      {down ? (
+        <TrendingDown className="h-4 w-4 text-red-500" />
+      ) : (
+        <TrendingUp className="h-4 w-4 text-emerald-500" />
+      )}
     </div>
   );
 }

@@ -40,35 +40,39 @@ export type CreateOrgInput = {
 };
 
 /* -------------------------------------------
-   MAIN ACTION — ONLY SUPER_ADMIN CAN CREATE ORG
+   ✅ FIXED MAIN ACTION (UUID SAFE)
 -------------------------------------------- */
 
 export async function createOrganizationAction(input: CreateOrgInput) {
   const { userId } = await auth();
   if (!userId) throw new Error("Not authenticated.");
 
-  // Fetch profile of logged user
+  // ✅ 1. Fetch INTERNAL PROFILE (UUID)
   const profile = await prisma.profiles.findUnique({
     where: { auth_user_id: userId },
+    select: {
+      id: true,                 // ✅ UUID
+      user_type: true,
+    },
   });
 
   if (!profile) throw new Error("Profile not found.");
 
-  // ❗ NEW ROLE CHECK
+  // ✅ 2. Enforce SUPER ADMIN ONLY
   if (profile.user_type !== "super_admin") {
     throw new Error("Only SUPER ADMIN can create organizations.");
   }
 
-  // Create org slug
+  // ✅ 3. Create org slug
   const baseSlug = slugify(input.name);
   const slug = await createUniqueSlug(baseSlug);
 
   /* -------------------------------------------
-     TRANSACTION — CREATE ORG + ROLES + MEMBER
+     ✅ TRANSACTION — UUID SAFE EVERYWHERE
   -------------------------------------------- */
 
   const result = await prisma.$transaction(async (tx) => {
-    /* 1️⃣ Create Organization */
+    /* 1️⃣ Create Organization (UUID creator) */
     const org = await tx.organizations.create({
       data: {
         name: input.name,
@@ -79,11 +83,11 @@ export async function createOrganizationAction(input: CreateOrgInput) {
         metadata: {
           cover_image_url: input.cover_image_url ?? "",
         },
-        created_by: userId,
+        created_by: profile.id,  // ✅ FIXED (UUID)
       },
     });
 
-    /* 2️⃣ Create the FOUR system roles (new simplified system) */
+    /* 2️⃣ Create system roles */
     const roles = await tx.organization_roles.createManyAndReturn({
       data: [
         {
@@ -137,11 +141,11 @@ export async function createOrganizationAction(input: CreateOrgInput) {
     const superAdminRole = roles.find((r) => r.name === "super_admin");
     if (!superAdminRole) throw new Error("super_admin role missing!");
 
-    /* 3️⃣ Add SUPER_ADMIN as the first organization member */
+    /* 3️⃣ Add FIRST MEMBER (UUID ONLY) */
     await tx.organization_members.create({
       data: {
-        organization_id: org.id,
-        user_id: userId,
+        organization_id: org.id,   // ✅ UUID
+        user_id: profile.id,       // ✅ FIXED (UUID)
         role_id: superAdminRole.id,
         membership_status: "active",
         is_active: true,
@@ -149,9 +153,9 @@ export async function createOrganizationAction(input: CreateOrgInput) {
       },
     });
 
-    /* 4️⃣ Update Profile → link primary organization */
+    /* 4️⃣ Update profile with org UUID */
     await tx.profiles.update({
-      where: { auth_user_id: userId },
+      where: { id: profile.id },  // ✅ FIXED (UUID)
       data: {
         primary_organization_id: org.id,
       },

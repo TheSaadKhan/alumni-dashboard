@@ -10,9 +10,13 @@ export const revalidate = 0;
 
 export async function POST(req: Request) {
   try {
+    /* ---------------- AUTH ---------------- */
     const clerkUser = await currentUser();
-    if (!clerkUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
+    /* ---------------- BODY ---------------- */
     const body = await req.json();
     const { organizationId, roleId, email, message } = body;
 
@@ -23,7 +27,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Load inviter's profile
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return NextResponse.json(
+        { error: "Invalid email address" },
+        { status: 400 }
+      );
+    }
+
+    /* ---------------- PROFILE ---------------- */
     const inviterProfile = await prisma.profiles.findUnique({
       where: { auth_user_id: clerkUser.id },
     });
@@ -32,7 +45,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // Load inviter org membership
+    /* ---------------- ORG MEMBERSHIP ---------------- */
     const inviterMember = await prisma.organization_members.findFirst({
       where: {
         organization_id: organizationId,
@@ -50,37 +63,33 @@ export async function POST(req: Request) {
       );
     }
 
+    /* ---------------- ROLE PERMISSION ---------------- */
     const inviterRole = inviterMember.organization_roles;
-    const allowedRoles: string[] = inviterRole.can_invite_roles ?? [];
+    const allowedRoleNames =
+      (inviterRole.can_invite_roles as string[]) || [];
 
-    // Get target role to check if it's allowed
     const targetRole = await prisma.organization_roles.findUnique({
       where: { id: roleId },
     });
 
     if (!targetRole || targetRole.organization_id !== organizationId) {
-      return NextResponse.json(
-        { error: "Invalid role" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    // Check if inviter can invite this role
-    const allowedRoleNames = (inviterRole.can_invite_roles as string[]) || [];
-    const roleName = targetRole.name;
-    
-    if (!allowedRoleNames.includes(roleName)) {
+    if (!allowedRoleNames.includes(targetRole.name)) {
       return NextResponse.json(
-        { error: `You do not have permission to invite ${targetRole.display_name || roleName} role` },
+        {
+          error: `You do not have permission to invite ${targetRole.display_name || targetRole.name}`,
+        },
         { status: 403 }
       );
     }
 
-    // Check if user already has a pending invite
+    /* ---------------- DUPLICATE INVITE ---------------- */
     const existingInvite = await prisma.organization_invitations.findFirst({
       where: {
         organization_id: organizationId,
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         status: "pending",
       },
     });
@@ -92,18 +101,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create token
+    /* ---------------- TOKEN ---------------- */
     const token = crypto.randomBytes(32).toString("hex");
-
-    // Expiry: 7 days
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+    /* ---------------- SAVE INVITE ---------------- */
     const invitation = await prisma.organization_invitations.create({
       data: {
         organization_id: organizationId,
         invited_by_member_id: inviterMember.id,
         target_role_id: roleId,
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         token,
         expires_at: expiresAt,
         custom_message: message || null,
@@ -111,20 +119,19 @@ export async function POST(req: Request) {
       include: {
         organization_roles: true,
         organizations: true,
-      }
+      },
     });
 
-    // Send email with invite link
+    /* ---------------- EMAIL ---------------- */
     try {
-      const organization = await prisma.organizations.findUnique({
-        where: { id: organizationId },
-      });
-
+      const organization = invitation.organizations;
       const role = invitation.organization_roles;
-      const inviterName = inviterProfile.full_name || inviterProfile.email;
+
+      const inviterName =
+        inviterProfile.full_name || inviterProfile.email || "Admin";
 
       await sendInviteEmail(
-        email.toLowerCase(),
+        normalizedEmail,
         token,
         organization?.name || "Organization",
         inviterName,
@@ -132,13 +139,20 @@ export async function POST(req: Request) {
         message || undefined
       );
     } catch (emailError) {
-      console.error("Failed to send invite email:", emailError);
-      // Don't fail the request if email fails, but log it
+      console.error("❌ Invite email failed:", emailError);
+      // ✅ Invitation still succeeds even if email fails
     }
 
-    return NextResponse.json({ success: true, invitation });
+    /* ---------------- SUCCESS ---------------- */
+    return NextResponse.json({
+      success: true,
+      invitation,
+    });
   } catch (error) {
-    console.error("Invite error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    console.error("❌ Invite server error:", error);
+    return NextResponse.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
   }
 }

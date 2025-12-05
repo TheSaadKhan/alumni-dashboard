@@ -1,8 +1,65 @@
 // lib/mailer.ts
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+/* ---------------------------------------------
+ ✅ ENV VALIDATION
+--------------------------------------------- */
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESEND_FROM_EMAIL = "AlumniConnect <onboarding@resend.dev>";
 
+if (!RESEND_API_KEY) {
+  console.warn("⚠️ RESEND_API_KEY is missing. Emails will fail.");
+}
+
+const resend = new Resend(RESEND_API_KEY);
+
+/* ---------------------------------------------
+ ✅ BASE URL RESOLUTION
+--------------------------------------------- */
+function getBaseUrl() {
+  return (
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.NEXT_PUBLIC_URL ||
+    (process.env.NODE_ENV === "production"
+      ? "https://yourdomain.com"
+      : "http://localhost:3000")
+  );
+}
+
+/* ---------------------------------------------
+ ✅ UNIFIED HTML WRAPPER
+--------------------------------------------- */
+function emailLayout(title: string, content: string) {
+  return `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${title}</title>
+    </head>
+    <body style="font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background:#f9fafb; padding:24px; color:#111827;">
+      <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 10px 20px rgba(0,0,0,.08);">
+        <div style="background:linear-gradient(135deg,#667eea,#764ba2); padding:28px; text-align:center;">
+          <h1 style="margin:0; font-size:24px; color:white;">AlumniConnect</h1>
+        </div>
+
+        <div style="padding:28px;">
+          ${content}
+        </div>
+
+        <div style="padding:20px; border-top:1px solid #e5e7eb; text-align:center; font-size:12px; color:#6b7280;">
+          © ${new Date().getFullYear()} AlumniConnect. All rights reserved.
+        </div>
+      </div>
+    </body>
+  </html>
+  `;
+}
+
+/* ---------------------------------------------
+ ✅ SEND INVITE EMAIL
+--------------------------------------------- */
 export async function sendInviteEmail(
   to: string,
   token: string,
@@ -11,124 +68,117 @@ export async function sendInviteEmail(
   roleName?: string,
   customMessage?: string
 ) {
-  const inviteUrl = `${process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/invite/accept?token=${token}`;
+  const baseUrl = getBaseUrl();
+  const inviteUrl = `${baseUrl}/invite/accept?token=${token}`;
+
+  const html = emailLayout(
+    `Invitation to ${organizationName}`,
+    `
+      <p style="font-size:16px; margin-bottom:18px;">
+        ${
+          inviterName
+            ? `<strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong>`
+            : `You have been invited to join <strong>${organizationName}</strong>`
+        }
+        ${roleName ? ` as a <strong>${roleName}</strong>.` : "."}
+      </p>
+
+      ${
+        customMessage
+          ? `
+        <div style="background:#f3f4f6; padding:16px; border-left:4px solid #6366f1; border-radius:6px; margin:20px 0;">
+          <p style="margin:0; font-style:italic;">"${customMessage}"</p>
+        </div>
+      `
+          : ""
+      }
+
+      <div style="text-align:center; margin:32px 0;">
+        <a href="${inviteUrl}" style="background:#6366f1; color:white; padding:14px 28px; border-radius:8px; text-decoration:none; font-weight:600;">
+          Accept Invitation
+        </a>
+      </div>
+
+      <p style="font-size:14px; color:#6b7280;">
+        Or copy this link:<br>
+        <a href="${inviteUrl}" style="color:#6366f1; word-break:break-all;">${inviteUrl}</a>
+      </p>
+
+      <p style="font-size:12px; color:#9ca3af; margin-top:24px;">
+        This invitation will expire in 7 days. If you weren't expecting this, you can safely ignore this email.
+      </p>
+    `
+  );
 
   try {
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "Alumni Dashboard <onboarding@resend.dev>",
+      from: RESEND_FROM_EMAIL,
       to: [to],
-      subject: `You've been invited to join ${organizationName}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Invitation to ${organizationName}</title>
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0;">You're Invited!</h1>
-          </div>
-          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
-            <p style="font-size: 16px; margin-bottom: 20px;">
-              ${inviterName ? `Hi there,<br><br>${inviterName} has invited you to join <strong>${organizationName}</strong>` : `Hi there,<br><br>You've been invited to join <strong>${organizationName}</strong>`}
-              ${roleName ? ` as a <strong>${roleName}</strong>.` : "."}
-            </p>
-            
-            ${customMessage ? `<div style="background: white; padding: 15px; border-left: 4px solid #667eea; margin: 20px 0; border-radius: 4px;">
-              <p style="margin: 0; font-style: italic; color: #666;">"${customMessage}"</p>
-            </div>` : ""}
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                Accept Invitation
-              </a>
-            </div>
-            
-            <p style="font-size: 14px; color: #666; margin-top: 30px;">
-              Or copy and paste this link into your browser:<br>
-              <a href="${inviteUrl}" style="color: #667eea; word-break: break-all;">${inviteUrl}</a>
-            </p>
-            
-            <p style="font-size: 12px; color: #999; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 20px;">
-              This invitation will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
-            </p>
-          </div>
-        </body>
-        </html>
-      `,
+      subject: `You've been invited to ${organizationName}`,
+      html,
     });
 
     if (error) {
-      console.error("Resend error:", error);
+      console.error("❌ Resend invite error:", error);
       throw error;
     }
 
     return { success: true, messageId: data?.id };
   } catch (error) {
-    console.error("Failed to send invite email:", error);
-    // Fallback: log the invite URL for development
+    console.error("❌ Failed to send invite email:", error);
     console.log(`[DEV] Invite URL for ${to}: ${inviteUrl}`);
-    throw error;
+    return { success: false };
   }
 }
 
+/* ---------------------------------------------
+ ✅ SEND EMAIL VERIFICATION
+--------------------------------------------- */
 export async function sendVerificationEmail(to: string, token: string) {
-  const verifyUrl = `${process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/auth/verify-email?token=${token}`;
+  const baseUrl = getBaseUrl();
+  const verifyUrl = `${baseUrl}/auth/verify-email?token=${token}`;
+
+  const html = emailLayout(
+    "Verify your email",
+    `
+      <p style="font-size:16px; margin-bottom:18px;">
+        Please verify your email address to complete your registration.
+      </p>
+
+      <div style="text-align:center; margin:32px 0;">
+        <a href="${verifyUrl}" style="background:#6366f1; color:white; padding:14px 28px; border-radius:8px; text-decoration:none; font-weight:600;">
+          Verify Email
+        </a>
+      </div>
+
+      <p style="font-size:14px; color:#6b7280;">
+        Or copy this link:<br>
+        <a href="${verifyUrl}" style="color:#6366f1; word-break:break-all;">${verifyUrl}</a>
+      </p>
+
+      <p style="font-size:12px; color:#9ca3af; margin-top:24px;">
+        This link expires in 24 hours. If you didn’t request this, you can ignore the email.
+      </p>
+    `
+  );
 
   try {
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "Alumni Dashboard <onboarding@resend.dev>",
+      from: RESEND_FROM_EMAIL,
       to: [to],
       subject: "Verify your email address",
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Verify Your Email</title>
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0;">Verify Your Email</h1>
-          </div>
-          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
-            <p style="font-size: 16px; margin-bottom: 20px;">
-              Hi there,<br><br>
-              Please verify your email address to complete your registration.
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
-                Verify Email Address
-              </a>
-            </div>
-            
-            <p style="font-size: 14px; color: #666; margin-top: 30px;">
-              Or copy and paste this link into your browser:<br>
-              <a href="${verifyUrl}" style="color: #667eea; word-break: break-all;">${verifyUrl}</a>
-            </p>
-            
-            <p style="font-size: 12px; color: #999; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 20px;">
-              This verification link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
-            </p>
-          </div>
-        </body>
-        </html>
-      `,
+      html,
     });
 
     if (error) {
-      console.error("Resend error:", error);
+      console.error("❌ Resend verification error:", error);
       throw error;
     }
 
     return { success: true, messageId: data?.id };
   } catch (error) {
-    console.error("Failed to send verification email:", error);
+    console.error("❌ Failed to send verification email:", error);
     console.log(`[DEV] Verification URL for ${to}: ${verifyUrl}`);
-    throw error;
+    return { success: false };
   }
 }

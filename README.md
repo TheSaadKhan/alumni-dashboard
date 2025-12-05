@@ -249,3 +249,12 @@ Steps to use:
 4. Fill in RLS policies in supabase/policies/** before opening database to clients.
 5. Populate db/types/supabase.ts by running: supabase gen types typescript --schema public > db/types/supabase.ts
 6. Securely set SUPABASE_SERVICE_ROLE_KEY in server environment variables (only for server).
+
+# Access
+| Role          | Default Page After Login | Can Access                      | Blocked From                          |
+| ------------- | ------------------------ | ------------------------------- | ------------------------------------- |
+| `super_admin` | ✅ `/admin`               | `/admin`, `/setup-organization` | ❌ `/dashboard`                        |
+| `admin`       | ✅ `/admin`               | `/admin`                        | ❌ `/dashboard`, `/setup-organization` |
+| `alumni`      | ✅ `/dashboard`           | `/dashboard`                    | ❌ `/admin`, `/setup-organization`     |
+| `student`     | ✅ `/dashboard`           | `/dashboard`                    | ❌ `/admin`, `/setup-organization`     |
+
