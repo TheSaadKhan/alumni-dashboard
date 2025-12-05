@@ -14,14 +14,14 @@ export {
 // 🔍 Query Modules
 // ============================================================
 
-export * from './queries/profiles'
-export * from './queries/events'
-export * from './queries/jobs'
-export * from './queries/network'
-export * from './queries/donations'
-export * from './queries/stories'
-export * from './queries/messages'
-export * from './queries/analytics'
+export * from './helpers/queries/profiles'
+export * from './helpers/queries/events'
+export * from './helpers/queries/jobs'
+export * from './helpers/queries/network'
+export * from './helpers/queries/donations'
+export * from './helpers/queries/stories'
+export * from './helpers/queries/messages'
+export * from './helpers/queries/analytics'
 
 // ============================================================
 // ⚙️ Helper Utilities

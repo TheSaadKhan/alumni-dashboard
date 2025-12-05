@@ -1,16 +1,66 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, MapPin, Users, ArrowRight, Plus } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, ArrowRight, Plus, Loader2 } from "lucide-react";
+import { Loading } from "@/components/ui/loading";
+import { toast } from "sonner";
 
 export default function EventsPage() {
+  const { user, isLoaded } = useUser();
   const [filter, setFilter] = useState("all");
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
 
-  const events = [
+  useEffect(() => {
+    async function loadData() {
+      if (!isLoaded || !user) return;
+
+      try {
+        // Get user's organization
+        const profileRes = await fetch(`/api/profile?authUserId=${user.id}`);
+        if (!profileRes.ok) throw new Error("Failed to load profile");
+        const profileData = await profileRes.json();
+        const profile = profileData.profile;
+
+        if (!profile) {
+          setLoading(false);
+          return;
+        }
+
+        // Get organizations
+        const orgsRes = await fetch("/api/organizations");
+        if (orgsRes.ok) {
+          const orgsData = await orgsRes.json();
+          if (orgsData.organizations && orgsData.organizations.length > 0) {
+            const orgId = orgsData.organizations[0].id;
+            setOrganizationId(orgId);
+
+            // Load events
+            const eventsRes = await fetch(`/api/events?organizationId=${orgId}`);
+            if (eventsRes.ok) {
+              const eventsData = await eventsRes.json();
+              setEvents(eventsData.events || []);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("Failed to load events:", err);
+        toast.error("Failed to load events");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [isLoaded, user]);
+
+  const mockEvents = [
     {
       id: "1",
       title: "Annual Alumni Reunion 2024",
@@ -52,9 +102,18 @@ export default function EventsPage() {
     }
   ];
 
-  const filteredEvents = events.filter(event => 
-    filter === "all" || event.status === filter
-  );
+  const filteredEvents = (events.length > 0 ? events : mockEvents).filter((event: any) => {
+    if (filter === "all") return true;
+    if (filter === "upcoming") {
+      const eventDate = new Date(event.starts_at || event.start_date || event.date);
+      return eventDate >= new Date() && (event.status === "published" || event.status === "upcoming" || !event.status);
+    }
+    if (filter === "past") {
+      const eventDate = new Date(event.starts_at || event.start_date || event.date);
+      return eventDate < new Date() || event.status === "past";
+    }
+    return event.status === filter;
+  });
 
   const getEventTypeColor = (type: string) => {
     const colors = {
@@ -65,6 +124,10 @@ export default function EventsPage() {
     };
     return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
+
+  if (loading) {
+    return <Loading text="Loading events..." />;
+  }
 
   return (
     <div className="space-y-6">
@@ -120,27 +183,37 @@ export default function EventsPage() {
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-2" />
-                  {new Date(event.date).toLocaleDateString()}
+                  {new Date(event.starts_at || event.start_date || event.date).toLocaleDateString()}
                 </div>
-                <div className="flex items-center">
-                  <Clock className="h-4 w-4 mr-2" />
-                  {event.time}
-                </div>
+                {event.starts_at && (
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-2" />
+                    {new Date(event.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+                {event.time && (
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-2" />
+                    {event.time}
+                  </div>
+                )}
                 <div className="flex items-center">
                   <MapPin className="h-4 w-4 mr-2" />
-                  {event.location}
+                  {event.location || "Location TBD"}
                 </div>
-                <div className="flex items-center">
-                  <Users className="h-4 w-4 mr-2" />
-                  {event.attendees} / {event.maxAttendees} attending
-                </div>
+                {(event.event_attendees || event.attendees) && (
+                  <div className="flex items-center">
+                    <Users className="h-4 w-4 mr-2" />
+                    {event.event_attendees?.length || event.attendees || 0} {event.max_registrations || event.maxAttendees ? `/ ${event.max_registrations || event.maxAttendees}` : ""} attending
+                  </div>
+                )}
               </div>
             </CardContent>
             <CardFooter>
               <Link href={`/dashboard/events/${event.id}`} className="w-full">
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full group">
                   View Details
-                  <ArrowRight className="h-4 w-4 ml-2" />
+                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
             </CardFooter>

@@ -45,53 +45,110 @@ Designed to connect graduates, foster meaningful networking, and celebrate impac
 │   └── assets/                  
 │
 ├── app/                        
-│   ├── layout.tsx               
-│   ├── page.tsx                 
-│   ├── not-found.tsx            
-│   │
-│   ├── about/                   
-│   ├── contact/                 
-│   ├── stories/[slug]/          
-│   ├── donate/                  
-│   │
-│   ├── auth/
-│   │   ├── login/               
-│   │   ├── register/            
-│   │   ├── forgot-password/     
-│   │   └── reset-password/      
-│   │
-│   ├── dashboard/
-│   │   ├── layout.tsx           
-│   │   ├── page.tsx             
-│   │   ├── profile/edit/        
-│   │   ├── events/              
-│   │   │   ├── [eventId]/       
-│   │   │   └── create/          
-│   │   ├── jobs/                
-│   │   │   ├── [jobId]/         
-│   │   │   └── post/            
-│   │   ├── messages/[conversationId]/ 
-│   │   ├── network/[alumniId]/        
-│   │   ├── impact/              
-│   │   ├── settings/            
-│   │   │   ├── security/        
-│   │   │   └── notifications/   
-│   │
-│   ├── admin/
-│   │   ├── layout.tsx           
-│   │   ├── page.tsx             
-│   │   ├── users/[userId]/      
-│   │   ├── events/              
-│   │   ├── jobs/                
-│   │   ├── donations/           
-│   │   └── analytics/           
-│   │
-│   ├── api/                     
-│   │   ├── auth/                
-│   │   ├── users/               
-│   │   ├── events/              
-│   │   ├── jobs/                
-│   │   └── messages/            
+│
+├── (auth)/
+│   ├── login/
+│   │   ├── page.tsx
+│   │   └── login-form.tsx
+│   ├── register/
+│   │   ├── page.tsx
+│   │   └── register-form.tsx
+│   ├── organization-register/
+│   │   ├── page.tsx
+│   │   └── register-org-form.tsx
+│   ├── forgot-password/
+│   │   ├── page.tsx
+│   │   └── reset-form.tsx
+│   └── callback/   # Supabase OAuth callbacks
+│       └── route.ts
+│
+├── (dashboard)/
+│   ├── alumni/
+│   │   └── dashboard/page.tsx
+│   ├── student/
+│   │   └── dashboard/page.tsx
+│   ├── faculty/
+│   │   └── dashboard/page.tsx
+│   ├── organization/
+│   │   └── dashboard/page.tsx
+│   └── admin/
+│       └── dashboard/page.tsx
+│
+├── organizations/
+│   ├── [orgId]/
+│   │   ├── profile/page.tsx
+│   │   ├── members/page.tsx
+│   │   ├── roles/page.tsx
+│   │   ├── settings/page.tsx
+│   │   └── invitations/page.tsx
+│
+├── events/
+│   ├── page.tsx
+│   ├── create/page.tsx
+│   ├── [eventId]/
+│   │   ├── page.tsx
+│   │   └── attendees/page.tsx
+│
+├── jobs/
+│   ├── page.tsx
+│   ├── create/page.tsx
+│   ├── [jobId]/
+│   │   ├── page.tsx
+│   │   └── applications/page.tsx
+│
+├── donations/
+│   ├── campaigns/
+│   │   ├── page.tsx
+│   │   ├── create/page.tsx
+│   │   └── [campaignId]/page.tsx
+│   ├── receipts/[receiptId]/page.tsx
+│   └── donate/[campaignId]/page.tsx
+│
+├── stories/
+│   ├── page.tsx
+│   ├── create/page.tsx
+│   ├── [slug]/
+│   │   ├── page.tsx
+│   │   └── edit/page.tsx
+│
+├── messages/
+│   ├── page.tsx
+│   ├── create/
+│   │   └── page.tsx
+│   ├── [conversationId]/
+│   │   └── page.tsx
+│
+├── connections/
+│   ├── page.tsx
+│   ├── recommendations/page.tsx
+│   ├── [connectionId]/page.tsx
+│   └── requests/page.tsx
+│
+├── analytics/
+│   ├── dashboard/page.tsx
+│   ├── funnels/page.tsx
+│   ├── events/page.tsx
+│   ├── metrics/page.tsx
+│   └── sessions/page.tsx
+│
+├── settings/
+│   ├── account/page.tsx
+│   ├── notifications/page.tsx
+│   ├── preferences/page.tsx
+│   ├── privacy/page.tsx
+│   └── organization/[orgId]/page.tsx
+│
+├── api/
+│   ├── auth/route.ts
+│   ├── upload/route.ts
+│   ├── analytics/route.ts
+│   ├── events/route.ts
+│   ├── jobs/route.ts
+│   ├── stories/route.ts
+│   └── organizations/route.ts
+│
+└── layout.tsx
+└── page.tsx        
 │
 ├── components/                  
 │   ├── dashboard/               

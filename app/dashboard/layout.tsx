@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AlumniSidebar } from "@/components/dashboard/alumni-sidebar";
-import { AlumniHeader } from "@/components/dashboard/alumni-heder";
+import { RoleBasedSidebar } from "@/components/navigation/role-based-sidebar";
+import { RoleBasedHeader } from "@/components/navigation/role-based-header";
 
 export default function DashboardLayout({
   children,
@@ -14,7 +14,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900">
       {/* Fixed Sidebar */}
-      <AlumniSidebar
+      <RoleBasedSidebar
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
       />
@@ -23,7 +23,7 @@ export default function DashboardLayout({
       <div className="md:ml-72 min-h-screen flex flex-col">
         {/* Fixed Header */}
         <div className="fixed top-0 left-0 md:left-72 right-0 z-30 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-700/50">
-          <AlumniHeader 
+          <RoleBasedHeader 
             onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
           />
         </div>

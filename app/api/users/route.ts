@@ -1,103 +1,220 @@
-import { NextRequest, NextResponse } from 'next/server';
+// app/api/users/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
 
-// Mock data - replace with actual database calls
-let users = [
-  {
-    id: '1',
-    name: 'Sarah Chen',
-    email: 'sarah.chen@example.com',
-    role: 'alumni',
-    status: 'active',
-    batch: '2015',
-    degree: 'Computer Science'
-  },
-  {
-    id: '2',
-    name: 'Mike Rodriguez',
-    email: 'mike.rodriguez@example.com',
-    role: 'alumni',
-    status: 'active',
-    batch: '2012',
-    degree: 'Business Administration'
-  }
-];
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = parseInt(searchParams.get('limit') || '10');
-  const search = searchParams.get('search') || '';
-  const status = searchParams.get('status') || '';
+  try {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  // Filter users based on query parameters
-  let filteredUsers = users;
+    const { searchParams } = new URL(request.url);
+    const organizationId = searchParams.get("organizationId");
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const search = searchParams.get("search") || "";
+    const status = searchParams.get("status") || "";
+    const userType = searchParams.get("userType") || "";
+    const skip = (page - 1) * limit;
 
-  if (search) {
-    filteredUsers = filteredUsers.filter(user =>
-      user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase())
+    // Get user profile
+    const profile = await prisma.profiles.findUnique({
+      where: { auth_user_id: clerkUser.id },
+    });
+
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    // Build where clause
+    const where: any = {};
+
+    if (organizationId) {
+      // Get organization members
+      const members = await prisma.organization_members.findMany({
+        where: { organization_id: organizationId },
+        select: { user_id: true },
+      });
+
+      const userIds = members.map((m) => m.user_id);
+      where.id = { in: userIds };
+    }
+
+    if (status && status !== "all") {
+      where.is_active = status === "active";
+    }
+
+    if (userType && userType !== "all") {
+      where.user_type = userType;
+    }
+
+    if (search) {
+      where.OR = [
+        { full_name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.profiles.findMany({
+        where,
+        include: {
+          organization_members: organizationId
+            ? {
+                where: { organization_id: organizationId },
+                include: {
+                  organization_roles: {
+                    select: {
+                      id: true,
+                      name: true,
+                      display_name: true,
+                    },
+                  },
+                },
+              }
+            : false,
+        },
+        orderBy: { created_at: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.profiles.count({ where }),
+    ]);
+
+    // Format response
+    const formattedUsers = users.map((user) => {
+      const membership = user.organization_members?.[0];
+      return {
+        id: user.id,
+        authUserId: user.auth_user_id,
+        name: user.full_name || "Unknown",
+        email: user.email,
+        role: membership?.organization_roles?.name || user.user_type || "alumni",
+        roleDisplay: membership?.organization_roles?.display_name || user.user_type || "Alumni",
+        status: user.is_active ? "active" : "inactive",
+        batch: user.graduation_year?.toString() || "",
+        degree: user.degree || "",
+        avatar: user.avatar_url,
+        createdAt: user.created_at,
+      };
+    });
+
+    return NextResponse.json({
+      users: formattedUsers,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error: any) {
+    console.error("Users GET failed:", error);
+    return NextResponse.json(
+      { error: error.message || "Server error" },
+      { status: 500 }
     );
   }
-
-  if (status && status !== 'all') {
-    filteredUsers = filteredUsers.filter(user => user.status === status);
-  }
-
-  // Pagination
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + limit;
-  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
-
-  return NextResponse.json({
-    users: paginatedUsers,
-    pagination: {
-      page,
-      limit,
-      total: filteredUsers.length,
-      pages: Math.ceil(filteredUsers.length / limit)
-    }
-  });
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
-    
-    // Validate required fields
-    if (!body.name || !body.email) {
+    const { email, organizationId, roleId, fullName } = body;
+
+    if (!email || !organizationId || !roleId) {
       return NextResponse.json(
-        { error: 'Name and email are required' },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
+    // Get inviter profile
+    const inviterProfile = await prisma.profiles.findUnique({
+      where: { auth_user_id: clerkUser.id },
+    });
+
+    if (!inviterProfile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
     // Check if user already exists
-    const existingUser = users.find(user => user.email === body.email);
-    if (existingUser) {
+    let userProfile = await prisma.profiles.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (!userProfile) {
+      // Create new profile
+      userProfile = await prisma.profiles.create({
+        data: {
+          email: email.toLowerCase(),
+          full_name: fullName || null,
+          auth_user_id: null, // Will be set when user signs up
+          is_active: true,
+          user_type: "alumni",
+          degree: "",
+          metadata: {},
+          skills: {},
+        },
+      });
+    }
+
+    // Check if already a member
+    const existingMember = await prisma.organization_members.findFirst({
+      where: {
+        organization_id: organizationId,
+        user_id: userProfile.id,
+      },
+    });
+
+    if (existingMember) {
       return NextResponse.json(
-        { error: 'User with this email already exists' },
+        { error: "User is already a member" },
         { status: 409 }
       );
     }
 
-    // Create new user
-    const newUser = {
-      id: (users.length + 1).toString(),
-      name: body.name,
-      email: body.email,
-      role: body.role || 'alumni',
-      status: body.status || 'active',
-      batch: body.batch || '',
-      degree: body.degree || '',
-      createdAt: new Date().toISOString()
-    };
+    // Add to organization
+    const member = await prisma.organization_members.create({
+      data: {
+        organization_id: organizationId,
+        user_id: userProfile.id,
+        role_id: roleId,
+        invited_by: inviterProfile.id,
+        is_active: true,
+        membership_status: "active",
+      },
+      include: {
+        organization_roles: true,
+      },
+    });
 
-    users.push(newUser);
-
-    return NextResponse.json(newUser, { status: 201 });
-  } catch (error) {
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        user: {
+          id: userProfile.id,
+          email: userProfile.email,
+          name: userProfile.full_name,
+          role: member.organization_roles.name,
+        },
+        success: true,
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error("Users POST failed:", error);
+    return NextResponse.json(
+      { error: error.message || "Server error" },
       { status: 500 }
     );
   }

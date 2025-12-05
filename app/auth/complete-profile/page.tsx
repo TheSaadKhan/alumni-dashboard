@@ -1,616 +1,623 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, JSX } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { GraduationCap, Loader2, MapPin, Building, Briefcase, User, Globe } from "lucide-react";
-import { toast } from "sonner";
-import { useAuthContext } from "@/context/AuthContext";
-import { profileQueries } from "@/db/queries/profiles";
+
+import { Briefcase, Globe, MapPin, User, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loading } from "@/components/ui/loading";
+
 import Image from "next/image";
+import { toast } from "sonner";
 
-// Data for dropdowns
-const graduationYears = Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i);
-const industries = [
-  "Technology",
-  "Healthcare",
-  "Finance",
-  "Education",
-  "Manufacturing",
-  "Consulting",
-  "Marketing",
-  "Engineering",
-  "Research",
-  "Government",
-  "Non-profit",
-  "Entrepreneurship",
-  "Real Estate",
-  "Legal",
-  "Arts & Entertainment",
-  "Other"
-];
-
-const employmentTypes = [
-  "Full-time",
-  "Part-time",
-  "Contract",
-  "Freelance",
-  "Internship",
-  "Self-employed",
-  "Unemployed",
-  "Student",
-  "Retired"
-];
-
-export default function CompleteProfilePage() {
-  const { user, profile, refreshProfile } = useAuthContext();
-  const [loading, setLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
+export default function CompleteProfilePage(): JSX.Element {
   const router = useRouter();
+  const { user, isLoaded } = useUser();
+
+  const [profile, setProfile] = useState<any | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState({
-    // Core database fields
-    graduation_year: new Date().getFullYear(),
-    bio: "",
+    full_name: "",
     headline: "",
+    bio: "",
     location: "",
-    
-    // Fields that go into metadata JSON
+    graduation_year: new Date().getFullYear(),
+    degree: "",
+    user_type: "alumni",
+
+    skills: {} as Record<string, any>,
+
     metadata: {
-      // Educational background
-      degree: "",
       major: "",
-      
-      // Professional information
-      current_position: "",
-      company: "",
-      industry: "",
-      employment_type: "",
-      
-      // Social links
-      website_url: "",
-      linkedin_url: "",
-      github_url: "",
-      twitter_url: "",
-      
-      // Skills
-      skills: [] as string[],
-      
-      // Privacy settings
-      privacy_settings: {
+      professional: {
+        company: "",
+        industry: "",
+        current_position: "",
+        employment_type: "",
+      },
+      social: {
+        website_url: "",
+        linkedin_url: "",
+        github_url: "",
+        twitter_url: "",
+      },
+      privacy: {
         profile_visible: true,
         email_visible: false,
         graduation_year_visible: true,
-      }
-    }
+      },
+    },
   });
 
-  const [currentSkill, setCurrentSkill] = useState("");
+  const [currentSkill, setCurrentSkill] = useState<string>("");
+  const [currentSkillValue, setCurrentSkillValue] = useState<string>("");
 
+  /* -------------------------
+     Static dropdown data
+  ------------------------- */
+  const graduationYears = Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i);
+
+  const industries = [
+    "Technology","Healthcare","Finance","Education","Manufacturing",
+    "Consulting","Marketing","Engineering","Research","Government",
+    "Non-profit","Entrepreneurship","Real Estate","Legal",
+    "Arts & Entertainment","Other"
+  ];
+
+  const employmentTypes = [
+    "Full-time","Part-time","Contract","Freelance","Internship",
+    "Self-employed","Unemployed","Student","Retired"
+  ];
+
+  /* ---------------------------------------------------
+      LOAD USER PROFILE
+     - Ensure we don't read user.id until user exists
+  ---------------------------------------------------- */
   useEffect(() => {
+    if (!isLoaded) return;
+
+    // If Clerk finished loading but no logged-in user, redirect away
     if (!user) {
-      toast.error("Authentication required");
-      router.push('/auth/login');
+      router.push("/");
       return;
     }
 
-    // If user already has a complete profile (has metadata), redirect to dashboard
-    if (profile && profile.metadata && Object.keys(profile.metadata).length > 0) {
-      router.push('/dashboard');
-    }
-  }, [user, profile, router]);
+    // now user is guaranteed non-null for this synchronous block
+    const authUserId = user.id;
 
-  const handleAddSkill = () => {
-    if (currentSkill.trim() && !formData.metadata.skills.includes(currentSkill.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        metadata: {
-          ...prev.metadata,
-          skills: [...prev.metadata.skills, currentSkill.trim()]
+    async function fetchProfile() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/profile?authUserId=${encodeURIComponent(authUserId)}`);
+        if (res.status === 404) {
+          setProfile(null);
+          setLoading(false);
+          return;
         }
-      }));
-      setCurrentSkill("");
-    }
-  };
+        if (!res.ok) {
+          throw new Error(`Failed fetching profile: ${res.status}`);
+        }
 
-  const handleRemoveSkill = (skillToRemove: string) => {
+        const data = await res.json();
+        const prof = data?.profile ?? null;
+
+        if (!prof) {
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        setProfile(prof);
+
+        const skillsData =
+          typeof prof.skills === "string" ? JSON.parse(prof.skills) : prof.skills || {};
+
+        const metadataData =
+          typeof prof.metadata === "string" ? JSON.parse(prof.metadata) : prof.metadata || {};
+
+        setFormData({
+          full_name: prof.full_name || `${user?.firstName || ""} ${user?.lastName || ""}`.trim(),
+          headline: prof.headline || "",
+          bio: prof.bio || "",
+          location: prof.location || "",
+          graduation_year: prof.graduation_year || new Date().getFullYear(),
+          degree: prof.degree || "",
+          user_type: prof.user_type || "alumni",
+
+          skills: skillsData,
+
+          metadata: {
+            major: metadataData.major || "",
+            professional: {
+              company: metadataData.professional?.company || "",
+              industry: metadataData.professional?.industry || "",
+              current_position: metadataData.professional?.current_position || "",
+              employment_type: metadataData.professional?.employment_type || "",
+            },
+            social: {
+              website_url: metadataData.social?.website_url || "",
+              linkedin_url: metadataData.social?.linkedin_url || "",
+              github_url: metadataData.social?.github_url || "",
+              twitter_url: metadataData.social?.twitter_url || "",
+            },
+            privacy: {
+              profile_visible: metadataData.privacy?.profile_visible ?? true,
+              email_visible: metadataData.privacy?.email_visible ?? false,
+              graduation_year_visible:
+                metadataData.privacy?.graduation_year_visible ?? true,
+            },
+          },
+        });
+
+        // If profile already completed (degree present), redirect
+        if (prof.degree) {
+          router.push("/dashboard");
+          return;
+        }
+      } catch (err) {
+        console.error("Profile load failed:", err);
+        toast.error("Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchProfile();
+  }, [isLoaded, user, router]);
+
+  if (!isLoaded || loading) {
+    return (
+      <div className="p-10 text-center">
+        Loading...
+      </div>
+    );
+  }
+
+  /* -------------------------
+     Skills helpers
+  ------------------------- */
+  const addSkill = () => {
+    const name = currentSkill.trim();
+    const level = currentSkillValue.trim();
+    if (!name || !level) {
+      toast.error("Enter both skill name and level");
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
-      metadata: {
-        ...prev.metadata,
-        skills: prev.metadata.skills.filter(skill => skill !== skillToRemove)
-      }
+      skills: { ...prev.skills, [name]: level },
     }));
+
+    setCurrentSkill("");
+    setCurrentSkillValue("");
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAddSkill();
+  const removeSkill = (skill: string) => {
+    setFormData(prev => {
+      const updated = { ...prev.skills };
+      delete updated[skill];
+      return { ...prev, skills: updated };
+    });
+  };
+
+  /* -------------------------
+     Submit handler
+     - Guard user before reading id
+  ------------------------- */
+  const validateStep = (step: number): boolean => {
+    const newErrors: Record<string, string> = {};
+    
+    if (step === 1) {
+      if (!formData.full_name?.trim()) {
+        newErrors.full_name = "Full name is required";
+      }
+      if (!formData.degree?.trim()) {
+        newErrors.degree = "Degree is required";
+      }
+      if (!formData.metadata.major?.trim()) {
+        newErrors.major = "Major is required";
+      }
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      if (currentStep < 4) {
+        setCurrentStep(currentStep + 1);
+      }
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user || !profile) {
-      toast.error("Authentication required");
+
+    // Validate all steps
+    if (!validateStep(1)) {
+      setCurrentStep(1);
+      toast.error("Please complete all required fields");
       return;
     }
 
-    // Validation for required fields
-    if (!formData.metadata.degree || !formData.metadata.major) {
-      toast.error("Please complete required fields", {
-        description: "Degree and Major are required fields.",
-      });
+    if (!formData.degree || !formData.metadata.major) {
+      toast.error("Degree and major are required");
       setCurrentStep(1);
       return;
     }
 
-    setLoading(true);
-
-    try {
-      // Update profile with all collected information
-      const updatedProfile = await profileQueries.updateProfile(profile.id, {
-        graduation_year: formData.graduation_year,
-        bio: formData.bio,
-        headline: formData.headline,
-        location: formData.location,
-        metadata: {
-          ...formData.metadata,
-          // Ensure skills array is properly formatted
-          skills: formData.metadata.skills,
-          // Ensure privacy settings are included
-          privacy_settings: formData.metadata.privacy_settings
-        },
-        is_verified: true,
-        is_active: true,
-      });
-
-      if (updatedProfile) {
-        await refreshProfile();
-        
-        toast.success("Profile Completed!", {
-          description: "Your alumni profile has been successfully set up.",
-        });
-
-        router.push('/dashboard');
-      }
-    } catch (error) {
-      console.error('Profile update error:', error);
-      toast.error("Failed to update profile", {
-        description: "Please try again.",
-      });
-    } finally {
-      setLoading(false);
+    if (!isLoaded || !user) {
+      toast.error("No authenticated user");
+      return;
     }
-  };
 
-  const nextStep = () => {
-    // Validate current step before proceeding
-    if (currentStep === 1) {
-      if (!formData.metadata.degree || !formData.metadata.major) {
-        toast.error("Please complete required fields", {
-          description: "Degree and Major are required.",
-        });
+    const authUserId = user.id; // safe - guarded above
+
+    setSaving(true);
+    setErrors({});
+    
+    try {
+      const res = await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authUserId,
+          full_name: formData.full_name,
+          headline: formData.headline,
+          bio: formData.bio,
+          location: formData.location,
+          graduation_year: formData.graduation_year,
+          degree: formData.degree,
+          major: formData.metadata.major,
+          user_type: formData.user_type,
+          skills: formData.skills,
+          metadata: formData.metadata,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Failed to save profile" }));
+        console.error("Save profile failed:", res.status, errorData);
+        toast.error(errorData.error || "Failed to save profile");
         return;
       }
+
+      const payload = await res.json();
+      const updatedProfile = payload.profile ?? payload;
+
+      toast.success("Profile completed successfully!");
+
+      // Small delay for better UX
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const newType = updatedProfile?.user_type ?? profile?.user_type ?? formData.user_type;
+      if (newType === "super_admin") {
+        router.push("/setup-organization");
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (err: any) {
+      console.error("Update failed:", err);
+      toast.error(err.message || "Could not update profile");
+    } finally {
+      setSaving(false);
     }
-    setCurrentStep(prev => Math.min(prev + 1, 4));
   };
 
-  const prevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
-  };
+  if (loading) {
+    return <LoadingPage text="Loading your profile..." />;
+  }
 
-  const renderStepIndicator = () => (
+  /* -------------------------
+     Step indicator + content
+  ------------------------- */
+
+  const StepIndicator = (
     <div className="flex justify-center mb-8">
-      <div className="flex items-center space-x-4">
-        {[1, 2, 3, 4].map(step => (
-          <div key={step} className="flex items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              step === currentStep 
-                ? 'bg-indigo-600 text-white' 
-                : step < currentStep 
-                ? 'bg-green-500 text-white'
-                : 'bg-gray-200 text-gray-500'
-            }`}>
-              {step < currentStep ? '✓' : step}
+      <div className="flex items-center space-x-2 sm:space-x-4">
+        {[
+          { num: 1, label: "Basic Info" },
+          { num: 2, label: "Professional" },
+          { num: 3, label: "Social & Skills" },
+          { num: 4, label: "Privacy" },
+        ].map(({ num, label }) => (
+          <div key={num} className="flex flex-col items-center">
+            <div className="flex items-center">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all
+                ${
+                  num === currentStep
+                    ? "bg-indigo-600 text-white ring-4 ring-indigo-200 scale-110"
+                    : num < currentStep
+                    ? "bg-green-600 text-white"
+                    : "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                }`}
+              >
+                {num < currentStep ? <CheckCircle2 className="h-5 w-5" /> : num}
+              </div>
+
+              {num < 4 && (
+                <div
+                  className={`w-8 sm:w-12 h-1 mx-1 sm:mx-2 transition-all ${
+                    num < currentStep ? "bg-green-600" : "bg-gray-200 dark:bg-gray-700"
+                  }`}
+                />
+              )}
             </div>
-            {step < 4 && (
-              <div className={`w-12 h-1 mx-2 ${
-                step < currentStep ? 'bg-green-500' : 'bg-gray-200'
-              }`} />
-            )}
+            <span className={`text-xs mt-1 hidden sm:block ${
+              num === currentStep ? "text-indigo-600 font-medium" : "text-gray-500"
+            }`}>
+              {label}
+            </span>
           </div>
         ))}
       </div>
     </div>
   );
 
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <User className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold">Personal Information</h3>
-              <p className="text-muted-foreground">Tell us about your educational background</p>
-            </div>
+  const StepContent: Record<number, JSX.Element> = {
+    1: (
+      <div className="space-y-6">
+        <div className="text-center">
+          <User className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold">Basic Information</h3>
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="graduation_year">Graduation Year *</Label>
-                <Select
-                  value={formData.graduation_year.toString()}
-                  onValueChange={(value) => setFormData({...formData, graduation_year: parseInt(value)})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select graduation year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {graduationYears.map(year => (
-                      <SelectItem key={year} value={year.toString()}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="degree">Degree *</Label>
-                <Input
-                  id="degree"
-                  placeholder="e.g., Bachelor of Science"
-                  value={formData.metadata.degree}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    metadata: { ...prev.metadata, degree: e.target.value }
-                  }))}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="major">Major/Field of Study *</Label>
-                <Input
-                  id="major"
-                  placeholder="e.g., Computer Science, Business Administration"
-                  value={formData.metadata.major}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    metadata: { ...prev.metadata, major: e.target.value }
-                  }))}
-                  required
-                />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 2:
-        return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <Briefcase className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold">Professional Information</h3>
-              <p className="text-muted-foreground">Share your career details</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="current_position">Current Position</Label>
-                <Input
-                  id="current_position"
-                  placeholder="e.g., Software Engineer, Marketing Manager"
-                  value={formData.metadata.current_position}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    metadata: { ...prev.metadata, current_position: e.target.value }
-                  }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="company">Company/Organization</Label>
-                <Input
-                  id="company"
-                  placeholder="e.g., Google, Microsoft"
-                  value={formData.metadata.company}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    metadata: { ...prev.metadata, company: e.target.value }
-                  }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="industry">Industry</Label>
-                <Select
-                  value={formData.metadata.industry}
-                  onValueChange={(value) => setFormData(prev => ({
-                    ...prev,
-                    metadata: { ...prev.metadata, industry: value }
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your industry" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {industries.map(industry => (
-                      <SelectItem key={industry} value={industry}>
-                        {industry}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="employment_type">Employment Type</Label>
-                <Select
-                  value={formData.metadata.employment_type}
-                  onValueChange={(value) => setFormData(prev => ({
-                    ...prev,
-                    metadata: { ...prev.metadata, employment_type: value }
-                  }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select employment type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employmentTypes.map(type => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="headline">Professional Headline</Label>
-                <Input
-                  id="headline"
-                  placeholder="e.g., Senior Software Engineer at Tech Company"
-                  value={formData.headline}
-                  onChange={(e) => setFormData({...formData, headline: e.target.value})}
-                />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <MapPin className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold">Location & Social Links</h3>
-              <p className="text-muted-foreground">Help others connect with you</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  placeholder="e.g., San Francisco, CA"
-                  value={formData.location}
-                  onChange={(e) => setFormData({...formData, location: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="website_url">Personal Website</Label>
-                <Input
-                  id="website_url"
-                  type="url"
-                  placeholder="https://yourwebsite.com"
-                  value={formData.metadata.website_url}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    metadata: { ...prev.metadata, website_url: e.target.value }
-                  }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="linkedin_url">LinkedIn Profile</Label>
-                <Input
-                  id="linkedin_url"
-                  type="url"
-                  placeholder="https://linkedin.com/in/yourname"
-                  value={formData.metadata.linkedin_url}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    metadata: { ...prev.metadata, linkedin_url: e.target.value }
-                  }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="github_url">GitHub Profile</Label>
-                <Input
-                  id="github_url"
-                  type="url"
-                  placeholder="https://github.com/yourname"
-                  value={formData.metadata.github_url}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    metadata: { ...prev.metadata, github_url: e.target.value }
-                  }))}
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="twitter_url">Twitter/X Profile</Label>
-                <Input
-                  id="twitter_url"
-                  type="url"
-                  placeholder="https://twitter.com/yourname"
-                  value={formData.metadata.twitter_url}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    metadata: { ...prev.metadata, twitter_url: e.target.value }
-                  }))}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
-              <Textarea
-                id="bio"
-                placeholder="Tell us about yourself, your career journey, interests, and what you're passionate about..."
-                value={formData.bio}
-                onChange={(e) => setFormData({...formData, bio: e.target.value})}
-                rows={4}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="skills">Skills & Expertise</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="skills"
-                  placeholder="Add a skill (e.g., JavaScript, Project Management)"
-                  value={currentSkill}
-                  onChange={(e) => setCurrentSkill(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                />
-                <Button type="button" onClick={handleAddSkill}>
-                  Add
-                </Button>
-              </div>
-              {formData.metadata.skills.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.metadata.skills.map(skill => (
-                    <div
-                      key={skill}
-                      className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm"
-                    >
-                      {skill}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSkill(skill)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-
-      case 4:
-        return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <Globe className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold">Privacy Settings</h3>
-              <p className="text-muted-foreground">Control your visibility in the alumni network</p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-0.5">
-                  <Label htmlFor="profile-public" className="text-base">
-                    Public Profile
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Allow other alumni to view your profile
-                  </p>
-                </div>
-                <Switch
-                  id="profile-public"
-                  checked={formData.metadata.privacy_settings.profile_visible}
-                  onCheckedChange={(checked) => setFormData(prev => ({
-                    ...prev,
-                    metadata: {
-                      ...prev.metadata,
-                      privacy_settings: {
-                        ...prev.metadata.privacy_settings,
-                        profile_visible: checked
-                      }
-                    }
-                  }))}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-0.5">
-                  <Label htmlFor="show-email" className="text-base">
-                    Show Email Address
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Make your email visible to other alumni
-                  </p>
-                </div>
-                <Switch
-                  id="show-email"
-                  checked={formData.metadata.privacy_settings.email_visible}
-                  onCheckedChange={(checked) => setFormData(prev => ({
-                    ...prev,
-                    metadata: {
-                      ...prev.metadata,
-                      privacy_settings: {
-                        ...prev.metadata.privacy_settings,
-                        email_visible: checked
-                      }
-                    }
-                  }))}
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-0.5">
-                  <Label htmlFor="show-graduation" className="text-base">
-                    Show Graduation Year
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Display your graduation year on your profile
-                  </p>
-                </div>
-                <Switch
-                  id="show-graduation"
-                  checked={formData.metadata.privacy_settings.graduation_year_visible}
-                  onCheckedChange={(checked) => setFormData(prev => ({
-                    ...prev,
-                    metadata: {
-                      ...prev.metadata,
-                      privacy_settings: {
-                        ...prev.metadata.privacy_settings,
-                        graduation_year_visible: checked
-                      }
-                    }
-                  }))}
-                />
-              </div>
-            </div>
-
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <p className="text-sm text-blue-800 dark:text-blue-300">
-                <strong>Note:</strong> You can always change these settings later from your profile page.
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <Label>Full Name *</Label>
+            <Input
+              value={formData.full_name}
+              onChange={e => {
+                setFormData({ ...formData, full_name: e.target.value });
+                if (errors.full_name) setErrors({ ...errors, full_name: "" });
+              }}
+              className={errors.full_name ? "border-red-500" : ""}
+            />
+            {errors.full_name && (
+              <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {errors.full_name}
               </p>
+            )}
+          </div>
+
+          <div>
+            <Label>Headline</Label>
+            <Input
+              placeholder="e.g. Software Engineer at Google"
+              value={formData.headline}
+              onChange={e => setFormData({ ...formData, headline: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <Label>Graduation Year</Label>
+            <Select
+              value={String(formData.graduation_year)}
+              onValueChange={v => setFormData({ ...formData, graduation_year: Number(v) })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {graduationYears.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Degree *</Label>
+            <Input
+              value={formData.degree}
+              onChange={e => {
+                setFormData({ ...formData, degree: e.target.value });
+                if (errors.degree) setErrors({ ...errors, degree: "" });
+              }}
+              className={errors.degree ? "border-red-500" : ""}
+              placeholder="e.g. Bachelor of Science"
+            />
+            {errors.degree && (
+              <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {errors.degree}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Label>Major *</Label>
+            <Input
+              value={formData.metadata.major}
+              onChange={e => {
+                setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, major: e.target.value } }));
+                if (errors.major) setErrors({ ...errors, major: "" });
+              }}
+              className={errors.major ? "border-red-500" : ""}
+              placeholder="e.g. Computer Science"
+            />
+            {errors.major && (
+              <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {errors.major}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    ),
+
+    2: (
+      <div className="space-y-6">
+        <div className="text-center">
+          <Briefcase className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold">Professional Details</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Current Position</Label>
+            <Input
+              value={formData.metadata.professional.current_position}
+              onChange={e => setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, professional: { ...prev.metadata.professional, current_position: e.target.value } } }))}
+            />
+          </div>
+
+          <div>
+            <Label>Company</Label>
+            <Input
+              value={formData.metadata.professional.company}
+              onChange={e => setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, professional: { ...prev.metadata.professional, company: e.target.value } } }))}
+            />
+          </div>
+
+          <div>
+            <Label>Industry</Label>
+            <Select
+              value={formData.metadata.professional.industry}
+              onValueChange={v => setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, professional: { ...prev.metadata.professional, industry: v } } }))}
+            >
+              <SelectTrigger><SelectValue placeholder="Select industry" /></SelectTrigger>
+              <SelectContent>{industries.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Employment Type</Label>
+            <Select
+              value={formData.metadata.professional.employment_type}
+              onValueChange={v => setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, professional: { ...prev.metadata.professional, employment_type: v } } }))}
+            >
+              <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectContent>{employmentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+    ),
+
+    3: (
+      <div className="space-y-6">
+        <div className="text-center">
+          <MapPin className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold">Social Links & Skills</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label>Location</Label>
+            <Input value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
+          </div>
+
+          <div>
+            <Label>Website</Label>
+            <Input value={formData.metadata.social.website_url} onChange={e => setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, social: { ...prev.metadata.social, website_url: e.target.value } } }))} />
+          </div>
+
+          <div>
+            <Label>LinkedIn</Label>
+            <Input value={formData.metadata.social.linkedin_url} onChange={e => setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, social: { ...prev.metadata.social, linkedin_url: e.target.value } } }))} />
+          </div>
+
+          <div>
+            <Label>GitHub</Label>
+            <Input value={formData.metadata.social.github_url} onChange={e => setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, social: { ...prev.metadata.social, github_url: e.target.value } } }))} />
+          </div>
+
+          <div className="md:col-span-2">
+            <Label>Bio</Label>
+            <Textarea rows={3} value={formData.bio} onChange={e => setFormData({ ...formData, bio: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="border-t pt-6">
+          <Label className="text-lg mb-4 block">Skills & Expertise</Label>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Skill</Label>
+              <Input value={currentSkill} onChange={e => setCurrentSkill(e.target.value)} />
+            </div>
+            <div>
+              <Label>Level (1-10)</Label>
+              <Input type="number" min="1" max="10" value={currentSkillValue} onChange={e => setCurrentSkillValue(e.target.value)} />
             </div>
           </div>
-        );
 
-      default:
-        return null;
-    }
+          <Button onClick={addSkill} className="mt-3">Add Skill</Button>
+
+          <div className="mt-4 space-y-2">
+            {Object.entries(formData.skills).map(([key, val]) => (
+              <div key={key} className="p-3 border rounded-lg flex items-center justify-between">
+                <div>
+                  <strong>{key}</strong> <span className="ml-2 text-sm text-gray-500">(Level: {val})</span>
+                </div>
+                <button className="text-red-600 font-bold" onClick={() => removeSkill(key)}>×</button>
+              </div>
+            ))}
+            {Object.keys(formData.skills).length === 0 && <p className="text-gray-500 text-sm italic">No skills added yet.</p>}
+          </div>
+        </div>
+      </div>
+    ),
+
+    4: (
+      <div className="space-y-6">
+        <div className="text-center">
+          <Globe className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold">Privacy Settings</h3>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-4 border rounded-lg flex justify-between items-center">
+            <div>
+              <Label>Public Profile</Label>
+              <p className="text-sm text-muted-foreground">Allow others to see your profile.</p>
+            </div>
+            <Switch checked={formData.metadata.privacy.profile_visible} onCheckedChange={v => setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, privacy: { ...prev.metadata.privacy, profile_visible: v } } }))} />
+          </div>
+
+          <div className="p-4 border rounded-lg flex justify-between items-center">
+            <div><Label>Show Email</Label></div>
+            <Switch checked={formData.metadata.privacy.email_visible} onCheckedChange={v => setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, privacy: { ...prev.metadata.privacy, email_visible: v } } }))} />
+          </div>
+
+          <div className="p-4 border rounded-lg flex justify-between items-center">
+            <div><Label>Show Graduation Year</Label></div>
+            <Switch checked={formData.metadata.privacy.graduation_year_visible} onCheckedChange={v => setFormData(prev => ({ ...prev, metadata: { ...prev.metadata, privacy: { ...prev.metadata.privacy, graduation_year_visible: v } } }))} />
+          </div>
+        </div>
+      </div>
+    ),
   };
 
   return (
@@ -618,62 +625,63 @@ export default function CompleteProfilePage() {
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-             <div className="relative w-24 h-24 flex items-center justify-center group">
-                        <Image
-                          src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/logo.png`}
-                          alt="Alumni Connect Logo"
-                          fill
-                          priority
-                          className="object-contain transition-transform duration-300 group-hover:scale-105"
-                          unoptimized
-                          sizes="96px"
-                        />
-          
-                      </div>
+            <div className="relative w-24 h-24">
+              <Image
+                src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/logo.png`}
+                alt="Logo"
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </div>
           </div>
           <CardTitle className="text-2xl">Complete Your Profile</CardTitle>
-          <CardDescription>
-            Let's set up your alumni profile to help you connect with others
-          </CardDescription>
+          <CardDescription>Your alumni profile is almost ready!</CardDescription>
         </CardHeader>
-        <CardContent>
-          {renderStepIndicator()}
-          
-          <form onSubmit={handleSubmit}>
-            {renderStepContent()}
 
-            <div className="flex justify-between mt-8">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={prevStep}
-                disabled={currentStep === 1 || loading}
+        <CardContent>
+          {StepIndicator}
+
+          <form onSubmit={handleSubmit}>
+            {StepContent[currentStep]}
+
+            <div className="flex justify-between mt-8 gap-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                disabled={currentStep === 1 || saving}
+                onClick={handlePrevious}
+                className="min-w-[100px]"
               >
                 Previous
               </Button>
 
               {currentStep < 4 ? (
-                <Button type="button" onClick={nextStep}>
+                <Button 
+                  type="button" 
+                  onClick={handleNext}
+                  className="min-w-[100px]"
+                  disabled={saving}
+                >
                   Next
                 </Button>
               ) : (
-                <Button type="submit" disabled={loading}>
-                  {loading ? (
+                <Button 
+                  type="submit" 
+                  disabled={saving}
+                  className="min-w-[150px]"
+                >
+                  {saving ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Completing Profile...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
                     </>
-                  ) : (
-                    "Complete Profile"
-                  )}
+                  ) : "Complete Profile"}
                 </Button>
               )}
             </div>
-          </form>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            Step {currentStep} of 4
-          </div>
+            <p className="text-center mt-4 text-sm text-muted-foreground">Step {currentStep} of 4</p>
+          </form>
         </CardContent>
       </Card>
     </div>

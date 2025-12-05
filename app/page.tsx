@@ -1,7 +1,6 @@
 // app/page.tsx
 "use client";
 
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -18,6 +17,9 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function HomePage() {
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
@@ -190,30 +192,34 @@ export default function HomePage() {
 
             {/* Desktop Auth Buttons */}
             <div className="hidden md:flex items-center space-x-3">
-              <Link href="/auth/login">
+              {/* Sign In */}
+              <Link href="/sign-in">
                 <Button
-                  variant={"ghost"}
+                  variant="ghost"
                   size="sm"
                   className={`font-medium text-xs sm:text-sm ${isScrolled
-                    ? 'border-white text-gray-700 dark:text-gray-300'
-                    : 'border-white text-white hover:bg-white/20  border-2'
+                    ? "border-white text-gray-700 dark:text-gray-300"
+                    : "border-white text-white hover:bg-white/20 border-2"
                     }`}
                 >
                   Sign In
                 </Button>
               </Link>
-              <Link href="/auth/register">
+
+              {/* Sign Up */}
+              <Link href="/sign-up">
                 <Button
                   size="sm"
                   className={`font-medium shadow-lg text-xs sm:text-sm ${isScrolled
-                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                    : 'bg-white text-indigo-600 hover:bg-gray-100'
+                    ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                    : "bg-white text-indigo-600 hover:bg-gray-100"
                     }`}
                 >
                   Get Started
                 </Button>
               </Link>
             </div>
+
 
             {/* Mobile Menu Button */}
             <motion.button
@@ -238,7 +244,7 @@ export default function HomePage() {
             {isMobileMenuOpen && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
+                animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3 }}
                 className="md:hidden border-t border-gray-200 dark:border-gray-700"
@@ -254,14 +260,25 @@ export default function HomePage() {
                       {item.name}
                     </Link>
                   ))}
+
                   <div className="pt-4 space-y-3 border-t border-gray-200 dark:border-gray-700">
-                    <Link href="/auth/login" className="block w-full">
-                      <Button variant="outline" className="w-full justify-center">
+                    {/* Clerk Sign In (mobile) */}
+                    <Link href="/sign-in" className="w-full">
+                      <Button
+                        variant="outline"
+                        className="w-full justify-center"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
                         Sign In
                       </Button>
                     </Link>
-                    <Link href="/auth/register" className="block w-full">
-                      <Button className="w-full justify-center bg-indigo-600 hover:bg-indigo-700">
+
+                    {/* Sign Up (mobile) */}
+                    <Link href="/sign-up" className="w-full">
+                      <Button
+                        className="w-full justify-center bg-indigo-600 hover:bg-indigo-700 text-white"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
                         Get Started
                       </Button>
                     </Link>
@@ -270,6 +287,7 @@ export default function HomePage() {
               </motion.div>
             )}
           </AnimatePresence>
+
         </div>
       </motion.nav>
 
@@ -304,7 +322,7 @@ export default function HomePage() {
             >
               <source
                 src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/hero-bg.mp4`}
-              type="video/mp4"
+                type="video/mp4"
               />
             </motion.video>
           )}

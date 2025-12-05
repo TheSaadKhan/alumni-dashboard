@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,18 +12,57 @@ import {
   TrendingUp, 
   AlertCircle,
   MessageCircle,
-  UserPlus 
+  UserPlus,
+  Loader2
 } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { toast } from "sonner";
 
 export default function AdminDashboardPage() {
-  const stats = {
-    totalUsers: 1247,
-    newUsers: 23,
-    activeEvents: 8,
-    pendingJobs: 12,
-    totalDonations: 125000,
-    growthRate: 12.5
-  };
+  const { user } = useUser();
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    newUsers: 0,
+    activeEvents: 0,
+    pendingJobs: 0,
+    totalDonations: 0,
+    growthRate: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!user) return;
+
+      try {
+        // Get user's organizations
+        const orgsRes = await fetch("/api/organizations");
+        if (!orgsRes.ok) throw new Error("Failed to load organizations");
+        const orgsData = await orgsRes.json();
+        
+        if (orgsData.organizations && orgsData.organizations.length > 0) {
+          const primaryOrg = orgsData.organizations[0];
+          setOrganizationId(primaryOrg.id);
+
+          // Load stats
+          const statsRes = await fetch(
+            `/api/admin/stats?organizationId=${primaryOrg.id}`
+          );
+          if (!statsRes.ok) throw new Error("Failed to load stats");
+          const statsData = await statsRes.json();
+          setStats(statsData);
+        }
+      } catch (err: any) {
+        console.error("Failed to load admin data:", err);
+        toast.error("Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [user]);
 
   const recentActivity = [
     {
@@ -83,6 +123,14 @@ export default function AdminDashboardPage() {
     };
     return styles[type as keyof typeof styles] || "bg-gray-100 text-gray-800";
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import AuthProviderWrapper from "@/components/provider/AuthProviderWrapper";
-
-// ✅ Import the new client-side wrapper
-
+import { ClerkProvider } from "@clerk/nextjs";
+import { AuthProvider } from "@/context/AuthContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -18,9 +16,9 @@ export const metadata: Metadata = {
     template: "%s | AlumniConnect",
   },
   icons: {
-    icon: "/favicon-32x32.png",       // example path (one of them)
-    shortcut: "/favicon.ico",         // as provided
-    apple: "/apple-touch-icon.png"    // if generated
+    icon: "/favicon-32x32.png",
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
   description:
     "Reconnect with your alma mater, discover career opportunities, mentor students, and make a lasting impact on your community.",
@@ -46,20 +44,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className={`${inter.className} antialiased`}>
-        <AuthProviderWrapper>
-          <div className="min-h-screen bg-white dark:bg-gray-900">
-            {children}
-          </div>
-        </AuthProviderWrapper>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" className={inter.variable}>
+        <body className={`${inter.className} antialiased`}>
+          <AuthProvider>   {/* <-- ADD THIS */}
+            <div className="min-h-screen bg-white dark:bg-gray-900">
+              {children}
+            </div>
+          </AuthProvider>
+        </body>
+      </html>
+    </ClerkProvider>
+
   );
 }

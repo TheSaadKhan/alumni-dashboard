@@ -1,10 +1,21 @@
-export function WelcomeSection() {
+// /components/dashboard/welcome-section.tsx
+import React from "react";
+
+export function WelcomeSection({ userName, role, organization }: { userName?: string; role?: string; organization?: string }) {
   return (
-    <div className="text-center sm:text-left">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-        Welcome back, <span className="text-indigo-600 dark:text-indigo-400">Alex</span>!
-      </h1>
-      <p className="text-gray-600 dark:text-gray-400">Here's what's happening in your alumni network today.</p>
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold">Welcome back, {userName ?? "User"} 👋</h2>
+          <p className="text-sm text-muted-foreground">
+            Role: <strong>{role}</strong>
+            {organization ? <> — {organization}</> : null}
+          </p>
+        </div>
+        <div>
+          {/* placeholder for user controls */}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,31 +1,33 @@
-// components/ProtectedRoute.tsx
+// components/protectedRoutes.tsx
 "use client";
 
+import React, { ReactNode, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
+import { Spinner } from "@/components/ui/spinner"; // optional: replace with your loader
 
-import { useAuthContext } from "@/context/AuthContext";
-import { useAuthRedirect } from "@/hooks/useAuthRedirect";
+export default function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { isLoaded, isSignedIn } = useUser();
+  const router = useRouter();
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
-}
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push("/"); // or your sign-in path
+    }
+  }, [isLoaded, isSignedIn, router]);
 
-export default function ProtectedRoute({ 
-  children, 
-  fallback 
-}: ProtectedRouteProps) {
-  const { user, loading } = useAuthContext();
-  
-  // Handle redirects
-  useAuthRedirect();
-
-  if (loading) {
-    return fallback || (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        {/* Simple loader */}
+        <div className="text-center">
+          <div className="animate-spin inline-block w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full" />
+          <Spinner />
+          <p className="mt-2 text-sm text-muted-foreground">Checking authentication…</p>
+        </div>
       </div>
     );
   }
 
-  return user ? <>{children}</> : null;
+  return <>{children}</>;
 }

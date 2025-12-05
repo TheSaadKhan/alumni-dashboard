@@ -486,7 +486,7 @@
   .no-print {
     display: none !important;
   }
-  
+
   .print-break {
     page-break-before: always;
   }
@@ -497,11 +497,11 @@
   .btn-primary {
     border: 2px solid currentColor;
   }
-  
+
   .card {
     border: 2px solid oklch(0.145 0 0);
   }
-  
+
   .dark .card {
     border: 2px solid white;
   }

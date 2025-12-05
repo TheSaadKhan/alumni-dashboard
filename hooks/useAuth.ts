@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/db/client/supabase-browser';
-import { profileQueries } from '@/db/queries/profiles';
+import { profileQueries } from '@/db/helpers/queries/profiles';
 
 export interface AuthUser {
   id: string;
