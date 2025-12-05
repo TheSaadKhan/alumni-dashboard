@@ -1,22 +1,15 @@
-// /app/api/invitations/create/route.ts
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { sendInviteEmail } from "@/lib/mailer";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 export async function POST(req: Request) {
   try {
-    /* ---------------- AUTH ---------------- */
     const clerkUser = await currentUser();
-    if (!clerkUser) {
+    if (!clerkUser)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
-    /* ---------------- BODY ---------------- */
     const body = await req.json();
     const { organizationId, roleId, email, message } = body;
 
@@ -29,14 +22,7 @@ export async function POST(req: Request) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return NextResponse.json(
-        { error: "Invalid email address" },
-        { status: 400 }
-      );
-    }
-
-    /* ---------------- PROFILE ---------------- */
+    /* ✅ GET INVITER PROFILE */
     const inviterProfile = await prisma.profiles.findUnique({
       where: { auth_user_id: clerkUser.id },
     });
@@ -45,7 +31,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    /* ---------------- ORG MEMBERSHIP ---------------- */
+    /* ✅ GET INVITER MEMBER */
     const inviterMember = await prisma.organization_members.findFirst({
       where: {
         organization_id: organizationId,
@@ -63,30 +49,8 @@ export async function POST(req: Request) {
       );
     }
 
-    /* ---------------- ROLE PERMISSION ---------------- */
-    const inviterRole = inviterMember.organization_roles;
-    const allowedRoleNames =
-      (inviterRole.can_invite_roles as string[]) || [];
-
-    const targetRole = await prisma.organization_roles.findUnique({
-      where: { id: roleId },
-    });
-
-    if (!targetRole || targetRole.organization_id !== organizationId) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
-    }
-
-    if (!allowedRoleNames.includes(targetRole.name)) {
-      return NextResponse.json(
-        {
-          error: `You do not have permission to invite ${targetRole.display_name || targetRole.name}`,
-        },
-        { status: 403 }
-      );
-    }
-
-    /* ---------------- DUPLICATE INVITE ---------------- */
-    const existingInvite = await prisma.organization_invitations.findFirst({
+    /* ✅ PREVENT DUPLICATE PENDING INVITES */
+    const existing = await prisma.organization_invitations.findFirst({
       where: {
         organization_id: organizationId,
         email: normalizedEmail,
@@ -94,19 +58,19 @@ export async function POST(req: Request) {
       },
     });
 
-    if (existingInvite) {
+    if (existing) {
       return NextResponse.json(
-        { error: "An invitation has already been sent to this email" },
+        { error: "Invitation already sent to this email" },
         { status: 409 }
       );
     }
 
-    /* ---------------- TOKEN ---------------- */
+    /* ✅ TOKEN + EXPIRY */
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    /* ---------------- SAVE INVITE ---------------- */
-    const invitation = await prisma.organization_invitations.create({
+    /* ✅ CREATE INVITE */
+    const invite = await prisma.organization_invitations.create({
       data: {
         organization_id: organizationId,
         invited_by_member_id: inviterMember.id,
@@ -122,37 +86,20 @@ export async function POST(req: Request) {
       },
     });
 
-    /* ---------------- EMAIL ---------------- */
-    try {
-      const organization = invitation.organizations;
-      const role = invitation.organization_roles;
+    /* ✅ ✅ SEND EMAIL */
+    const emailResult = await sendInviteEmail(
+      normalizedEmail,
+      token,
+      invite.organizations.name
+    );
 
-      const inviterName =
-        inviterProfile.full_name || inviterProfile.email || "Admin";
-
-      await sendInviteEmail(
-        normalizedEmail,
-        token,
-        organization?.name || "Organization",
-        inviterName,
-        role?.display_name || role?.name,
-        message || undefined
-      );
-    } catch (emailError) {
-      console.error("❌ Invite email failed:", emailError);
-      // ✅ Invitation still succeeds even if email fails
-    }
-
-    /* ---------------- SUCCESS ---------------- */
     return NextResponse.json({
       success: true,
-      invitation,
+      invite,
+      emailSent: emailResult.success,
     });
   } catch (error) {
-    console.error("❌ Invite server error:", error);
-    return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 }
-    );
+    console.error("Create invitation error:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
