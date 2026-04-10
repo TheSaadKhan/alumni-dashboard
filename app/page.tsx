@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function HomePage() {
+  const { user, isLoaded } = useUser();
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -394,7 +395,7 @@ export default function HomePage() {
               variants={itemVariants}
               className="flex flex-col sm:flex-row gap-3 justify-center items-center"
             >
-              <Link href="/auth/register">
+              <Link href="/sign-up">
                 <Button
                   size="lg"
                   className="bg-white text-indigo-600 hover:bg-gray-100 font-semibold text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-xl sm:shadow-2xl shadow-black/25 transition-all duration-300 hover:scale-105"
@@ -411,6 +412,15 @@ export default function HomePage() {
                 >
                   <Play className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                   Watch Demo
+                </Button>
+              </Link>
+              <Link href={user ? "/organization/setup" : "/sign-up?redirect=/organization/setup"}>
+                <Button
+                  size="lg"
+                  className="bg-white/95 text-indigo-700 hover:bg-white font-semibold text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-5 rounded-xl sm:rounded-2xl shadow-xl shadow-black/15 transition-all duration-300 hover:scale-105"
+                >
+                  <Shield className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                  Create Organization
                 </Button>
               </Link>
             </motion.div>
@@ -611,7 +621,7 @@ export default function HomePage() {
             viewport={{ once: true }}
           >
             <motion.div variants={fadeInUp}>
-              <Link href="/auth/register">
+              <Link href="/sign-up">
                 <Button size="lg" className="bg-white text-indigo-600 hover:bg-gray-100 font-semibold text-lg px-8 py-6 rounded-2xl shadow-2xl shadow-black/25 transition-all duration-300 hover:scale-105">
                   Create Your Free Account
                   <ArrowRight className="ml-2 h-5 w-5" />

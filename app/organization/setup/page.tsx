@@ -1,368 +1,286 @@
-// Organization setup page for AlumniConnect
-// Follows the owner registration flow
-
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense, JSX } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
+import { createOrganizationAction } from "@/app/actions/createOrganization";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Building2, MapPin, Globe, Users, BookOpen, Calendar } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Loader2, CheckCircle2, AlertCircle, Building2, Globe, MapPin, Calendar, BookOpen, Shield, ArrowRight
+} from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/db/client/supabase-browser";
 import Image from "next/image";
 
-export default function OrganizationSetupPage() {
-  const router = useRouter();
+export const dynamic = "force-dynamic";
 
-  const [formData, setFormData] = useState({
-    organizationName: "",
-    organizationType: "school",
+const STEPS = ["Organization Details", "Review & Launch"];
+
+const orgTypes = [
+  { value: "college", label: "College / University" },
+  { value: "high_school", label: "High School" },
+  { value: "corporate", label: "Corporate Alumni Network" },
+  { value: "nonprofit", label: "Non-Profit / NGO" },
+  { value: "government", label: "Government / Public Sector" },
+  { value: "training_institute", label: "Training Institute" },
+  { value: "other", label: "Other" },
+];
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 200 }, (_, i) => currentYear - i);
+
+function SetupContent() {
+  const router = useRouter();
+  const { user, isLoaded } = useUser();
+  const [step, setStep] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Organization Data
+  const [org, setOrg] = useState({
+    name: "",
+    type: "college",
     establishedYear: "",
-    address: "",
+    description: "",
+    website: "",
     city: "",
     state: "",
     country: "",
-    website: "",
-    description: "",
+    logoUrl: "",
+    coverImageUrl: "",
+    customDomain: "",
   });
 
-  const [loading, setLoading] = useState(false);
+  const [slugPreview, setSlugPreview] = useState("");
 
-  const organizationTypes = [
-    { value: "school", label: "School" },
-    { value: "college", label: "College" },
-    { value: "university", label: "University" },
-    { value: "training_institute", label: "Training Institute" },
-    { value: "educational_trust", label: "Educational Trust" },
-    { value: "other", label: "Other" },
-  ];
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!user) { router.replace("/"); return; }
+  }, [isLoaded, user, router]);
 
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 200 }, (_, i) => currentYear - i);
+  useEffect(() => {
+    setSlugPreview(
+      org.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "your-org"
+    );
+  }, [org.name]);
 
-  const handleSubmit = async (e: { preventDefault: () => void }) => {
-    e.preventDefault();
+  const setO = (k: keyof typeof org, v: string) => setOrg((o) => ({ ...o, [k]: v }));
 
-    if (!formData.organizationName) {
-      toast.error("Organization Name Required");
-      return;
+  const validate = (s: number): boolean => {
+    const e: Record<string, string> = {};
+    if (s === 1) {
+      if (!org.name.trim()) e.orgName = "Organization name is required";
+      if (!org.establishedYear) e.establishedYear = "Established year is required";
+      if (!org.country.trim()) e.country = "Country is required";
     }
-    if (!formData.organizationType) {
-      toast.error("Organization Type Required");
-      return;
-    }
-    if (!formData.establishedYear) {
-      toast.error("Established Year Required");
-      return;
-    }
-    if (!formData.country) {
-      toast.error("Country Required");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // Get the current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        toast.error("Authentication Required", { description: "Please log in to create an organization" });
-        router.push("/auth/login");
-        return;
-      }
-
-      // Create organization
-      const { data: orgData, error: orgError } = await supabase
-        .from("organizations")
-        .insert({
-          name: formData.organizationName,
-          type: formData.organizationType,
-          established_year: parseInt(formData.establishedYear),
-          address: formData.address || null,
-          city: formData.city || null,
-          state: formData.state || null,
-          country: formData.country,
-          website: formData.website || null,
-          description: formData.description || null,
-          is_active: true,
-          created_by: user.id,
-          metadata: {
-            setup_complete: true,
-            initial_setup: true,
-          },
-        })
-        .select()
-        .single();
-
-      if (orgError) {
-        toast.error("Organization Creation Failed", { description: orgError.message });
-        console.error(orgError);
-        setLoading(false);
-        return;
-      }
-
-      // Update user profile to link with organization and mark setup complete
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          organization_id: orgData.id,
-          metadata: {
-            hierarchy_level: "owner",
-            registration_stage: "complete",
-            organization_setup_complete: true,
-          },
-        })
-        .eq("id", user.id);
-
-      if (profileError) {
-        console.error("Profile update error:", profileError);
-        // Continue anyway as the organization was created successfully
-      }
-
-      toast.success("Organization Created!", {
-        description: "Your AlumniConnect platform is ready to use.",
-      });
-
-      // Redirect to dashboard
-      router.push("/dashboard");
-    } catch (err) {
-      console.error(err);
-      let message = "An unexpected error occurred";
-      if (err instanceof Error) {
-        message = err.message;
-      } else if (typeof err === "string") {
-        message = err;
-      } else {
-        try {
-          message = JSON.stringify(err);
-        } catch {
-          // ignore stringify errors and keep the default message
-        }
-      }
-      toast.error("Setup Failed", { description: message });
-    }
-
-    setLoading(false);
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  const setData = (k: string, v: string) => setFormData((p) => ({ ...p, [k]: v }));
+  const next = () => validate(step) && setStep((s) => s + 1);
+  const back = () => setStep((s) => s - 1);
+
+  const handleLaunch = async () => {
+    if (!validate(step)) return;
+    setSaving(true);
+    try {
+      const result = await createOrganizationAction({
+        name: org.name,
+        type: org.type,
+        description: org.description || undefined,
+        website: org.website || undefined,
+        establishedYear: org.establishedYear ? parseInt(org.establishedYear) : undefined,
+        logoUrl: org.logoUrl || undefined,
+        coverImageUrl: org.coverImageUrl || undefined,
+        customDomain: org.customDomain || undefined,
+        address: {
+          city: org.city || undefined,
+          state: org.state || undefined,
+          country: org.country,
+        },
+      });
+
+      if (result.success) {
+        toast.success(`🎉 ${org.name} is live!`, { duration: 3000 });
+        // Redirect to dashboard
+        router.replace(`/organization/${result.slug}/dashboard`);
+      }
+    } catch (err: any) {
+      console.error("Setup error:", err);
+      toast.error(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isLoaded) {
+    return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-indigo-500" /></div>;
+  }
+
+  const stepContent: Record<number, JSX.Element> = {
+    1: (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+            <Building2 className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Organization Details</h2>
+            <p className="text-sm text-slate-500">Global foundation for your alumni community.</p>
+          </div>
+        </div>
+
+        <div>
+          <Label>Organization Name *</Label>
+          <div className="relative">
+            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
+            <Input value={org.name} onChange={(e) => setO("name", e.target.value)}
+              className={`pl-10 ${errors.orgName ? "border-red-400" : ""}`}
+              placeholder="e.g., Harvard Alumni Association" />
+          </div>
+          {errors.orgName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.orgName}</p>}
+          {slugPreview && <p className="text-xs text-slate-400 mt-1">URL: /organization/<strong>{slugPreview}</strong></p>}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Organization Type</Label>
+            <Select value={org.type} onValueChange={(v) => setO("type", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {orgTypes.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Established Year *</Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4 z-10" />
+              <Select value={org.establishedYear} onValueChange={(v) => setO("establishedYear", v)}>
+                <SelectTrigger className={`pl-10 ${errors.establishedYear ? "border-red-400" : ""}`}><SelectValue placeholder="Select year" /></SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {errors.establishedYear && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.establishedYear}</p>}
+          </div>
+        </div>
+
+        <div>
+          <Label className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Location</Label>
+          <div className="grid grid-cols-3 gap-3 mt-1">
+            <Input value={org.city} onChange={(e) => setO("city", e.target.value)} placeholder="City" />
+            <Input value={org.state} onChange={(e) => setO("state", e.target.value)} placeholder="State" />
+            <Input value={org.country} onChange={(e) => setO("country", e.target.value)}
+              placeholder="Country *" className={errors.country ? "border-red-400" : ""} />
+          </div>
+          {errors.country && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.country}</p>}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="flex items-center gap-2"><Globe className="h-4 w-4" /> Website</Label>
+            <Input value={org.website} onChange={(e) => setO("website", e.target.value)} placeholder="https://example.com" />
+          </div>
+          <div>
+            <Label>Custom Domain</Label>
+            <Input value={org.customDomain} onChange={(e) => setO("customDomain", e.target.value)} placeholder="alumni.yourdomain.com" />
+          </div>
+        </div>
+
+        <div>
+          <Label className="flex items-center gap-2"><BookOpen className="h-4 w-4" /> Description</Label>
+          <Textarea rows={3} value={org.description} onChange={(e) => setO("description", e.target.value)}
+            placeholder="Mission and vision..." className="mt-1" />
+        </div>
+      </div>
+    ),
+
+    2: (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+            <Shield className="h-6 w-6 text-green-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Review & Launch</h2>
+            <p className="text-sm text-slate-500">Confirm details before creating your network.</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+           {[
+             { label: "Org Name", value: org.name },
+             { label: "Type", value: orgTypes.find(t => t.value === org.type)?.label || "—" },
+             { label: "Founded", value: org.establishedYear },
+             { label: "Location", value: [org.city, org.country].filter(Boolean).join(", ") },
+             { label: "Domain", value: org.customDomain || "Subdomain provided" },
+           ].map(row => (
+             <div key={row.label} className="flex justify-between px-5 py-3 text-sm">
+                <span className="text-slate-500 font-medium">{row.label}</span>
+                <span className="text-slate-900 dark:text-white font-bold">{row.value}</span>
+             </div>
+           ))}
+        </div>
+
+        <div className="rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 p-4 text-sm text-indigo-800 dark:text-indigo-300">
+          <p className="font-bold flex items-center gap-2 mb-1"><Shield className="h-4 w-4" /> Super Admin Control</p>
+          <p className="text-xs">You will be granted full administrative control over this network. You can configure portal settings and invite members immediately after launch.</p>
+        </div>
+      </div>
+    ),
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-purple-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 p-6 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.15),transparent_60%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.15),transparent_60%)] pointer-events-none" />
-
-      <div className="w-full max-w-2xl z-10">
-        <Card className="w-full shadow-2xl border-slate-200/60 dark:border-slate-700/70 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-3xl">
-          <CardHeader className="text-center space-y-2 pb-4">
-            <div className="flex justify-center mb-2">
-              <div className="p-4 bg-green-100 dark:bg-green-900/40 rounded-2xl shadow-md">
-                <div className="relative w-16 h-16 group">
-                  <Image
-                    src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/logo.png`}
-                    alt="Alumni Connect Logo"
-                    fill
-                    priority
-                    className="object-contain transition-transform duration-300 group-hover:scale-105"
-                    unoptimized
-                    sizes="64px"
-                  />
-                </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-xl">
+        <header className="text-center mb-8">
+           <div className="flex justify-center mb-4">
+              <div className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-xl">
+                 <Image src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/logo.png`} alt="Logo" width={48} height={48} unoptimized />
               </div>
-            </div>
-            <CardTitle className="text-2xl font-semibold text-slate-900 dark:text-white">
-              Set Up Your Organization
-            </CardTitle>
-            <CardDescription className="text-slate-600 dark:text-slate-400 text-sm">
-              Complete your AlumniConnect setup by adding your institution details
-            </CardDescription>
-          </CardHeader>
+           </div>
+           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Organization Setup</h1>
+           <p className="text-slate-500 mt-2">Step {step} of 2 — {STEPS[step - 1]}</p>
+        </header>
 
-          <CardContent className="space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Organization Name */}
-              <div className="space-y-1.5">
-                <Label className="text-slate-700 dark:text-slate-300">Organization Name *</Label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                  <Input
-                    value={formData.organizationName}
-                    onChange={(e) => setData("organizationName", e.target.value)}
-                    className="pl-10 h-12 rounded-xl"
-                    placeholder="Enter your organization name"
-                    required
-                  />
-                </div>
-              </div>
+        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-8">
+          {stepContent[step]}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Organization Type */}
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 dark:text-slate-300">Organization Type *</Label>
-                  <div className="relative">
-                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4 z-10" />
-                    <Select value={formData.organizationType} onValueChange={(v) => setData("organizationType", v)}>
-                      <SelectTrigger className="pl-10 h-12 rounded-xl">
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {organizationTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Established Year */}
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 dark:text-slate-300">Established Year *</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4 z-10" />
-                    <Select value={formData.establishedYear} onValueChange={(v) => setData("establishedYear", v)}>
-                      <SelectTrigger className="pl-10 h-12 rounded-xl">
-                        <SelectValue placeholder="Select year" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        {years.map((year) => (
-                          <SelectItem key={year} value={year.toString()}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Address */}
-              <div className="space-y-1.5">
-                <Label className="text-slate-700 dark:text-slate-300">Address</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 text-slate-400 h-4 w-4" />
-                  <Textarea
-                    value={formData.address}
-                    onChange={(e) => setData("address", e.target.value)}
-                    className="pl-10 min-h-20 rounded-xl resize-none"
-                    placeholder="Enter your organization address"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* City */}
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 dark:text-slate-300">City</Label>
-                  <Input
-                    value={formData.city}
-                    onChange={(e) => setData("city", e.target.value)}
-                    className="h-12 rounded-xl"
-                    placeholder="City"
-                  />
-                </div>
-
-                {/* State */}
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 dark:text-slate-300">State/Province</Label>
-                  <Input
-                    value={formData.state}
-                    onChange={(e) => setData("state", e.target.value)}
-                    className="h-12 rounded-xl"
-                    placeholder="State"
-                  />
-                </div>
-
-                {/* Country */}
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 dark:text-slate-300">Country *</Label>
-                  <Input
-                    value={formData.country}
-                    onChange={(e) => setData("country", e.target.value)}
-                    className="h-12 rounded-xl"
-                    placeholder="Country"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Website */}
-              <div className="space-y-1.5">
-                <Label className="text-slate-700 dark:text-slate-300">Website</Label>
-                <div className="relative">
-                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                  <Input
-                    type="url"
-                    value={formData.website}
-                    onChange={(e) => setData("website", e.target.value)}
-                    className="pl-10 h-12 rounded-xl"
-                    placeholder="https://example.com"
-                  />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-1.5">
-                <Label className="text-slate-700 dark:text-slate-300">Description</Label>
-                <div className="relative">
-                  <BookOpen className="absolute left-3 top-3 text-slate-400 h-4 w-4" />
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setData("description", e.target.value)}
-                    className="pl-10 min-h-24 rounded-xl resize-none"
-                    placeholder="Brief description of your organization..."
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <Button
-                  type="submit"
-                  className="flex-1 h-12 bg-green-600 hover:bg-green-500 text-white text-md rounded-xl shadow-lg"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin mr-2" /> Creating Organization...
-                    </>
-                  ) : (
-                    "Complete Setup"
-                  )}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1 h-12 rounded-xl"
-                  onClick={() => router.back()}
-                  disabled={loading}
-                >
-                  Back
-                </Button>
-              </div>
-            </form>
-
-            <div className="text-center pt-4 border-t border-slate-200 dark:border-slate-700">
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                This information will be used to set up your AlumniConnect platform.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="text-center mt-6">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            © {new Date().getFullYear()} AlumniConnect. All rights reserved.
-          </p>
+          <div className="flex gap-3 mt-8">
+            {step > 1 && (
+              <Button variant="outline" onClick={back} className="flex-1 rounded-xl" disabled={saving}>
+                Back
+              </Button>
+            )}
+            {step < 2 ? (
+              <Button onClick={next} className="flex-1 bg-indigo-600 hover:bg-indigo-700 rounded-xl">
+                Continue <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : (
+              <Button onClick={handleLaunch} className="flex-1 bg-green-600 hover:bg-green-700 rounded-xl" disabled={saving}>
+                {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : (
+                  <><CheckCircle2 className="h-5 w-5 mr-2" /> Launch Network</>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OrganizationSetupPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-indigo-500" /></div>}>
+      <SetupContent />
+    </Suspense>
   );
 }

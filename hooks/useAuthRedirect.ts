@@ -1,15 +1,15 @@
 // hooks/useAuthRedirect.ts
 "use client";
 
-import { useAuthContext } from "@/context/AuthContext";
+import { useAuthProfile } from "@/context/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 // Any route starting with these should be protected
-const PROTECTED_ROUTES = ["/dashboard", "/profile", "/settings"];
+const PROTECTED_ROUTES = ["/dashboard", "/admin", "/profile", "/settings"];
 
 export function useAuthRedirect() {
-  const { user, loading } = useAuthContext();
+  const { profile: user, loading } = useAuthProfile();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -23,18 +23,22 @@ export function useAuthRedirect() {
 
     // 🔒 Redirect unauthenticated users away from protected routes
     if (isProtected && !user) {
-      router.replace("/auth/login");
+      router.replace("/sign-in");
       return;
     }
 
     // 🚪 Redirect authenticated users away from login/register pages
     const isAuthPage =
-      pathname === "/auth/login" ||
-      pathname === "/auth/register" ||
+      pathname === "/sign-in" ||
+      pathname === "/sign-up" ||
       pathname === "/";
 
     if (isAuthPage && user) {
-      router.replace("/dashboard");
+      const target =
+        user.userType === "admin" || user.userType === "super_admin"
+          ? "/admin"
+          : "/dashboard";
+      router.replace(target);
     }
   }, [user, loading, pathname, router]);
 }

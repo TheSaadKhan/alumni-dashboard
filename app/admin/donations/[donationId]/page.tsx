@@ -1,19 +1,65 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Button 
+} from "@/components/ui/button";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle,
+  CardFooter
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, DollarSign, User, Calendar, Mail, Download, Receipt, Building2, Settings } from "lucide-react";
+import { 
+  Avatar, 
+  AvatarFallback, 
+  AvatarImage 
+} from "@/components/ui/avatar";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger 
+} from "@/components/ui/tabs";
+import { 
+  ArrowLeft, 
+  DollarSign, 
+  User, 
+  Calendar, 
+  Mail, 
+  Download, 
+  Receipt, 
+  Building2, 
+  Settings,
+  ShieldCheck,
+  Globe,
+  Zap,
+  Activity,
+  Award,
+  ChevronRight,
+  TrendingUp,
+  Clock,
+  ExternalLink,
+  FileText,
+  Users
+} from "lucide-react";
 
 export default function DonationDetailPage() {
   const params = useParams();
   const router = useRouter();
 
-  // Mock donation data - in real app, fetch based on donationId
+  // Mock donation data
   const donation = {
     id: params.donationId,
     donor: {
@@ -49,446 +95,242 @@ export default function DonationDetailPage() {
     avgDonation: 10000
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-      failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-      cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-    };
-    return styles[status as keyof typeof styles] || "bg-gray-100 text-gray-800";
-  };
-
-  const getTypeBadge = (type: string) => {
-    const styles = {
-      "one-time": "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-      monthly: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      yearly: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-    };
-    return styles[type as keyof typeof styles] || "bg-gray-100 text-gray-800";
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/admin/donations")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Donation Details</h1>
-            <p className="text-gray-600 dark:text-gray-400">Manage donation and donor information</p>
-          </div>
+    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-10 animate-in fade-in duration-700">
+      {/* Transaction Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="flex items-center gap-4">
+           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900" onClick={() => router.push("/admin/donations")}>
+              <ArrowLeft className="h-4 w-4" />
+           </Button>
+           <div>
+              <div className="flex items-center gap-2 mb-1">
+                 <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Financial Matrix</span>
+                 <div className="h-1 w-1 rounded-full bg-slate-300"></div>
+                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Asset Verification</span>
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Transaction Analysis</h1>
+           </div>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline">
-            <Receipt className="h-4 w-4 mr-2" />
-            Generate Receipt
-          </Button>
-          <Button className="bg-indigo-600 hover:bg-indigo-700">
-            <Settings className="h-4 w-4 mr-2" />
-            Manage Donation
-          </Button>
+        <div className="flex items-center gap-3">
+           <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-400 px-6 uppercase text-[10px] tracking-widest">
+              <Receipt className="h-4 w-4 mr-3" /> PDF Receipt
+           </Button>
+           <Button className="h-11 rounded-xl font-bold px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/10 uppercase text-[10px] tracking-widest">
+              <Settings className="h-4 w-4 mr-3" /> Audit Control
+           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          <Tabs defaultValue="details" className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="history">History</TabsTrigger>
-              <TabsTrigger value="donor">Donor Info</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+        {/* Main Content Area */}
+        <div className="lg:col-span-3 space-y-10">
+           <Tabs defaultValue="details" className="w-full">
+              <TabsList className="bg-slate-100 dark:bg-slate-950/40 p-1.5 rounded-2xl w-fit flex gap-1 mb-8 overflow-x-auto no-scrollbar">
+                 <TabsTrigger value="details" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Transaction Details</TabsTrigger>
+                 <TabsTrigger value="history" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Financial History</TabsTrigger>
+                 <TabsTrigger value="donor" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Entity Metrics</TabsTrigger>
+              </TabsList>
 
-            {/* Details Tab */}
-            <TabsContent value="details" className="space-y-6">
-              {/* Donation Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Donation Information</CardTitle>
-                  <CardDescription>Transaction details and campaign information</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <Badge className={getTypeBadge(donation.type)}>
-                      {donation.type}
-                    </Badge>
-                    <Badge className={getStatusBadge(donation.status)}>
-                      {donation.status}
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Transaction Details</h3>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Amount</span>
-                          <span className="font-medium">${donation.amount.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Date</span>
-                          <span>{new Date(donation.date).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Method</span>
-                          <span>{donation.method}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Receipt #</span>
-                          <span>{donation.receipt}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Campaign Information</h3>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Campaign</span>
-                          <span className="font-medium">{donation.campaign}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Frequency</span>
-                          <span>{donation.frequency}</span>
-                        </div>
-                        {donation.nextPayment && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Next Payment</span>
-                            <span>{new Date(donation.nextPayment).toLocaleDateString()}</span>
+              <TabsContent value="details" className="m-0 animate-in fade-in slide-in-from-bottom-2">
+                 <div className="space-y-10">
+                    <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-10">
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                          <div className="space-y-8">
+                             <div>
+                                <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-6">Asset Specification</h3>
+                                <div className="space-y-4">
+                                   {[
+                                     { label: "Nominal Yield", value: `$${donation.amount.toLocaleString()}`, color: "text-emerald-600" },
+                                     { label: "Temporal Date", value: new Date(donation.date).toLocaleDateString() },
+                                     { label: "Transfer Protocol", value: donation.method },
+                                     { label: "Identity Hash", value: donation.receipt },
+                                   ].map((item, i) => (
+                                     <div key={i} className="flex justify-between items-center py-3 border-b border-slate-50/50">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
+                                        <span className={`text-sm font-bold italic ${item.color || "text-slate-900"}`}>{item.value}</span>
+                                     </div>
+                                   ))}
+                                </div>
+                             </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                          <div className="space-y-8">
+                             <div>
+                                <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-6">Campaign Objective</h3>
+                                <div className="space-y-4">
+                                   <div className="p-6 rounded-2xl bg-slate-50 border-none">
+                                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Internal Designation</p>
+                                      <p className="text-sm font-bold text-slate-900 uppercase italic">{donation.campaign}</p>
+                                   </div>
+                                   <div className="p-6 rounded-2xl bg-slate-50 border-none">
+                                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Frequency Logic</p>
+                                      <Badge className="bg-blue-100 text-blue-600 border-none rounded-lg text-[9px] font-black uppercase tracking-widest px-3 py-1 italic">{donation.type}</Badge>
+                                   </div>
+                                </div>
+                             </div>
+                          </div>
+                       </div>
+                       {donation.notes && (
+                          <div className="mt-12 p-8 rounded-3xl bg-indigo-50/30 border border-indigo-100/20">
+                             <div className="flex items-center gap-3 mb-4">
+                                <FileText className="h-4 w-4 text-indigo-400" />
+                                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Strategic Context (Notes)</span>
+                             </div>
+                             <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{donation.notes}</p>
+                          </div>
+                       )}
+                    </Card>
 
-                  {donation.notes && (
-                    <div className="mt-4">
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Notes</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                        {donation.notes}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    <Card className="border-none shadow-sm rounded-[3rem] bg-indigo-600 p-10 text-white relative overflow-hidden">
+                       <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-1000 rotate-12">
+                          <Activity className="h-48 w-48" />
+                       </div>
+                       <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-10">
+                          {[
+                            { label: "Entities Supported", value: "2", icon: Users, desc: "Scholarship Nodes" },
+                            { label: "Programs Funded", value: "1", icon: Building2, desc: "Academic Stream" },
+                            { label: "Cycle Yield", value: "6 Mo", icon: TrendingUp, desc: "Continuous Support" },
+                          ].map((item, i) => (
+                             <div key={i} className="text-center md:text-left">
+                                <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center mb-6 backdrop-blur-md">
+                                   <item.icon className="h-6 w-6" />
+                                </div>
+                                <p className="text-4xl font-bold tracking-tighter mb-1">{item.value}</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100/70 mb-1">{item.label}</p>
+                                <p className="text-[9px] text-indigo-100/40 font-bold uppercase tracking-widest italic">{item.desc}</p>
+                             </div>
+                          ))}
+                       </div>
+                    </Card>
+                 </div>
+              </TabsContent>
 
-              {/* Impact Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Impact Summary</CardTitle>
-                  <CardDescription>How this donation contributes to our mission</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="text-center">
-                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <User className="h-6 w-6 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">2</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Students Supported</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">1</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Programs Funded</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <DollarSign className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">6</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Months of Support</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* History Tab */}
-            <TabsContent value="history">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <CardTitle>Transaction History</CardTitle>
-                      <CardDescription>Past donations from this donor</CardDescription>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export History
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border">
+              <TabsContent value="history" className="m-0 animate-in fade-in slide-in-from-bottom-2">
+                 <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden">
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Method</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Receipt</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {transactionHistory.map((transaction) => (
-                          <TableRow key={transaction.id}>
-                            <TableCell className="font-medium">
-                              {new Date(transaction.date).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium text-gray-900 dark:text-white">
-                                ${transaction.amount.toLocaleString()}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                              {transaction.method}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={getStatusBadge(transaction.status)}>
-                                {transaction.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="sm">
-                                <Receipt className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
+                       <TableHeader className="bg-slate-50/50">
+                          <TableRow className="border-none hover:bg-transparent">
+                             <TableHead className="px-10 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Temporal Cycle</TableHead>
+                             <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Nominal Yield</TableHead>
+                             <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Transfer Protocol</TableHead>
+                             <TableHead className="px-10 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-right">Verification</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
+                       </TableHeader>
+                       <TableBody>
+                          {transactionHistory.map((t) => (
+                             <TableRow key={t.id} className="border-b border-slate-50/50 hover:bg-white/40 transition-all">
+                                <TableCell className="px-10 py-6">
+                                   <div className="flex items-center gap-3">
+                                      <Clock className="h-3.5 w-3.5 text-slate-300" />
+                                      <span className="text-sm font-bold text-slate-900 uppercase italic">{new Date(t.date).toLocaleDateString()}</span>
+                                   </div>
+                                </TableCell>
+                                <TableCell className="text-center text-sm font-bold italic text-emerald-600">${t.amount.toLocaleString()}</TableCell>
+                                <TableCell className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.method}</TableCell>
+                                <TableCell className="px-10 text-right">
+                                   <Badge className="bg-emerald-50 text-emerald-600 border-none rounded-lg text-[9px] font-black uppercase tracking-widest px-3 py-1 italic">Verified</Badge>
+                                </TableCell>
+                             </TableRow>
+                          ))}
+                       </TableBody>
                     </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                 </Card>
+              </TabsContent>
 
-            {/* Donor Tab */}
-            <TabsContent value="donor">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Donor Information</CardTitle>
-                  <CardDescription>Contact details and donor profile</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-start space-x-6">
-                    <Avatar className="h-20 w-20 border-2 border-white dark:border-gray-800 shadow-lg">
-                      <AvatarImage src={`/avatars/${donation.donor.name.toLowerCase().replace(' ', '-')}.jpg`} />
-                      <AvatarFallback className="text-xl">
-                        {donation.donor.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Contact Information</h3>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center">
-                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                            <span>{donation.donor.email}</span>
+              <TabsContent value="donor" className="m-0 animate-in fade-in slide-in-from-bottom-2">
+                 <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-10">
+                    <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
+                       <Avatar className="h-24 w-24 rounded-[2rem] border-4 border-white shadow-xl">
+                          <AvatarImage src={`/avatars/${donation.donor.name.toLowerCase().replace(' ', '-')}.jpg`} />
+                          <AvatarFallback className="bg-slate-900 text-white font-black text-lg italic">{donation.donor.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                       </Avatar>
+                       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-10 w-full text-center md:text-left">
+                          <div>
+                             <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-6">Entity Coordinates</h3>
+                             <div className="space-y-4">
+                                <div className="flex items-center justify-center md:justify-start gap-4 p-4 rounded-2xl bg-slate-50">
+                                   <Mail className="h-4 w-4 text-slate-300" />
+                                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{donation.donor.email}</span>
+                                </div>
+                                <div className="flex items-center justify-center md:justify-start gap-4 p-4 rounded-2xl bg-slate-50">
+                                   <Building2 className="h-4 w-4 text-slate-300" />
+                                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{donation.donor.company}</span>
+                                </div>
+                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-2 text-gray-400" />
-                            <span>{donation.donor.phone}</span>
+                          <div>
+                             <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-6">Nodal Statistics</h3>
+                             <div className="space-y-3">
+                                {[
+                                  { label: "Institutional Batch", value: `Class of ${donation.donor.batch}` },
+                                  { label: "Aggregate Yield", value: `$${donorStats.totalDonated.toLocaleString()}`, color: "text-emerald-600" },
+                                  { label: "Donation Pulse", value: `${donorStats.donationCount} Units` },
+                                ].map((stat, i) => (
+                                   <div key={i} className="flex justify-between items-center py-2 border-b border-slate-50/50">
+                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</span>
+                                      <span className={`text-[11px] font-bold italic uppercase tracking-tighter ${stat.color || "text-slate-900"}`}>{stat.value}</span>
+                                   </div>
+                                ))}
+                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <Building2 className="h-4 w-4 mr-2 text-gray-400" />
-                            <span>{donation.donor.company}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Alumni Information</h3>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Batch</span>
-                            <span>Class of {donation.donor.batch}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Total Donated</span>
-                            <span className="font-medium">${donorStats.totalDonated.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">Donation Count</span>
-                            <span>{donorStats.donationCount}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600 dark:text-gray-400">First Donation</span>
-                            <span>{new Date(donorStats.firstDonation).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </div>
+                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Settings Tab */}
-            <TabsContent value="settings">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Donation Settings</CardTitle>
-                  <CardDescription>Manage donation configuration and processing</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Transaction Details</h4>
-                      <div className="space-y-3 text-sm">
-                        <div className="flex justify-between">
-                          <span>Receipt Number</span>
-                          <span className="font-medium">{donation.receipt}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Payment Method</span>
-                          <span className="font-medium">{donation.method}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Donation Type</span>
-                          <span className="font-medium">{donation.type}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Campaign</span>
-                          <span className="font-medium">{donation.campaign}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h4>
-                      <div className="space-y-2">
-                        <Button variant="outline" className="w-full justify-start">
-                          Send Thank You Email
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start">
-                          Update Payment Method
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start">
-                          Change Donation Frequency
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-6">
-                    <h4 className="font-semibold text-red-600 dark:text-red-400 mb-4">Danger Zone</h4>
-                    <div className="space-y-3">
-                      <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
-                        Refund Donation
-                      </Button>
-                      <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
-                        Cancel Recurring Donation
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                 </Card>
+              </TabsContent>
+           </Tabs>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Donation Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Donation Status</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Status</span>
-                <Badge className={getStatusBadge(donation.status)}>
-                  {donation.status}
-                </Badge>
+        {/* Action Sidebar */}
+        <div className="space-y-8">
+           <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 backdrop-blur-xl p-8">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic mb-8">Asset Control Protocol</h4>
+              <div className="space-y-3">
+                 {[
+                   { label: "Dispatch Receipt", icon: Receipt, sub: "PDF Protocol" },
+                   { label: "Entity Relay", icon: Mail, sub: "Institutional Message" },
+                   { label: "Payload Export", icon: Download, sub: "JSON Object" },
+                   { label: "Process Refund", icon: DollarSign, sub: "Financial Reversion", danger: true }
+                 ].map((action, i) => (
+                    <button 
+                       key={i} 
+                       className={`w-full flex items-center justify-between p-5 rounded-2xl transition-all group ${action.danger ? "hover:bg-rose-50" : "hover:bg-slate-50"}`}
+                    >
+                       <div className="flex items-center gap-4">
+                          <div className={`h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center transition-colors ${action.danger ? "text-rose-400 group-hover:text-rose-600" : "text-slate-300 group-hover:text-blue-600"}`}>
+                             <action.icon className="h-4 w-4" />
+                          </div>
+                          <div className="text-left">
+                             <p className={`text-[11px] font-bold uppercase italic ${action.danger ? "text-rose-600" : "text-slate-900"}`}>{action.label}</p>
+                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">{action.sub}</p>
+                          </div>
+                       </div>
+                       <ChevronRight className={`h-3.5 w-3.5 transition-transform ${action.danger ? "text-rose-100 group-hover:text-rose-300" : "text-slate-100 group-hover:text-slate-400"}`} />
+                    </button>
+                 ))}
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Type</span>
-                <Badge className={getTypeBadge(donation.type)}>
-                  {donation.type}
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Amount</span>
-                <span className="text-sm font-medium">${donation.amount.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Date</span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {new Date(donation.date).toLocaleDateString()}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+           </Card>
 
-          {/* Donor Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Donor Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center space-x-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={`/avatars/${donation.donor.name.toLowerCase().replace(' ', '-')}.jpg`} />
-                  <AvatarFallback>
-                    {donation.donor.name.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white">{donation.donor.name}</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Batch of {donation.donor.batch}</p>
-                </div>
+           <Card className="border-none shadow-sm rounded-[2.5rem] bg-slate-900 p-8 text-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 h-32 w-32 bg-blue-500/20 blur-3xl rounded-full translate-x-12 -translate-y-12"></div>
+              <div className="relative z-10 flex flex-col gap-6">
+                 <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-md">
+                    <ShieldCheck className="h-6 w-6 text-blue-400" />
+                 </div>
+                 <div>
+                    <h4 className="text-xl font-bold uppercase italic tracking-tighter">Security Posture</h4>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-2 leading-loose">Asset verified at Node level. No discrepancies identified in transaction hash RC-2024-001.</p>
+                 </div>
+                 <Button variant="ghost" className="w-full h-12 rounded-2xl border border-white/10 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-white/5">
+                    Verify Identity Node <ExternalLink className="h-3.5 w-3.5 ml-3" />
+                 </Button>
               </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Total Donated</span>
-                  <span className="font-medium">${donorStats.totalDonated.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Donation Count</span>
-                  <span>{donorStats.donationCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Average Donation</span>
-                  <span>${donorStats.avgDonation.toLocaleString()}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Admin Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Admin Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
-                <Receipt className="h-4 w-4 mr-2" />
-                Generate Receipt
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Mail className="h-4 w-4 mr-2" />
-                Email Donor
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Download className="h-4 w-4 mr-2" />
-                Export Details
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Process Refund
-              </Button>
-            </CardContent>
-          </Card>
+           </Card>
         </div>
       </div>
+
+      <footer className="pt-10 border-t border-slate-50 flex items-center justify-center">
+         <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Integrated Financial Governor v1.1.2 • Verified Assets Only</p>
+      </footer>
     </div>
   );
 }

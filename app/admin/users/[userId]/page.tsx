@@ -1,509 +1,373 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useUser } from "@clerk/nextjs";
+import { 
+  Button 
+} from "@/components/ui/button";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle,
+  CardFooter
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Mail, Phone, Calendar, MapPin, GraduationCap, Briefcase, Users, Shield, Edit, Activity, Settings } from "lucide-react";
+import { 
+  Avatar, 
+  AvatarFallback, 
+  AvatarImage 
+} from "@/components/ui/avatar";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger 
+} from "@/components/ui/tabs";
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  Calendar,
+  MapPin,
+  GraduationCap,
+  Briefcase,
+  Users,
+  Shield,
+  Edit,
+  Activity,
+  Settings,
+  Loader2,
+  Globe,
+  Building,
+  Award,
+  FileText,
+  MessageSquare,
+  Key,
+  Download,
+  Ban,
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertCircle,
+  ExternalLink,
+  UserCog,
+  ShieldAlert,
+  Bell,
+  CreditCard,
+  History,
+  Trash2,
+  RefreshCw,
+  Zap,
+  ChevronRight,
+  TrendingUp,
+  Cpu
+} from "lucide-react";
+import { toast } from "sonner";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import { useAuthProfile } from "@/context/AuthContext";
+
+type UserType = {
+  id: string;
+  name: string;
+  email: string;
+  imageUrl?: string;
+  phone?: string;
+  role: string;
+  roleDisplay: string;
+  is_active: boolean;
+  lastActive?: string;
+  joinDate?: string;
+  createdAt: string;
+  updatedAt: string;
+  bio?: string;
+  location?: string;
+  company?: string;
+  position?: string;
+  batch?: string;
+  degree?: string;
+  skills?: string[];
+  metadata?: {
+    connections?: number;
+    eventsAttended?: number;
+    jobsPosted?: number;
+    donations?: number;
+    profileCompletion?: number;
+  };
+};
+
+type ActivityType = {
+  id: string;
+  userId: string;
+  action: string;
+  timestamp: string;
+  ip?: string;
+  device?: string;
+  details?: any;
+};
 
 export default function UserDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { profile } = useAuthProfile();
+  const userId = params.userId as string;
 
-  // Mock user data - in real app, fetch based on userId
-  const user = {
-    id: params.userId,
-    name: "Sarah Chen",
-    email: "sarah.chen@example.com",
-    phone: "+1 (555) 123-4567",
-    role: "alumni",
-    status: "active",
-    batch: "2015",
-    degree: "Computer Science",
-    location: "San Francisco, CA",
-    company: "TechCorp",
-    position: "Engineering Manager",
-    joinDate: "2023-01-15",
-    lastActive: "2024-01-20",
-    bio: "Experienced engineering leader passionate about building scalable products and mentoring the next generation of developers.",
-    skills: ["React", "Node.js", "TypeScript", "AWS", "System Design", "Team Leadership"],
-    connections: 245,
-    eventsAttended: 12,
-    jobsPosted: 3,
-    donations: 10000,
-    profileCompletion: 95
-  };
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<UserType | null>(null);
+  const [activity, setActivity] = useState<ActivityType[]>([]);
+  const [activeTab, setActiveTab] = useState("profile");
 
-  const activityLog = [
-    {
-      id: 1,
-      action: "Logged in",
-      timestamp: "2024-01-20T10:30:00Z",
-      ip: "192.168.1.100",
-      device: "Chrome on Windows"
-    },
-    {
-      id: 2,
-      action: "Updated profile",
-      timestamp: "2024-01-19T14:22:00Z",
-      ip: "192.168.1.100",
-      device: "Chrome on Windows"
-    },
-    {
-      id: 3,
-      action: "Posted job: Senior Frontend Developer",
-      timestamp: "2024-01-18T11:15:00Z",
-      ip: "192.168.1.100",
-      device: "Chrome on Windows"
-    },
-    {
-      id: 4,
-      action: "Registered for event: Tech Industry Panel",
-      timestamp: "2024-01-17T09:45:00Z",
-      ip: "192.168.1.100",
-      device: "Safari on iPhone"
-    },
-    {
-      id: 5,
-      action: "Made donation: $10,000",
-      timestamp: "2024-01-15T16:20:00Z",
-      ip: "192.168.1.100",
-      device: "Chrome on Windows"
-    }
-  ];
+  const organizationId = (profile as any)?.organizationId;
 
-  const connections = [
-    { id: 1, name: "Mike Rodriguez", role: "Product Director", connected: "2023-02-15" },
-    { id: 2, name: "Emily Davis", role: "Senior UX Designer", connected: "2023-03-20" },
-    { id: 3, name: "David Wilson", role: "Startup Founder", connected: "2023-04-10" },
-    { id: 4, name: "Alex Johnson", role: "Software Engineer", connected: "2023-05-05" }
-  ];
+  useEffect(() => {
+    if (!userId || !organizationId) return;
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-      suspended: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-      inactive: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [userRes, activityRes] = await Promise.all([
+          fetch(`/api/users/${userId}?organizationId=${organizationId}`),
+          fetch(`/api/users/${userId}/activity?organizationId=${organizationId}`),
+        ]);
+
+        if (!userRes.ok) throw new Error("Failed to load user data");
+
+        const userData = await userRes.json();
+        const activityData = await activityRes.json();
+
+        setUser(userData.user);
+        setActivity(activityData.activities || []);
+      } catch (error) {
+        toast.error("Failed to synchronize identity node");
+      } finally {
+        setLoading(false);
+      }
     };
-    return styles[status as keyof typeof styles] || "bg-gray-100 text-gray-800";
-  };
+    loadData();
+  }, [userId, organizationId]);
 
-  const getRoleBadge = (role: string) => {
-    const styles = {
-      admin: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-      alumni: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      student: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-    };
-    return styles[role as keyof typeof styles] || "bg-gray-100 text-gray-800";
-  };
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <RefreshCw className="h-8 w-8 animate-spin text-slate-200" />
+      </div>
+    );
+  }
+
+  if (!user) return null;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/admin/users")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">User Details</h1>
-            <p className="text-gray-600 dark:text-gray-400">Manage user account and permissions</p>
-          </div>
+    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-10 animate-in fade-in duration-700">
+      {/* Identity Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="flex items-center gap-6">
+           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900" onClick={() => router.push("/admin/users")}>
+              <ArrowLeft className="h-4 w-4" />
+           </Button>
+           <div className="flex items-center gap-6">
+              <Avatar className="h-20 w-20 rounded-[2rem] border-4 border-white shadow-xl">
+                 <AvatarImage src={user.imageUrl} />
+                 <AvatarFallback className="bg-slate-900 text-white font-black text-lg italic">{user.name[0]}</AvatarFallback>
+              </Avatar>
+              <div>
+                 <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Identity Hub</span>
+                    <div className="h-1 w-1 rounded-full bg-slate-300"></div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{user.roleDisplay || user.role}</span>
+                 </div>
+                 <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white uppercase italic tracking-tighter">{user.name}</h1>
+              </div>
+           </div>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit User
-          </Button>
-          <Button className="bg-indigo-600 hover:bg-indigo-700">
-            <Shield className="h-4 w-4 mr-2" />
-            Manage Access
-          </Button>
+        <div className="flex items-center gap-3">
+           <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-400 px-6 uppercase text-[10px] tracking-widest" onClick={() => router.push("/admin/messages")}>
+              <MessageSquare className="h-4 w-4 mr-3" /> Relay Message
+           </Button>
+           <Button className="h-11 rounded-xl font-bold px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/10 uppercase text-[10px] tracking-widest">
+              <UserCog className="h-4 w-4 mr-3" /> Recalibrate Protocol
+           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="profile" className="flex items-center space-x-2">
-                <Users className="h-4 w-4" />
-                <span>Profile</span>
-              </TabsTrigger>
-              <TabsTrigger value="activity" className="flex items-center space-x-2">
-                <Activity className="h-4 w-4" />
-                <span>Activity</span>
-              </TabsTrigger>
-              <TabsTrigger value="connections" className="flex items-center space-x-2">
-                <Users className="h-4 w-4" />
-                <span>Connections</span>
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="flex items-center space-x-2">
-                <Settings className="h-4 w-4" />
-                <span>Settings</span>
-              </TabsTrigger>
-            </TabsList>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+        <div className="lg:col-span-3 space-y-10">
+           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="bg-slate-100 dark:bg-slate-950/40 p-1.5 rounded-2xl w-fit flex gap-1 mb-8 overflow-x-auto no-scrollbar">
+                 <TabsTrigger value="profile" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Identity Profile</TabsTrigger>
+                 <TabsTrigger value="activity" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Activity Pulse</TabsTrigger>
+                 <TabsTrigger value="settings" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Access Control</TabsTrigger>
+              </TabsList>
 
-            {/* Profile Tab */}
-            <TabsContent value="profile" className="space-y-6">
-              {/* Profile Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profile Information</CardTitle>
-                  <CardDescription>Basic user details and contact information</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-start space-x-6">
-                    <Avatar className="h-20 w-20 border-2 border-white dark:border-gray-800 shadow-lg">
-                      <AvatarImage src={`/avatars/${user.name.toLowerCase().replace(' ', '-')}.jpg`} />
-                      <AvatarFallback className="text-xl">
-                        {user.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Personal Info</h3>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center">
-                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                            <span>{user.email}</span>
+              <TabsContent value="profile" className="m-0 space-y-10 animate-in fade-in slide-in-from-bottom-2">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-10">
+                       <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-8">Nodal Specifications</h3>
+                       <div className="space-y-6">
+                          <div className="space-y-4">
+                             {[
+                               { label: "Entity Correspondence", value: user.email, icon: Mail },
+                               { label: "Temporal Join", value: new Date(user.createdAt).toLocaleDateString(), icon: Calendar },
+                               { label: "Academic Batch", value: user.batch || "UNCLASSIFIED", icon: GraduationCap },
+                               { label: "Professional Station", value: user.position || "INDEPENDENT", icon: Briefcase },
+                             ].map((item, i) => (
+                                <div key={i} className="flex items-center gap-4 py-4 border-b border-slate-50/50">
+                                   <div className="h-9 w-9 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300">
+                                      <item.icon className="h-4 w-4" />
+                                   </div>
+                                   <div>
+                                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{item.label}</p>
+                                      <p className="text-[11px] font-bold text-slate-900 uppercase italic leading-none">{item.value}</p>
+                                   </div>
+                                </div>
+                             ))}
                           </div>
-                          <div className="flex items-center">
-                            <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                            <span>{user.phone}</span>
-                          </div>
-                          <div className="flex items-center">
-                            <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                            <span>{user.location}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Education & Work</h3>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center">
-                            <GraduationCap className="h-4 w-4 mr-2 text-gray-400" />
-                            <span>Batch of {user.batch} • {user.degree}</span>
-                          </div>
-                          <div className="flex items-center">
-                            <Briefcase className="h-4 w-4 mr-2 text-gray-400" />
-                            <span>{user.position} at {user.company}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Bio</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">{user.bio}</p>
-                  </div>
+                       </div>
+                    </Card>
 
-                  <div className="mt-6">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Skills</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {user.skills.map((skill, index) => (
-                        <Badge key={index} variant="secondary">
-                          {skill}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    <div className="space-y-8">
+                       <Card className="border-none shadow-sm rounded-[3rem] bg-indigo-600 p-10 text-white relative overflow-hidden group">
+                          <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-1000 rotate-12">
+                             <TrendingUp className="h-48 w-48" />
+                          </div>
+                          <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-8 relative z-10">Synergy Metrics</h3>
+                          <div className="grid grid-cols-2 gap-8 relative z-10">
+                             <div>
+                                <p className="text-4xl font-bold tracking-tighter mb-1">{user.metadata?.connections || 0}</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100/60">Node Integrity</p>
+                             </div>
+                             <div>
+                                <p className="text-4xl font-bold tracking-tighter mb-1">{user.metadata?.eventsAttended || 0}</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100/60">Asset Cluster</p>
+                             </div>
+                          </div>
+                       </Card>
 
-              {/* Statistics */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>User Statistics</CardTitle>
-                  <CardDescription>Platform engagement and activity metrics</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{user.connections}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Connections</div>
+                       <Card className="border-none shadow-sm rounded-[3rem] bg-slate-900 p-10 text-white relative overflow-hidden">
+                          <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-6">Profile Synthesis</h3>
+                          <div className="space-y-4">
+                             <div className="flex justify-between items-end mb-2">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verification Rate</p>
+                                <p className="text-sm font-bold italic">{user.metadata?.profileCompletion || 0}%</p>
+                             </div>
+                             <Progress value={user.metadata?.profileCompletion || 0} className="h-2 bg-white/10" />
+                          </div>
+                       </Card>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{user.eventsAttended}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Events Attended</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{user.jobsPosted}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Jobs Posted</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">${user.donations.toLocaleString()}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Total Donated</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                 </div>
 
-            {/* Activity Tab */}
-            <TabsContent value="activity">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>User actions and system interactions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border">
+                 {user.bio && (
+                    <Card className="border-none shadow-sm rounded-[3rem] bg-white/40 p-10">
+                       <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-6">Manifest Narrative</h3>
+                       <p className="text-sm font-medium text-slate-500 leading-relaxed italic">{user.bio}</p>
+                    </Card>
+                 )}
+              </TabsContent>
+
+              <TabsContent value="activity" className="m-0 animate-in fade-in slide-in-from-bottom-2">
+                 <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden">
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Action</TableHead>
-                          <TableHead>Device</TableHead>
-                          <TableHead>IP Address</TableHead>
-                          <TableHead>Timestamp</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {activityLog.map((activity) => (
-                          <TableRow key={activity.id}>
-                            <TableCell className="font-medium">{activity.action}</TableCell>
-                            <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                              {activity.device}
-                            </TableCell>
-                            <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                              {activity.ip}
-                            </TableCell>
-                            <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                              {new Date(activity.timestamp).toLocaleString()}
-                            </TableCell>
+                       <TableHeader className="bg-slate-50/50">
+                          <TableRow className="border-none hover:bg-transparent">
+                             <TableHead className="px-10 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Temporal Action</TableHead>
+                             <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Identity Device</TableHead>
+                             <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Node IP</TableHead>
+                             <TableHead className="px-10 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-right">Verification</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
+                       </TableHeader>
+                       <TableBody>
+                          {activity.map((item) => (
+                             <TableRow key={item.id} className="border-b border-slate-50/50 hover:bg-white/40 transition-all">
+                                <TableCell className="px-10 py-6">
+                                   <div className="flex items-center gap-3">
+                                      <Activity className="h-3.5 w-3.5 text-blue-400" />
+                                      <span className="text-sm font-bold text-slate-900 uppercase italic">{item.action}</span>
+                                   </div>
+                                </TableCell>
+                                <TableCell className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.device || "SYSTEM"}</TableCell>
+                                <TableCell className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.ip || "LOCAL"}</TableCell>
+                                <TableCell className="px-10 text-right">
+                                   <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">{new Date(item.timestamp).toLocaleTimeString()}</span>
+                                </TableCell>
+                             </TableRow>
+                          ))}
+                       </TableBody>
                     </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Connections Tab */}
-            <TabsContent value="connections">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Connections</CardTitle>
-                  <CardDescription>Users recently connected with</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {connections.map((connection) => (
-                      <div key={connection.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src={`/avatars/${connection.name.toLowerCase().replace(' ', '-')}.jpg`} />
-                            <AvatarFallback>
-                              {connection.name.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-white">
-                              {connection.name}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {connection.role}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Connected {new Date(connection.connected).toLocaleDateString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Settings Tab */}
-            <TabsContent value="settings">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Settings</CardTitle>
-                  <CardDescription>Manage user permissions and access</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Account Status</h4>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Status</span>
-                          <Badge className={getStatusBadge(user.status)}>
-                            {user.status}
-                          </Badge>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Role</span>
-                          <Badge className={getRoleBadge(user.role)}>
-                            {user.role}
-                          </Badge>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Profile Completion</span>
-                          <span className="text-sm font-medium">{user.profileCompletion}%</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Dates</h4>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Joined</span>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {new Date(user.joinDate).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Last Active</span>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {new Date(user.lastActive).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-6">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <Button variant="outline" className="justify-start">
-                        <Mail className="h-4 w-4 mr-2" />
-                        Send Message
-                      </Button>
-                      <Button variant="outline" className="justify-start">
-                        <Shield className="h-4 w-4 mr-2" />
-                        Reset Password
-                      </Button>
-                      <Button variant="outline" className="justify-start">
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Profile
-                      </Button>
-                      {user.status === "active" ? (
-                        <Button variant="outline" className="justify-start text-red-600 hover:text-red-700">
-                          Suspend Account
-                        </Button>
-                      ) : (
-                        <Button variant="outline" className="justify-start text-green-600 hover:text-green-700">
-                          Activate Account
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                 </Card>
+              </TabsContent>
+           </Tabs>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Account Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Overview</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Status</span>
-                <Badge className={getStatusBadge(user.status)}>
-                  {user.status}
-                </Badge>
+        {/* Action Sidebar */}
+        <div className="space-y-8">
+           <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 backdrop-blur-xl p-8">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic mb-8">Identity Governance</h4>
+              <div className="space-y-2">
+                 {[
+                   { label: "Dispatch Relay", icon: Mail, sub: "Message Protocol" },
+                   { label: "Recalibrate Role", icon: UserCog, sub: "Access Elevation" },
+                   { label: "Export Payload", icon: Download, sub: "JSON Object" },
+                   { label: "Audit Account", icon: History, sub: "System Check" }
+                 ].map((action, i) => (
+                    <button 
+                       key={i} 
+                       className="w-full flex items-center justify-between p-5 rounded-2xl hover:bg-slate-50 transition-all group"
+                    >
+                       <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-slate-300 group-hover:text-blue-600 transition-colors">
+                             <action.icon className="h-4 w-4" />
+                          </div>
+                          <div className="text-left">
+                             <p className="text-[11px] font-bold text-slate-900 uppercase italic leading-none">{action.label}</p>
+                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">{action.sub}</p>
+                          </div>
+                       </div>
+                       <ChevronRight className="h-3.5 w-3.5 text-slate-100 group-hover:text-slate-400 transition-transform" />
+                    </button>
+                 ))}
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Role</span>
-                <Badge className={getRoleBadge(user.role)}>
-                  {user.role}
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Joined</span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {new Date(user.joinDate).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Last Active</span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {new Date(user.lastActive).toLocaleDateString()}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+           </Card>
 
-          {/* Statistics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Engagement Metrics</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Users className="h-4 w-4 mr-2 text-blue-500" />
-                  <span className="text-sm">Connections</span>
-                </div>
-                <span className="font-medium">{user.connections}</span>
+           <Card className="border-none shadow-sm rounded-[2.5rem] bg-slate-900 p-8 text-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 h-32 w-32 bg-rose-500/20 blur-3xl rounded-full translate-x-12 -translate-y-12"></div>
+              <div className="relative z-10 flex flex-col gap-6">
+                 <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-md">
+                    <Ban className="h-6 w-6 text-rose-400" />
+                 </div>
+                 <div>
+                    <h4 className="text-xl font-bold uppercase italic tracking-tighter">Restriction Protocols</h4>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-2 leading-loose">Suspending an identity node terminates all active synergy links. Permanent deletion is irreversible.</p>
+                 </div>
+                 <div className="grid grid-cols-2 gap-3">
+                    <Button variant="ghost" className="h-12 rounded-2xl border border-white/10 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-white/5">Suspend</Button>
+                    <Button variant="ghost" className="h-12 rounded-2xl border border-white/10 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white transition-all">Terminate</Button>
+                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2 text-green-500" />
-                  <span className="text-sm">Events Attended</span>
-                </div>
-                <span className="font-medium">{user.eventsAttended}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Briefcase className="h-4 w-4 mr-2 text-purple-500" />
-                  <span className="text-sm">Jobs Posted</span>
-                </div>
-                <span className="font-medium">{user.jobsPosted}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Shield className="h-4 w-4 mr-2 text-orange-500" />
-                  <span className="text-sm">Total Donations</span>
-                </div>
-                <span className="font-medium">${user.donations.toLocaleString()}</span>
-              </div>
-            </CardContent>
-          </Card>
+           </Card>
 
-          {/* Admin Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Admin Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
-                <Mail className="h-4 w-4 mr-2" />
-                Send Email
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Shield className="h-4 w-4 mr-2" />
-                Change Role
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Permissions
-              </Button>
-              <div className="border-t pt-3">
-                <Button variant="outline" className="w-full justify-start text-red-600 hover:text-red-700">
-                  Export User Data
-                </Button>
+           <div className="p-8 rounded-[2.5rem] bg-indigo-50/50 flex flex-col gap-4 text-center">
+              <div className="h-12 w-12 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto">
+                 <ShieldAlert className="h-6 w-6 text-indigo-400" />
               </div>
-            </CardContent>
-          </Card>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">Security Index: Verified</p>
+           </div>
         </div>
       </div>
+
+      <footer className="pt-10 border-t border-slate-50 flex items-center justify-center">
+         <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Integrated Identity Matrix v1.4.2 • Verification Protocol Active</p>
+      </footer>
     </div>
   );
 }

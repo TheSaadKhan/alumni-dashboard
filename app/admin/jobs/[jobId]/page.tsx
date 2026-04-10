@@ -1,20 +1,67 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Button 
+} from "@/components/ui/button";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle,
+  CardFooter
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { 
+  Avatar, 
+  AvatarFallback, 
+  AvatarImage 
+} from "@/components/ui/avatar";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Briefcase, Building2, MapPin, DollarSign, Calendar, Users, Mail, Download, BarChart3, Edit } from "lucide-react";
+import { 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger 
+} from "@/components/ui/tabs";
+import { 
+  ArrowLeft, 
+  Briefcase, 
+  Building2, 
+  MapPin, 
+  DollarSign, 
+  Calendar, 
+  Users, 
+  Mail, 
+  Download, 
+  BarChart3, 
+  Edit,
+  ChevronRight,
+  Activity,
+  Zap,
+  Clock,
+  ExternalLink,
+  ShieldCheck,
+  TrendingUp,
+  FileText,
+  Trash2,
+  RefreshCw
+} from "lucide-react";
 
 export default function JobDetailPage() {
   const params = useParams();
   const router = useRouter();
 
-  // Mock job data - in real app, fetch based on jobId
+  // Mock job data
   const job = {
     id: params.jobId,
     title: "Senior Software Engineer",
@@ -52,448 +99,207 @@ export default function JobDetailPage() {
     topSkills: ["React", "Node.js", "TypeScript", "AWS"]
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      published: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      draft: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-      expired: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-      archived: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-    };
-    return styles[status as keyof typeof styles] || "bg-gray-100 text-gray-800";
-  };
-
-  const getTypeBadge = (type: string) => {
-    const styles = {
-      "full-time": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      "part-time": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      contract: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-      internship: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
-    };
-    return styles[type as keyof typeof styles] || "bg-gray-100 text-gray-800";
-  };
-
-  const getApplicationStatusBadge = (status: string) => {
-    const styles = {
-      review: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-      interview: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      accepted: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-    };
-    return styles[status as keyof typeof styles] || "bg-gray-100 text-gray-800";
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/admin/jobs")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Job Details</h1>
-            <p className="text-gray-600 dark:text-gray-400">Manage job posting and applications</p>
-          </div>
+    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-10 animate-in fade-in duration-700">
+      {/* Job Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="flex items-center gap-4">
+           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900" onClick={() => router.push("/admin/jobs")}>
+              <ArrowLeft className="h-4 w-4" />
+           </Button>
+           <div>
+              <div className="flex items-center gap-2 mb-1">
+                 <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Market Orchestration</span>
+                 <div className="h-1 w-1 rounded-full bg-slate-300"></div>
+                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Asset Verification</span>
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white uppercase italic tracking-tighter">{job.title}</h1>
+           </div>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Job
-          </Button>
-          <Button className="bg-indigo-600 hover:bg-indigo-700">
-            <Briefcase className="h-4 w-4 mr-2" />
-            Manage Posting
-          </Button>
+        <div className="flex items-center gap-3">
+           <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-400 px-6 uppercase text-[10px] tracking-widest">
+              <Edit className="h-4 w-4 mr-3" /> Recalibrate
+           </Button>
+           <Button className="h-11 rounded-xl font-bold px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/10 uppercase text-[10px] tracking-widest">
+              <Briefcase className="h-4 w-4 mr-3" /> Manage Node
+           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="applications">Applications</TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+        <div className="lg:col-span-3 space-y-10">
+           <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="bg-slate-100 dark:bg-slate-950/40 p-1.5 rounded-2xl w-fit flex gap-1 mb-8 overflow-x-auto no-scrollbar">
+                 <TabsTrigger value="overview" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Node Overview</TabsTrigger>
+                 <TabsTrigger value="applications" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Identity Registry ({applications.length})</TabsTrigger>
+                 <TabsTrigger value="analytics" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Market Performance</TabsTrigger>
+              </TabsList>
 
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              {/* Job Details */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Job Information</CardTitle>
-                  <CardDescription>Job posting details and requirements</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <Badge className={getTypeBadge(job.type)}>
-                      {job.type}
-                    </Badge>
-                    <Badge className={getStatusBadge(job.status)}>
-                      {job.status}
-                    </Badge>
-                  </div>
-                  
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{job.title}</h2>
-                  <div className="flex items-center text-lg text-gray-600 dark:text-gray-300">
-                    <Building2 className="h-5 w-5 mr-2" />
-                    {job.company}
-                  </div>
-                  
-                  <p className="text-gray-600 dark:text-gray-300">{job.description}</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm">
-                        <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                        {job.location}
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <DollarSign className="h-4 w-4 mr-2 text-gray-400" />
-                        {job.salary}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm">
-                        <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                        Posted {new Date(job.posted).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <Users className="h-4 w-4 mr-2 text-gray-400" />
-                        {job.applications} applications
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Requirements</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {job.requirements.map((requirement, index) => (
-                        <Badge key={index} variant="secondary">
-                          {requirement}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Application Stats */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Application Statistics</CardTitle>
-                  <CardDescription>Current application metrics and trends</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{job.applications}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Applications</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{job.views}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Views</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{statistics.applicationRate}%</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Apply Rate</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{statistics.avgMatchScore}%</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Avg Match</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Applications Tab */}
-            <TabsContent value="applications">
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <CardTitle>Job Applications</CardTitle>
-                      <CardDescription>Candidates who applied for this position</CardDescription>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export Applications
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Candidate</TableHead>
-                          <TableHead>Match Score</TableHead>
-                          <TableHead>Applied</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {applications.map((application) => (
-                          <TableRow key={application.id}>
-                            <TableCell>
-                              <div className="flex items-center space-x-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={`/avatars/${application.name.toLowerCase().replace(' ', '-')}.jpg`} />
-                                  <AvatarFallback>
-                                    {application.name.split(' ').map(n => n[0]).join('')}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-medium text-gray-900 dark:text-white">
-                                    {application.name}
-                                  </div>
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    {application.email}
-                                  </div>
+              <TabsContent value="overview" className="m-0 space-y-10 animate-in fade-in slide-in-from-bottom-2">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-10">
+                       <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-8">Asset Specification</h3>
+                       <div className="space-y-6">
+                          <div className="flex flex-wrap gap-2 mb-4">
+                             <Badge variant="outline" className="bg-blue-50 text-blue-600 border-none rounded-lg text-[9px] font-black uppercase tracking-widest px-3 py-1 italic">{job.type}</Badge>
+                             <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-none rounded-lg text-[9px] font-black uppercase tracking-widest px-3 py-1 italic">{job.status}</Badge>
+                          </div>
+                          <div className="flex items-center gap-3 mb-4">
+                             <Building2 className="h-4 w-4 text-slate-300" />
+                             <p className="text-sm font-bold text-slate-900 uppercase italic">{job.company}</p>
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-loose">{job.description}</p>
+                          <div className="grid grid-cols-1 gap-6 pt-6 border-t border-slate-50">
+                             <div className="flex items-center gap-4">
+                                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center">
+                                   <MapPin className="h-5 w-5 text-slate-300" />
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <Progress value={application.match} className="h-2 w-16" />
-                                <span className="text-sm font-medium">{application.match}%</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                              {new Date(application.applied).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={getApplicationStatusBadge(application.status)}>
-                                {application.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="sm">
-                                <Mail className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
+                                <div className="text-left">
+                                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Geographic Vertex</p>
+                                   <p className="text-sm font-bold text-slate-900 uppercase italic">{job.location}</p>
+                                </div>
+                             </div>
+                             <div className="flex items-center gap-4">
+                                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center">
+                                   <DollarSign className="h-5 w-5 text-slate-300" />
+                                </div>
+                                <div className="text-left">
+                                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Yield Projection</p>
+                                   <p className="text-sm font-bold text-slate-900 uppercase italic">{job.salary}</p>
+                                </div>
+                             </div>
+                          </div>
+                       </div>
+                    </Card>
+
+                    <Card className="border-none shadow-sm rounded-[3rem] bg-indigo-600 p-10 text-white relative overflow-hidden">
+                       <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-1000 rotate-12">
+                          <Activity className="h-48 w-48" />
+                       </div>
+                       <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-8 relative z-10">Market Pulse</h3>
+                       <div className="space-y-8 relative z-10">
+                          <div className="grid grid-cols-2 gap-8">
+                             <div>
+                                <p className="text-4xl font-bold tracking-tighter mb-1">{job.applications}</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100/60 mb-1">Total Identities</p>
+                                <p className="text-[9px] text-indigo-100/30 font-bold uppercase tracking-widest italic">Received Nodes</p>
+                             </div>
+                             <div>
+                                <p className="text-4xl font-bold tracking-tighter mb-1">{job.views}</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100/60 mb-1">Identity Views</p>
+                                <p className="text-[9px] text-indigo-100/30 font-bold uppercase tracking-widest italic">Interaction Pulse</p>
+                             </div>
+                          </div>
+                          <div className="pt-6 border-t border-white/10">
+                             <div className="flex justify-between items-center mb-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100/60">Recruitment Yield</p>
+                                <p className="text-sm font-bold italic">{statistics.applicationRate}%</p>
+                             </div>
+                             <Progress value={statistics.applicationRate} className="h-2 bg-white/20" />
+                          </div>
+                       </div>
+                    </Card>
+                 </div>
+              </TabsContent>
+
+              <TabsContent value="applications" className="m-0 animate-in fade-in slide-in-from-bottom-2">
+                 <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden">
+                    <Table>
+                       <TableHeader className="bg-slate-50/50">
+                          <TableRow className="border-none hover:bg-transparent">
+                             <TableHead className="px-10 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Candidate Identity</TableHead>
+                             <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Match Logic</TableHead>
+                             <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Protocol State</TableHead>
+                             <TableHead className="px-10 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-right">Telemetry</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
+                       </TableHeader>
+                       <TableBody>
+                          {applications.map((a) => (
+                             <TableRow key={a.id} className="border-b border-slate-50/50 hover:bg-white/40 transition-all group">
+                                <TableCell className="px-10 py-6">
+                                   <div className="flex items-center gap-4">
+                                      <Avatar className="h-10 w-10 rounded-xl border-2 border-white shadow-sm">
+                                         <AvatarImage src={`/avatars/${a.name.toLowerCase().replace(' ', '-')}.jpg`} />
+                                         <AvatarFallback className="bg-slate-900 text-white font-black text-[10px] italic">{a.name[0]}</AvatarFallback>
+                                      </Avatar>
+                                      <div>
+                                         <p className="text-sm font-bold text-slate-900 uppercase italic leading-none">{a.name}</p>
+                                         <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1.5 italic">{a.email}</p>
+                                      </div>
+                                   </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                   <div className="flex flex-col items-center gap-2">
+                                      <Progress value={a.match} className="h-1.5 w-16 bg-slate-100" />
+                                      <span className="text-[10px] font-black text-blue-600 italic">{a.match}% Hub Match</span>
+                                   </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                   <Badge className="bg-blue-50 text-blue-600 border-none rounded-lg text-[9px] font-black uppercase tracking-widest px-3 py-1 italic">{a.status}</Badge>
+                                </TableCell>
+                                <TableCell className="px-10 text-right">
+                                   <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-blue-50 text-slate-100 hover:text-slate-400 transition-colors"><Mail className="h-4 w-4" /></Button>
+                                </TableCell>
+                             </TableRow>
+                          ))}
+                       </TableBody>
                     </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Analytics Tab */}
-            <TabsContent value="analytics">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Job Analytics</CardTitle>
-                  <CardDescription>Performance metrics and insights</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Card>
-                      <CardContent className="p-6 text-center">
-                        <BarChart3 className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {statistics.applicationRate}%
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Application Rate</div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardContent className="p-6 text-center">
-                        <Users className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {statistics.viewToApply}
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Views per Application</div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardContent className="p-6 text-center">
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {statistics.avgMatchScore}%
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Average Match Score</div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="mt-6">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Top Required Skills</h4>
-                    <div className="space-y-2">
-                      {statistics.topSkills.map((skill, index) => (
-                        <div key={skill} className="flex items-center justify-between">
-                          <span className="text-sm">{skill}</span>
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {Math.round((1 - index * 0.2) * 100)}% match
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Settings Tab */}
-            <TabsContent value="settings">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Job Settings</CardTitle>
-                  <CardDescription>Manage job posting configuration</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Posting Details</h4>
-                      <div className="space-y-3 text-sm">
-                        <div className="flex justify-between">
-                          <span>Posted By</span>
-                          <span className="font-medium">{job.poster.name}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Contact Email</span>
-                          <span className="font-medium">{job.poster.email}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Posted Date</span>
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {new Date(job.posted).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Expires</span>
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {new Date(job.expires).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h4>
-                      <div className="space-y-2">
-                        <Button variant="outline" className="w-full justify-start">
-                          Extend Deadline
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start">
-                          Duplicate Job
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start">
-                          Pause Applications
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-6">
-                    <h4 className="font-semibold text-red-600 dark:text-red-400 mb-4">Danger Zone</h4>
-                    <div className="space-y-3">
-                      <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
-                        Close Job Posting
-                      </Button>
-                      <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
-                        Delete Job Posting
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                 </Card>
+              </TabsContent>
+           </Tabs>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Job Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Job Status</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Status</span>
-                <Badge className={getStatusBadge(job.status)}>
-                  {job.status}
-                </Badge>
+        {/* Action Sidebar */}
+        <div className="space-y-8">
+           <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 backdrop-blur-xl p-8">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic mb-8">Asset Control Protocol</h4>
+              <div className="space-y-2">
+                 {[
+                   { label: "Dispatch Relay", icon: Mail, sub: "Identity Message" },
+                   { label: "Registry Export", icon: Download, sub: "CSV Dataset" },
+                   { label: "Audit Match", icon: TrendingUp, sub: "Logic Recalibration" },
+                   { label: "Asset Settings", icon: Briefcase, sub: "Core Configuration" }
+                 ].map((action, i) => (
+                    <button 
+                       key={i} 
+                       className="w-full flex items-center justify-between p-5 rounded-2xl hover:bg-slate-50 transition-all group"
+                    >
+                       <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-slate-300 group-hover:text-blue-600 transition-colors">
+                             <action.icon className="h-4 w-4" />
+                          </div>
+                          <div className="text-left">
+                             <p className="text-[11px] font-bold text-slate-900 uppercase italic leading-none">{action.label}</p>
+                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">{action.sub}</p>
+                          </div>
+                       </div>
+                       <ChevronRight className="h-3.5 w-3.5 text-slate-100 group-hover:text-slate-400 transition-transform" />
+                    </button>
+                 ))}
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Type</span>
-                <Badge className={getTypeBadge(job.type)}>
-                  {job.type}
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Applications</span>
-                <span className="text-sm font-medium">{job.applications}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Days Remaining</span>
-                <span className="text-sm font-medium">
-                  {Math.ceil((new Date(job.expires).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+           </Card>
 
-          {/* Poster Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Job Poster</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center space-x-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={`/avatars/${job.poster.name.toLowerCase().replace(' ', '-')}.jpg`} />
-                  <AvatarFallback>
-                    {job.poster.name.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white">{job.poster.name}</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{job.poster.role}</p>
-                  <p className="text-xs text-gray-500">Batch of {job.poster.batch}</p>
-                </div>
+           <Card className="border-none shadow-sm rounded-[2.5rem] bg-slate-900 p-8 text-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 h-32 w-32 bg-rose-500/20 blur-3xl rounded-full translate-x-12 -translate-y-12"></div>
+              <div className="relative z-10 flex flex-col gap-6">
+                 <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-md">
+                    <Trash2 className="h-6 w-6 text-rose-400" />
+                 </div>
+                 <div>
+                    <h4 className="text-xl font-bold uppercase italic tracking-tighter">Danger Zone</h4>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-2 leading-loose">Asset termination is permanent. All candidate identity nodes will be disconnected. Proceed with extreme caution.</p>
+                 </div>
+                 <Button variant="ghost" className="w-full h-12 rounded-2xl border border-white/10 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white transition-all">
+                    Terminiate Asset Node
+                 </Button>
               </div>
-              <Button variant="outline" className="w-full">
-                <Mail className="h-4 w-4 mr-2" />
-                Contact Poster
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Admin Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Admin Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Details
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Mail className="h-4 w-4 mr-2" />
-                Contact Applicants
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Download className="h-4 w-4 mr-2" />
-                Export Data
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                View Reports
-              </Button>
-            </CardContent>
-          </Card>
+           </Card>
         </div>
       </div>
+
+      <footer className="pt-10 border-t border-slate-50 flex items-center justify-center">
+         <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Integrated Market Governor v1.1.2 • Career Nexus Analysis</p>
+      </footer>
     </div>
   );
 }

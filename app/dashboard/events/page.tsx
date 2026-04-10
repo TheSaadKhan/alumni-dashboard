@@ -1,245 +1,234 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, MapPin, Users, ArrowRight, Plus, Loader2 } from "lucide-react";
-import { Loading } from "@/components/ui/loading";
+import { 
+  Calendar, 
+  Clock, 
+  MapPin, 
+  Users, 
+  ArrowRight, 
+  Plus, 
+  Loader2, 
+  Video, 
+  Building2, 
+  Globe,
+  RefreshCw,
+  MoreVertical,
+  Ticket,
+  Search,
+  ChevronRight
+} from "lucide-react";
 import { toast } from "sonner";
+import { useAuthProfile } from "@/context/AuthContext";
+import { format } from "date-fns";
+import { Input } from "@/components/ui/input";
+import router from "next/router";
 
 export default function EventsPage() {
-  const { user, isLoaded } = useUser();
+  const { profile, loading: profileLoading } = useAuthProfile();
   const [filter, setFilter] = useState("all");
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [registering, setRegistering] = useState<string | null>(null);
+
+  const fetchEvents = useCallback(async () => {
+    if (!profile?.organizationId) return;
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/dashboard/events?organizationId=${profile.organizationId}&limit=12`);
+      if (res.ok) {
+        const data = await res.json();
+        setEvents(data.events || []);
+      }
+    } catch (err) {
+      toast.error("Failed to synchronize event nodes");
+    } finally {
+      setLoading(false);
+    }
+  }, [profile]);
 
   useEffect(() => {
-    async function loadData() {
-      if (!isLoaded || !user) return;
+    if (profile) fetchEvents();
+  }, [profile, fetchEvents]);
 
-      try {
-        // Get user's organization
-        const profileRes = await fetch(`/api/profile?authUserId=${user.id}`);
-        if (!profileRes.ok) throw new Error("Failed to load profile");
-        const profileData = await profileRes.json();
-        const profile = profileData.profile;
-
-        if (!profile) {
-          setLoading(false);
-          return;
-        }
-
-        // Get organizations
-        const orgsRes = await fetch("/api/organizations");
-        if (orgsRes.ok) {
-          const orgsData = await orgsRes.json();
-          if (orgsData.organizations && orgsData.organizations.length > 0) {
-            const orgId = orgsData.organizations[0].id;
-            setOrganizationId(orgId);
-
-            // Load events
-            const eventsRes = await fetch(`/api/events?organizationId=${orgId}`);
-            if (eventsRes.ok) {
-              const eventsData = await eventsRes.json();
-              setEvents(eventsData.events || []);
-            }
-          }
-        }
-      } catch (err: any) {
-        console.error("Failed to load events:", err);
-        toast.error("Failed to load events");
-      } finally {
-        setLoading(false);
+  const handleRegister = async (eventId: string) => {
+    setRegistering(eventId);
+    try {
+      const res = await fetch("/api/dashboard/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId }),
+      });
+      if (res.ok) {
+        toast.success("Successfully registered for event!");
+        fetchEvents();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to register for event");
       }
+    } catch (err) {
+      toast.error("Failed to register for event");
+    } finally {
+      setRegistering(null);
     }
-
-    loadData();
-  }, [isLoaded, user]);
-
-  const mockEvents = [
-    {
-      id: "1",
-      title: "Annual Alumni Reunion 2024",
-      description: "Join us for the biggest alumni gathering of the year with special guest speakers and networking sessions.",
-      date: "2024-06-15",
-      time: "18:00",
-      location: "University Main Campus",
-      type: "reunion",
-      attendees: 250,
-      maxAttendees: 300,
-      image: "/events/reunion.jpg",
-      status: "upcoming"
-    },
-    {
-      id: "2",
-      title: "Tech Industry Insights",
-      description: "Panel discussion with alumni leaders in technology sector sharing career insights and trends.",
-      date: "2024-05-20",
-      time: "14:00",
-      location: "Virtual Event",
-      type: "webinar",
-      attendees: 89,
-      maxAttendees: 200,
-      image: "/events/tech-panel.jpg",
-      status: "upcoming"
-    },
-    {
-      id: "3",
-      title: "Career Fair 2024",
-      description: "Connect with top employers and explore job opportunities across various industries.",
-      date: "2024-04-10",
-      time: "10:00",
-      location: "University Convention Center",
-      type: "career",
-      attendees: 150,
-      maxAttendees: 200,
-      image: "/events/career-fair.jpg",
-      status: "past"
-    }
-  ];
-
-  const filteredEvents = (events.length > 0 ? events : mockEvents).filter((event: any) => {
-    if (filter === "all") return true;
-    if (filter === "upcoming") {
-      const eventDate = new Date(event.starts_at || event.start_date || event.date);
-      return eventDate >= new Date() && (event.status === "published" || event.status === "upcoming" || !event.status);
-    }
-    if (filter === "past") {
-      const eventDate = new Date(event.starts_at || event.start_date || event.date);
-      return eventDate < new Date() || event.status === "past";
-    }
-    return event.status === filter;
-  });
-
-  const getEventTypeColor = (type: string) => {
-    const colors = {
-      reunion: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-      webinar: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      career: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      workshop: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
-    };
-    return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
 
-  if (loading) {
-    return <Loading text="Loading events..." />;
+  const filteredEvents = events.filter((event: any) => {
+    if (filter === "all") return true;
+    const eventDate = new Date(event.startsAt);
+    if (filter === "upcoming") return eventDate >= new Date();
+    if (filter === "past") return eventDate < new Date();
+    if (filter === "registered") return event.isRegistered;
+    return true;
+  });
+
+  if (profileLoading) {
+    return (
+       <div className="flex h-[60vh] items-center justify-center">
+          <RefreshCw className="h-6 w-6 animate-spin text-slate-200" />
+       </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-8 animate-in fade-in duration-700">
+      {/* Header Context */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Events</h1>
-          <p className="text-gray-600 dark:text-gray-400">Discover and join alumni events</p>
+           <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Operational Events</span>
+              <div className="h-1 w-1 rounded-full bg-slate-300"></div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{events.length} active engagements</span>
+           </div>
+           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Institutional Calendar</h1>
+           <p className="text-slate-500 font-medium mt-1">Discover workshops, seminars, and networking sessions.</p>
         </div>
         <Link href="/dashboard/events/create">
-          <Button className="bg-indigo-600 hover:bg-indigo-700">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Event
+          <Button className="h-12 rounded-xl font-bold px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/10">
+            <Plus className="h-4.5 w-4.5 mr-2" /> Publish Event
           </Button>
         </Link>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-        {["all", "upcoming", "past"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setFilter(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              filter === tab
-                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
+      {/* Protocol Filtering */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+         <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-950/40 rounded-xl">
+            {["all", "upcoming", "past", "registered"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setFilter(tab)}
+                className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  filter === tab
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+         </div>
+         <div className="relative group w-full md:w-64">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-500" />
+            <Input 
+               placeholder="Search event node..." 
+               className="h-11 pl-11 rounded-xl border-none bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest" 
+            />
+         </div>
       </div>
 
       {/* Events Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {filteredEvents.map((event) => (
-          <Card key={event.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start mb-2">
-                <Badge className={getEventTypeColor(event.type)}>
-                  {event.type}
-                </Badge>
-                <Badge variant={event.status === "upcoming" ? "default" : "secondary"}>
-                  {event.status}
-                </Badge>
-              </div>
-              <CardTitle className="text-lg">{event.title}</CardTitle>
-              <CardDescription className="line-clamp-2">
-                {event.description}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pb-3">
-              <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {new Date(event.starts_at || event.start_date || event.date).toLocaleDateString()}
+          <Card key={event.id} className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden group hover:translate-y-[-4px] transition-all duration-300 border border-transparent hover:border-slate-50 dark:hover:border-slate-800 flex flex-col">
+             <div className="h-40 relative group overflow-hidden">
+                <img 
+                   src={event.bannerUrl || "/assets/image/placeholder-event.png"} 
+                   alt={event.title} 
+                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                   onError={(e) => (e.currentTarget.src = "/assets/image/placeholder-event.png")}
+                />
+                <div className="absolute top-4 right-4 z-10 flex gap-2">
+                   <Badge className="bg-white/80 backdrop-blur-md rounded-lg text-[9px] font-black uppercase border-none text-slate-900 tracking-widest shadow-sm">
+                      {event.mode}
+                   </Badge>
+                   <Badge className="bg-blue-600 text-white rounded-lg text-[9px] font-black uppercase border-none tracking-widest shadow-sm">
+                      {event.eventType}
+                   </Badge>
                 </div>
-                {event.starts_at && (
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-2" />
-                    {new Date(event.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                )}
-                {event.time && (
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-2" />
-                    {event.time}
-                  </div>
-                )}
-                <div className="flex items-center">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  {event.location || "Location TBD"}
+                <div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+             </div>
+             <CardHeader className="p-8 pb-4 space-y-2">
+                <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white uppercase italic leading-none truncate">{event.title}</h3>
+                <p className="text-xs font-medium text-slate-400 line-clamp-2 leading-relaxed">{event.description || "Engagement details pending for this institutional node."}</p>
+             </CardHeader>
+             <CardContent className="p-8 pt-2 space-y-4 flex-1">
+                <div className="space-y-2">
+                   <div className="flex items-center gap-3 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl">
+                      <Calendar className="h-4 w-4 text-slate-300" />
+                      <span>{format(new Date(event.startsAt), "MMM do, yyyy")}</span>
+                   </div>
+                   <div className="flex items-center gap-3 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl">
+                      <MapPin className="h-4 w-4 text-slate-300" />
+                      <span className="truncate">{event.locationName || "Virtual Space"}</span>
+                   </div>
                 </div>
-                {(event.event_attendees || event.attendees) && (
-                  <div className="flex items-center">
-                    <Users className="h-4 w-4 mr-2" />
-                    {event.event_attendees?.length || event.attendees || 0} {event.max_registrations || event.maxAttendees ? `/ ${event.max_registrations || event.maxAttendees}` : ""} attending
-                  </div>
-                )}
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Link href={`/dashboard/events/${event.id}`} className="w-full">
-                <Button variant="outline" className="w-full group">
-                  View Details
-                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                <div className="flex items-center justify-between pt-2">
+                   <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-slate-300" />
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{event.registeredCount} Committed</span>
+                   </div>
+                   {event.isPaid && <Badge variant="secondary" className="bg-rose-50 text-rose-600 border-none font-black text-[9px]">PAID EVENT</Badge>}
+                </div>
+             </CardContent>
+             <CardFooter className="px-8 pb-8 pt-0 flex gap-3">
+                <Button variant="outline" className="flex-1 h-11 rounded-2xl font-bold uppercase tracking-widest text-[9px] border-none bg-slate-50 hover:bg-slate-100" onClick={() => router.push(`/dashboard/events/${event.slug || event.id}`)}>
+                   Examine
                 </Button>
-              </Link>
-            </CardFooter>
+                {event.isRegistered ? (
+                   <Button className="flex-1 h-11 rounded-2xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 font-bold uppercase tracking-widest text-[9px]" disabled>
+                      COMMITTED
+                   </Button>
+                ) : (
+                   <Button 
+                      className="flex-1 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-bold uppercase tracking-widest text-[9px] shadow-lg shadow-indigo-500/10"
+                      onClick={() => handleRegister(event.id)}
+                      disabled={registering === event.id || event.isFull}
+                   >
+                      {registering === event.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : "ENGAGE"}
+                   </Button>
+                )}
+             </CardFooter>
           </Card>
         ))}
       </div>
 
-      {filteredEvents.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              No events found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              There are no {filter === "all" ? "" : filter} events at the moment.
-            </p>
-            <Link href="/dashboard/events/create">
-              <Button className="bg-indigo-600 hover:bg-indigo-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Create First Event
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+      {filteredEvents.length === 0 && !loading && (
+        <div className="py-24 text-center flex flex-col items-center space-y-6">
+           <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center">
+              <Calendar className="h-8 w-8 text-slate-200" />
+           </div>
+           <div className="space-y-2">
+              <h4 className="text-xl font-bold italic uppercase tracking-tighter">Event Silence Detetced</h4>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-loose max-w-sm mx-auto">No engagements corresponding to the current protocol matrix were found.</p>
+           </div>
+        </div>
       )}
+
+      <footer className="pt-10 border-t border-slate-50 flex items-center justify-center">
+         <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Integrated Engagement Node v1.0 • Global Calendar</p>
+      </footer>
     </div>
   );
 }

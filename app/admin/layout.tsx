@@ -1,50 +1,74 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Users,
   Calendar,
   Briefcase,
-  BarChart3,
+  LayoutDashboard,
   Settings,
   DollarSign,
   Menu,
   X,
-  Shield,
-  Home,
   Bell,
   Search,
-  HelpCircle,
   LogOut,
   Sun,
   Moon,
   FileText,
-  UserCheck,
-  MessageSquare,
   PieChart,
-  Building,
-  Users2,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  UserCircle,
+  Activity,
+  Globe,
+  Plus,
+  ExternalLink,
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
+  AlertCircle
 } from "lucide-react";
-import clsx from "clsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useTheme } from "next-themes";
 import { useUser, SignOutButton } from "@clerk/nextjs";
+import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
 
 const adminNavigation = [
-  { name: "Dashboard", href: "/admin", icon: BarChart3 },
-  { name: "Users", href: "/admin/users", icon: Users2 },
-  { name: "Alumni", href: "/admin/alumni", icon: Users },
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { name: "Users", href: "/admin/users", icon: Users },
+  { name: "Alumni", href: "/admin/alumni", icon: UserCircle },
   { name: "Events", href: "/admin/events", icon: Calendar },
   { name: "Jobs", href: "/admin/jobs", icon: Briefcase },
   { name: "Donations", href: "/admin/donations", icon: DollarSign },
   { name: "Analytics", href: "/admin/analytics", icon: PieChart },
   { name: "Reports", href: "/admin/reports", icon: FileText },
-  { name: "Organizations", href: "/admin/organizations", icon: Building },
   { name: "Messages", href: "/admin/messages", icon: MessageSquare },
   { name: "Settings", href: "/admin/settings", icon: Settings },
+];
+
+const mockNotifications = [
+  { id: "1", title: "New Alumni Registration", description: "John Doe just registered as an alumnus.", type: "user", time: "2 min ago", unread: true },
+  { id: "2", title: "Job Post Pending", description: "TechCorp has posted a new Job requires approval.", type: "job", time: "1 hour ago", unread: true },
+  { id: "3", title: "Donation Received", description: "A new donation of $500 was received.", type: "donation", time: "3 hours ago", unread: false },
+  { id: "4", title: "Server Update", description: "The system will undergo maintenance at midnight.", type: "system", time: "5 hours ago", unread: false },
 ];
 
 export default function AdminLayout({
@@ -53,275 +77,303 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
+  const [mounted, setMounted] = useState(false);
 
-  // ✅ REAL USER INFO FROM CLERK
-  const initials =
-    user?.firstName?.[0]?.toUpperCase() ||
-    user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ||
-    "U";
+  const router = useRouter();
+  useEffect(() => {
+    setMounted(true);
+    const handleResize = () => {
+      if (window.innerWidth < 1024) setSidebarCollapsed(true);
+      else setSidebarCollapsed(false);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
-  const fullName =
-    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-    "Admin User";
+  if (!mounted || !isLoaded) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Activity className="h-5 w-5 animate-pulse text-slate-300" />
+      </div>
+    );
+  }
 
-  const email = user?.emailAddresses?.[0]?.emailAddress || "—";
+  const initials = user?.firstName?.[0]?.toUpperCase() || "A";
+  const fullName = `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "Admin";
 
-  // ✅ NOTIFICATIONS (API READY – MOCK SAFE)
-  const notifications = [
-    { id: 1, text: "New user registration pending", time: "5 min ago", read: false },
-    { id: 2, text: "Event approval required", time: "1 hour ago", read: false },
-    { id: 3, text: "Weekly admin report generated", time: "2 hours ago", read: true },
-  ];
-
-  const unreadNotifications = notifications.filter((n) => !n.read).length;
+  const unreadCount = mockNotifications.filter(n => n.unread).length;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* ================= SIDEBAR ================= */}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex selection:bg-blue-100 selection:text-blue-900">
+      {/* Mobile Sidebar */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-64 p-0 border-none bg-white dark:bg-slate-900">
+          <MobileSidebar
+            pathname={pathname}
+            fullName={fullName}
+            initials={initials}
+            setMobileMenuOpen={setMobileMenuOpen}
+            theme={theme}
+            setTheme={setTheme}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop Sidebar */}
       <aside
-        className={clsx(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border transition-transform duration-300",
-          mobileMenuOpen
-            ? "translate-x-0 shadow-2xl"
-            : "-translate-x-full lg:translate-x-0"
-        )}
+        className={`fixed inset-y-0 left-0 z-40 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 hidden lg:flex flex-col transition-all duration-300 ${sidebarCollapsed ? "w-20" : "w-64"}`}
       >
-        {/* LOGO */}
-        <div className="flex items-center justify-between p-6 border-b border-sidebar-border">
-          <Link href="/admin" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-glow">
-              <Shield className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold group-hover:gradient-text transition">
-                AlumniConnect
-              </h1>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full status-online"></span>
-                <p className="text-xs text-muted-foreground">Admin Panel</p>
-              </div>
-            </div>
-          </Link>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+        {/* Banner Logo */}
+        <div className="h-20 flex items-center px-6 border-b border-slate-100 dark:border-slate-800/50">
+           <Link href="/admin" className="flex items-center w-full justify-center lg:justify-start">
+              {sidebarCollapsed ? (
+                <Image src="/assets/image/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
+              ) : (
+                <Image src="/assets/image/bannerLogo.png" alt="AlumniConnect Logo" width={160} height={40} className="object-contain h-10 w-auto" />
+              )}
+           </Link>
         </div>
 
-        {/* USER CARD */}
-        <div className="p-6 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-12 h-12 gradient-primary rounded-full flex items-center justify-center shadow-glow">
-                <span className="text-lg font-bold text-white">{initials}</span>
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 status-online border-2 border-sidebar rounded-full flex items-center justify-center">
-                <UserCheck className="h-3 w-3 text-white" />
-              </div>
-            </div>
+        {/* Navigation */}
+        <ScrollArea className="flex-1 px-3 py-4">
+           <div className="space-y-1">
+              {adminNavigation.map((item) => {
+                 const isActive = pathname === item.href;
+                 return (
+                    <Link
+                       key={item.href}
+                       href={item.href}
+                       className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isActive 
+                          ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 font-semibold shadow-sm" 
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white"
+                       } ${sidebarCollapsed ? "justify-center" : ""}`}
+                    >
+                       <item.icon className="h-4 w-4" />
+                       {!sidebarCollapsed && (
+                          <span className="text-sm">{item.name}</span>
+                       )}
+                    </Link>
+                 );
+              })}
+           </div>
+        </ScrollArea>
 
-            <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">{fullName}</p>
-              <p className="text-xs text-muted-foreground">Super Admin</p>
-              <p className="text-xs text-primary font-medium truncate">
-                {email}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* NAVIGATION */}
-        <nav className="p-4 flex-1 overflow-y-auto space-y-1">
-          {adminNavigation.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              pathname?.startsWith(item.href + "/");
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={clsx(
-                  "sidebar-nav-item",
-                  isActive && "active"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className="h-4 w-4" />
-                  <span>{item.name}</span>
-                </div>
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 gap-2 flex flex-col">
+           <Button
+              variant="outline"
+              size={sidebarCollapsed ? "icon" : "sm"}
+              className="w-full text-slate-500 hover:text-blue-600 rounded-lg h-9"
+              asChild
+           >
+              <Link href="/" target="_blank">
+                <ExternalLink className="h-4 w-4" />
+                {!sidebarCollapsed && <span className="ml-2 text-xs font-semibold">Live Site</span>}
               </Link>
-            );
-          })}
-        </nav>
-
-        {/* SIDEBAR FOOTER */}
-        <div className="p-4 border-t border-sidebar-border space-y-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          >
-            {theme === "dark" ? (
-              <Sun className="h-4 w-4 mr-3 text-yellow-400" />
-            ) : (
-              <Moon className="h-4 w-4 mr-3" />
-            )}
-            {theme === "dark" ? "Light Mode" : "Dark Mode"}
-          </Button>
-
-          <SignOutButton>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-destructive"
-            >
-              <LogOut className="h-4 w-4 mr-3" />
-              Logout
-            </Button>
-          </SignOutButton>
+           </Button>
+           <div className="flex gap-1">
+              <Button
+                 variant="ghost"
+                 size="icon"
+                 className="flex-1 h-9 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              >
+                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+              <SignOutButton>
+                 <Button variant="ghost" size="icon" className="flex-1 h-9 rounded-md text-slate-400 hover:text-rose-500">
+                    <LogOut className="h-4 w-4" />
+                 </Button>
+              </SignOutButton>
+           </div>
         </div>
       </aside>
 
-      {/* ================= MAIN CONTENT ================= */}
-      <div className="lg:ml-64 flex min-h-screen flex-col">
-        {/* TOP BAR */}
-        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur border-b border-border">
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex h-16 items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="lg:hidden"
-                  onClick={() => setMobileMenuOpen(true)}
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-
-                <div>
-                  <h1 className="text-xl font-bold">Admin Dashboard</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Manage your alumni community
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* SEARCH */}
-                <div className="relative hidden md:block">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    className="pl-10 pr-4 py-2 w-64 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                {/* NOTIFICATIONS */}
-                <div className="relative">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setNotificationsOpen(!notificationsOpen)}
-                  >
-                    <Bell className="h-5 w-5" />
-                    {unreadNotifications > 0 && (
-                      <span className="notification-dot" />
-                    )}
-                  </Button>
-
-                  {notificationsOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-30"
-                        onClick={() => setNotificationsOpen(false)}
-                      />
-                      <div className="absolute right-0 mt-2 w-80 glass-card z-40">
-                        <div className="p-4 border-b border-border">
-                          <h3 className="font-semibold">Notifications</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {unreadNotifications} unread
-                          </p>
-                        </div>
-
-                        <div className="max-h-96 overflow-y-auto">
-                          {notifications.map((notification) => (
-                            <div
-                              key={notification.id}
-                              className={clsx(
-                                "p-4 border-b border-border hover:bg-muted cursor-pointer",
-                                !notification.read && "bg-primary/5"
-                              )}
-                            >
-                              <p className="text-sm">{notification.text}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {notification.time}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* BACK TO MAIN */}
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/dashboard" className="hidden sm:flex items-center">
-                    <Home className="h-4 w-4 mr-2" />
-                    Back to Main
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* PAGE CONTENT */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto space-y-6">
-            {children}
-          </div>
-        </main>
-
-        {/* FOOTER */}
-        <footer className="border-t border-border bg-background/50 p-4">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center text-sm text-muted-foreground gap-2">
-            <span>© {new Date().getFullYear()} AlumniConnect. All rights reserved.</span>
-
+      {/* Main Content Area */}
+      <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "lg:ml-20" : "lg:ml-64"}`}>
+         {/* Topbar */}
+         <header className="sticky top-0 z-30 h-16 bg-white/80 dark:bg-slate-950/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b border-slate-200 dark:border-slate-800 px-6 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/admin/help" className="hover:text-primary">
-                <HelpCircle className="h-4 w-4 inline mr-1" />
-                Help Center
-              </Link>
-              <Link href="/admin/settings" className="hover:text-primary">
-                Settings
-              </Link>
+               <Button
+                 variant="ghost"
+                 size="icon"
+                 className="lg:hidden h-9 w-9"
+                 onClick={() => setMobileMenuOpen(true)}
+               >
+                 <Menu className="h-5 w-5" />
+               </Button>
+               <Button
+                 variant="ghost"
+                 size="icon"
+                 className="hidden lg:flex h-9 w-9 text-slate-400 hover:text-slate-900"
+                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+               >
+                 {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+               </Button>
+               <div className="hidden md:flex flex-col">
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white leading-none">Admin Hub</h2>
+                  <p className="text-[10px] text-slate-500 font-medium mt-1">Management Framework</p>
+               </div>
             </div>
-          </div>
-        </footer>
-      </div>
 
-      {/* MOBILE OVERLAY */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
+            <div className="flex items-center gap-3">
+               <div className="relative hidden lg:block group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-blue-500" />
+                  <Input 
+                    placeholder="Quick search..." 
+                    className="h-9 w-64 pl-9 rounded-lg border-slate-200 dark:border-slate-800 bg-slate-50 focus:bg-white transition-all text-xs" 
+                  />
+               </div>
+
+               {/* Notifications Popover */}
+               <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-slate-400 relative hover:bg-slate-100 transition-colors">
+                      <Bell className="h-4 w-4" />
+                      {unreadCount > 0 && (
+                        <span className="absolute top-2 right-2 h-2 w-2 bg-rose-600 rounded-full border-2 border-white dark:border-slate-950"></span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[320px] rounded-xl p-0 overflow-hidden border-none shadow-2xl">
+                    <div className="p-4 border-b bg-slate-50 dark:bg-slate-900 flex items-center justify-between">
+                       <h4 className="text-sm font-bold">Notifications</h4>
+                       <Badge variant="secondary" className="bg-blue-100 text-blue-600 rounded-full">{unreadCount} New</Badge>
+                    </div>
+                    <ScrollArea className="h-[350px]">
+                       {mockNotifications.map(notification => (
+                          <DropdownMenuItem key={notification.id} className="p-4 border-b border-slate-50 last:border-none focus:bg-slate-50 cursor-pointer">
+                             <div className="flex gap-3">
+                                <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${notification.unread ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                                   {notification.type === 'user' && <Users className="h-4 w-4" />}
+                                   {notification.type === 'job' && <Briefcase className="h-4 w-4" />}
+                                   {notification.type === 'donation' && <DollarSign className="h-4 w-4" />}
+                                   {notification.type === 'system' && <ShieldCheck className="h-4 w-4" />}
+                                </div>
+                                <div className="space-y-1">
+                                   <p className={`text-xs font-bold leading-tight ${notification.unread ? 'text-slate-900' : 'text-slate-500'}`}>{notification.title}</p>
+                                   <p className="text-[11px] text-slate-500 line-clamp-2">{notification.description}</p>
+                                   <p className="text-[10px] text-slate-400 flex items-center"><Clock className="h-3 w-3 mr-1" /> {notification.time}</p>
+                                </div>
+                             </div>
+                          </DropdownMenuItem>
+                       ))}
+                    </ScrollArea>
+                    <div className="p-2 border-t text-center bg-slate-50">
+                       <Button variant="ghost" size="sm" className="w-full text-[11px] font-bold text-blue-600 hover:bg-transparent">Clear All Notifications</Button>
+                    </div>
+                  </DropdownMenuContent>
+               </DropdownMenu>
+
+               <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex items-center gap-2 cursor-pointer group">
+                       <div className="text-right hidden sm:block">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white leading-none group-hover:text-blue-600 transition-colors">{fullName}</p>
+                          <p className="text-[9px] font-medium text-slate-400 mt-1 uppercase tracking-widest">Administrator</p>
+                       </div>
+                       <Avatar className="h-9 w-9 rounded-lg border-2 border-white dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                          <AvatarImage src={user?.imageUrl} />
+                          <AvatarFallback className="bg-slate-100 font-bold text-xs text-slate-600">{initials}</AvatarFallback>
+                       </Avatar>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 rounded-xl border-none shadow-2xl p-2 mt-2">
+                     <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-3 tracking-[0.2em] py-3">Security Access</DropdownMenuLabel>
+                     <DropdownMenuItem className="rounded-lg py-2 cursor-pointer text-xs font-bold"><UserCircle className="h-3.5 w-3.5 mr-2" /> Private Profile</DropdownMenuItem>
+                     <DropdownMenuItem className="rounded-lg py-2 cursor-pointer text-xs font-bold" onClick={() => router.push("/admin/settings")}><Settings className="h-3.5 w-3.5 mr-2" /> Nexus Settings</DropdownMenuItem>
+                     <DropdownMenuSeparator className="my-2 bg-slate-50" />
+                     <SignOutButton>
+                        <DropdownMenuItem className="rounded-lg py-2 cursor-pointer text-xs font-bold text-rose-500"><LogOut className="h-3.5 w-3.5 mr-2" /> Secure Termination</DropdownMenuItem>
+                     </SignOutButton>
+                  </DropdownMenuContent>
+               </DropdownMenu>
+            </div>
+         </header>
+
+         <main className="min-h-[calc(100vh-4rem)] relative overflow-hidden">
+            {children}
+         </main>
+      </div>
+    </div>
+  );
+}
+
+function MobileSidebar({
+  pathname,
+  fullName,
+  initials,
+  setMobileMenuOpen,
+  theme,
+  setTheme,
+}: {
+  pathname: string;
+  fullName: string;
+  initials: string;
+  setMobileMenuOpen: (open: boolean) => void;
+  theme: string | undefined;
+  setTheme: (theme: string) => void;
+}) {
+  return (
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900">
+       <div className="h-20 px-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/50">
+          <Image src="/assets/image/bannerLogo.png" alt="Logo" width={140} height={35} className="object-contain" />
+          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={() => setMobileMenuOpen(false)}>
+             <X className="h-5 w-5" />
+          </Button>
+       </div>
+
+       <ScrollArea className="flex-1 p-4">
+          <nav className="space-y-1">
+             {adminNavigation.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                   <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive 
+                         ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 font-bold" 
+                         : "text-slate-600 dark:text-slate-400 hover:bg-slate-50"
+                      }`}
+                   >
+                      <item.icon className="h-4.5 w-4.5" />
+                      <span className="text-sm">{item.name}</span>
+                   </Link>
+                );
+             })}
+          </nav>
+       </ScrollArea>
+
+       <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-2 bg-slate-50/50 dark:bg-slate-950/20">
+          <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+             <Avatar className="h-9 w-9 rounded-lg">
+                <AvatarFallback className="bg-blue-100 text-blue-600 font-bold text-xs">{initials}</AvatarFallback>
+             </Avatar>
+             <div>
+                <p className="font-bold text-xs text-slate-900 dark:text-white leading-none">{fullName}</p>
+                <p className="text-[9px] font-medium text-slate-400 mt-1 uppercase tracking-widest">Level: Root</p>
+             </div>
+          </div>
+          <Button
+            variant="ghost"
+            className="w-full h-11 justify-start px-3 text-xs font-bold uppercase tracking-widest rounded-xl"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4 mr-3" /> : <Moon className="h-4 w-4 mr-3" />}
+            {theme === "dark" ? "Light Mode" : "Dark Mode"}
+          </Button>
+          <SignOutButton>
+             <Button className="w-full h-11 justify-start px-3 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-rose-500 rounded-xl" onClick={() => setMobileMenuOpen(false)}>
+                <LogOut className="h-4 w-4 mr-3" /> Termination
+             </Button>
+          </SignOutButton>
+       </div>
     </div>
   );
 }

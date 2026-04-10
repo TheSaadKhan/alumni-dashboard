@@ -2,14 +2,16 @@
 
 import { SignIn } from "@clerk/nextjs";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 
 export default function SignInPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
+  const redirectUrl = searchParams.get("redirect") || searchParams.get("redirect_url") || "/";
 
   /**
    * ✅ If user is already logged in → ALWAYS send to `/`
@@ -19,9 +21,9 @@ export default function SignInPage() {
    */
   useEffect(() => {
     if (isLoaded && user) {
-      router.replace("/");
+      router.replace(redirectUrl);
     }
-  }, [isLoaded, user, router]);
+  }, [isLoaded, user, redirectUrl, router]);
 
   if (!isLoaded) {
     return (
@@ -120,14 +122,13 @@ export default function SignInPage() {
               }}
               routing="path"
               path="/sign-in"
-              signUpUrl="/sign-up"
+              signUpUrl={`/sign-up?redirect=${encodeURIComponent(redirectUrl)}`}
 
               /**
-               * ✅ ALWAYS send to `/`
-               * ✅ Middleware decides final destination
+               * ✅ Send Clerk through the auth callback so the app can sync the user record.
                */
-              afterSignInUrl="/"
-              redirectUrl="/"
+              afterSignInUrl={`/auth/callback?redirect_url=${encodeURIComponent(redirectUrl)}`}
+              redirectUrl={`/auth/callback?redirect_url=${encodeURIComponent(redirectUrl)}`}
             />
           </div>
         </div>

@@ -48,6 +48,14 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   const pathname = url.pathname;
 
   /**
+   * ✅ API ROUTES SHOULD NOT REDIRECT TO HTML PAGES
+   * Route handlers are responsible for returning proper 401/403 JSON.
+   */
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
+  /**
    * ✅ 0. NEVER TOUCH INTERNAL API
    */
   if (isInternalApi(req)) {
@@ -78,10 +86,13 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   let hasOrganization = true;
 
   try {
+    const profileHeaders = new Headers(req.headers);
+    profileHeaders.set("x-user-id", userId!);
+
     const profileRes = await fetch(
       `${req.nextUrl.origin}/api/internal/profile-status`,
       {
-        headers: { "x-user-id": userId! },
+        headers: profileHeaders,
         cache: "no-store",
       }
     );
@@ -137,27 +148,34 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   /**
-   * ✅ 5. PROFILE ENFORCEMENT
-   */
-  if (!hasProfile && pathname !== "/auth/complete-profile") {
-    url.pathname = "/auth/complete-profile";
-    return NextResponse.redirect(url);
-  }
-
-  if (!isProfileComplete && pathname !== "/auth/complete-profile") {
-    url.pathname = "/auth/complete-profile";
-    return NextResponse.redirect(url);
-  }
-
-  /**
-   * ✅ 6. SUPER ADMIN MUST CREATE ORGANIZATION
+   * ✅ 5. SUPER ADMIN MUST CREATE ORGANIZATION
    */
   if (
     userType === "super_admin" &&
     !hasOrganization &&
-    pathname !== "/setup-organization"
+    !pathname.startsWith("/auth/") &&
+    pathname !== "/organization/setup"
   ) {
-    url.pathname = "/setup-organization";
+    url.pathname = "/organization/setup";
+    return NextResponse.redirect(url);
+  }
+
+  /**
+   * ✅ 6. PROFILE ENFORCEMENT
+   */
+  // Exempt all /auth/* sub-pages, /onboarding, and /organization/setup from profile enforcement
+  const isCompletionFlow =
+    pathname.startsWith("/auth/") ||
+    pathname === "/onboarding" ||
+    pathname.startsWith("/organization/setup");
+
+  if (!hasProfile && !isCompletionFlow) {
+    url.pathname = "/auth/complete-profile";
+    return NextResponse.redirect(url);
+  }
+
+  if (!isProfileComplete && !isCompletionFlow) {
+    url.pathname = "/auth/complete-profile";
     return NextResponse.redirect(url);
   }
 

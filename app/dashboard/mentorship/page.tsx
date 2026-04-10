@@ -1,379 +1,296 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
-import { Target, Users, Calendar, MessageCircle, Star, BookOpen, GraduationCap } from "lucide-react";
+import { 
+  Target, 
+  Users, 
+  Calendar, 
+  MessageCircle, 
+  Star, 
+  BookOpen, 
+  GraduationCap, 
+  Loader2,
+  RefreshCw,
+  MoreVertical,
+  ChevronRight,
+  ShieldCheck,
+  Zap,
+  Plus
+} from "lucide-react";
+import { useAuthProfile } from "@/context/AuthContext";
+import { toast } from "sonner";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function MentorshipPage() {
+  const router = useRouter();
+  const { profile, loading: profileLoading } = useAuthProfile();
   const [activeTab, setActiveTab] = useState("mentors");
+  const [mentors, setMentors] = useState<any[]>([]);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const mentors = [
-    {
-      id: "1",
-      name: "Sarah Chen",
-      role: "Engineering Manager",
-      company: "TechCorp",
-      experience: "8 years",
-      expertise: ["Career Growth", "Technical Leadership", "Interview Prep"],
-      availability: "2 spots left",
-      rating: 4.9,
-      reviews: 47,
-      image: "/avatars/sarah-chen.jpg"
-    },
-    {
-      id: "2",
-      name: "Mike Rodriguez",
-      role: "Product Director",
-      company: "StartupXYZ",
-      experience: "10 years",
-      expertise: ["Product Management", "Startups", "Strategy"],
-      availability: "1 spot left",
-      rating: 4.8,
-      reviews: 32,
-      image: "/avatars/mike-rodriguez.jpg"
-    },
-    {
-      id: "3",
-      name: "Emily Davis",
-      role: "Senior UX Designer",
-      company: "DesignStudio",
-      experience: "6 years",
-      expertise: ["UX Research", "Design Systems", "Portfolio Review"],
-      availability: "3 spots left",
-      rating: 4.7,
-      reviews: 28,
-      image: "/avatars/emily-davis.jpg"
+  const fetchMentorshipData = useCallback(async () => {
+    if (!profile) return;
+    try {
+      setLoading(true);
+      const [mentorsRes, requestsRes] = await Promise.all([
+        fetch("/api/mentorship?type=mentors"),
+        fetch("/api/mentorship?type=requests")
+      ]);
+      if (mentorsRes.ok) setMentors((await mentorsRes.json()).mentors || []);
+      if (requestsRes.ok) {
+        const data = await requestsRes.json();
+        const reqData = data.requests || { sent: [], received: [] };
+        
+        // Flatten and normalize sent/received requests
+        const flattened = [
+          ...(reqData.sent || []).map((r: any) => ({ ...r })),
+          ...(reqData.received || []).map((r: any) => ({ 
+            ...r, 
+            mentee: r.student,
+            mentorId: profile.id // Mark user as the mentor for received requests
+          }))
+        ];
+        setRequests(flattened);
+      }
+    } catch (err) {
+      toast.error("Failed to synchronize mentorship nodes");
+    } finally {
+      setLoading(false);
     }
-  ];
+  }, [profile]);
 
-  const mentees = [
-    {
-      id: "1",
-      name: "Alex Johnson",
-      goal: "Transition to Product Management",
-      progress: 65,
-      nextSession: "Tomorrow, 3:00 PM",
-      sessionsCompleted: 4,
-      image: "/avatars/alex-johnson.jpg"
-    },
-    {
-      id: "2",
-      name: "Maria Garcia",
-      goal: "Improve Technical Leadership Skills",
-      progress: 40,
-      nextSession: "Jan 25, 2:00 PM",
-      sessionsCompleted: 2,
-      image: "/avatars/maria-garcia.jpg"
+  useEffect(() => {
+    if (profile) fetchMentorshipData();
+  }, [profile, fetchMentorshipData]);
+
+  const handleRequestMentor = async (mentorId: string) => {
+    try {
+      const res = await fetch("/api/mentorship", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mentorId,
+          goals: "Professional development and career guidance",
+          message: "I would like to request you as my mentor."
+        })
+      });
+      if (res.ok) {
+        toast.success("Mentorship request sent!");
+        fetchMentorshipData();
+      }
+    } catch (err) {
+      toast.error("Failed to transmit mentorship intent");
     }
-  ];
+  };
+
+  if (profileLoading) {
+    return (
+       <div className="flex h-[60vh] items-center justify-center">
+          <RefreshCw className="h-6 w-6 animate-spin text-slate-200" />
+       </div>
+    );
+  }
 
   const stats = {
-    totalMentors: 45,
-    activeMentorships: 2,
-    sessionsCompleted: 12,
-    hoursMentored: 18
+    totalMentors: mentors.length,
+    activeMentorships: requests.filter(r => r.status === 'accepted').length,
+    sessionsCompleted: 0,
+    hoursMentored: 0
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Mentorship</h1>
-        <p className="text-gray-600 dark:text-gray-400">Connect with mentors and guide the next generation</p>
+    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-8 animate-in fade-in duration-700">
+      {/* Mentorship Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+           <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Knowledge Nexus</span>
+              <div className="h-1 w-1 rounded-full bg-slate-300"></div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{stats.totalMentors} verified mentors</span>
+           </div>
+           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Professional Mentorship</h1>
+           <p className="text-slate-500 font-medium mt-1">Connect with industry veterans or guide the next generation of graduates.</p>
+        </div>
+        <div className="flex items-center gap-3">
+           <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-400 px-6">
+             <RefreshCw className="h-4 w-4 mr-2" /> Program Sync
+           </Button>
+           <Button className="h-11 rounded-xl font-bold px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/10">
+              <Plus className="h-4 w-4 mr-2" /> Become a Mentor
+           </Button>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalMentors}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Available Mentors</p>
+      {/* Grid Pulse Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { label: "Elite Mentors", value: stats.totalMentors, icon: GraduationCap, color: "text-blue-600", bg: "bg-blue-50" },
+          { label: "Active Links", value: stats.activeMentorships, icon: Target, color: "text-emerald-600", bg: "bg-emerald-50" },
+          { label: "Knowledge Hours", value: stats.hoursMentored, icon: BookOpen, color: "text-purple-600", bg: "bg-purple-50" },
+          { label: "Pending Intents", value: requests.length, icon: Calendar, color: "text-amber-600", bg: "bg-amber-50" },
+        ].map((s, i) => (
+          <Card key={i} className="border-none shadow-sm rounded-3xl overflow-hidden group">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className={`${s.bg} p-3 rounded-2xl transition-transform group-hover:scale-110 shadow-sm shadow-black/5`}>
+                <s.icon className={`h-5 w-5 ${s.color}`} />
               </div>
-              <Users className="h-8 w-8 text-indigo-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.activeMentorships}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Active Mentorships</p>
+              <div className="min-w-0">
+                <p className="text-2xl font-bold tracking-tighter">{s.value}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none mt-1">{s.label}</p>
               </div>
-              <Target className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.sessionsCompleted}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Sessions Completed</p>
-              </div>
-              <Calendar className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.hoursMentored}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Hours Mentored</p>
-              </div>
-              <BookOpen className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-        {["mentors", "my-mentorships", "become-mentor"].map((tab) => (
+      {/* Protocol Navigation */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-950/40 rounded-2xl w-fit">
+        {[
+          { id: "mentors", label: "Search Mentors" },
+          { id: "my-mentorships", label: "Direct Connections" },
+          { id: "apply", label: "Program Application" }
+        ].map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === tab
-                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-8 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              activeTab === tab.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
             }`}
           >
-            {tab.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Mentors Tab */}
-      {activeTab === "mentors" && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Available Mentors</h2>
-            <Button variant="outline">
-              <GraduationCap className="h-4 w-4 mr-2" />
-              Request Mentor
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Content Areas */}
+      <div className="relative z-10">
+        {activeTab === "mentors" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {mentors.map((mentor) => (
-              <Card key={mentor.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between mb-3">
-                    <Avatar className="h-16 w-16 border-2 border-white dark:border-gray-800 shadow-lg">
-                      <AvatarImage src={mentor.image} />
-                      <AvatarFallback>
-                        {mentor.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
+              <Card key={mentor.id} className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden group hover:translate-y-[-4px] transition-all duration-300 border border-transparent hover:border-slate-50 dark:hover:border-slate-800">
+                 <div className="h-24 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 flex items-end justify-center px-6 relative overflow-hidden group">
+                    <div className="absolute top-4 right-4 z-10">
+                       <Badge className="bg-white/80 backdrop-blur-md rounded-lg text-[9px] font-black uppercase border-none text-emerald-600 tracking-widest shadow-sm">
+                          {mentor.availableSlots > 0 ? `${mentor.availableSlots} SLOTS` : "FULL"}
+                       </Badge>
+                    </div>
+                 </div>
+                 <div className="px-6 -mt-10 relative z-10 flex flex-col items-center">
+                    <Avatar className="h-20 w-20 rounded-2xl border-4 border-white dark:border-slate-900 shadow-xl group-hover:scale-105 transition-transform">
+                       <AvatarImage src={mentor.image} />
+                       <AvatarFallback className="bg-slate-900 text-white font-black text-xl">{mentor.name?.[0]}</AvatarFallback>
                     </Avatar>
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                      {mentor.availability}
-                    </Badge>
-                  </div>
-                  <CardTitle className="text-lg">{mentor.name}</CardTitle>
-                  <CardDescription>
-                    {mentor.role} at {mentor.company}
-                  </CardDescription>
-                  <div className="flex items-center space-x-1 mt-1">
-                    <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {mentor.rating}
-                    </span>
-                    <span className="text-sm text-gray-500">({mentor.reviews} reviews)</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="pb-3">
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">Expertise</p>
-                      <div className="flex flex-wrap gap-1">
-                        {mentor.expertise.map((skill, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {skill}
+                    <div className="mt-4 text-center space-y-1">
+                       <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white uppercase italic truncate max-w-[180px]">{mentor.name}</h3>
+                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none truncate max-w-[180px]">{mentor.title || "Elite Professional"}</p>
+                    </div>
+                 </div>
+                 <CardContent className="p-8 pt-6 space-y-4">
+                    <div className="flex items-center gap-2 mb-2 justify-center">
+                       <Star className="h-3.5 w-3.5 text-amber-400 fill-current" />
+                       <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{mentor.experience || 0} Years Experience</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 justify-center">
+                       {(mentor.skills || mentor.topics || []).slice(0, 3).map((skill: string, index: number) => (
+                          <Badge key={index} variant="outline" className="text-[9px] uppercase tracking-widest font-black py-1 px-2.5 bg-slate-50 dark:bg-slate-800 border-none text-slate-400 rounded-lg">
+                             {skill}
                           </Badge>
-                        ))}
-                      </div>
+                       ))}
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">Experience</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{mentor.experience}</p>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex gap-2">
-                  <Button variant="outline" className="flex-1">
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Message
-                  </Button>
-                  <Button className="bg-indigo-600 hover:bg-indigo-700 flex-1">
-                    Request Session
-                  </Button>
-                </CardFooter>
+                 </CardContent>
+                 <CardFooter className="px-8 pb-8 pt-0 flex gap-3">
+                    <Button variant="outline" className="flex-1 h-11 rounded-2xl font-bold uppercase tracking-widest text-[9px] border-none bg-slate-50 hover:bg-slate-100" onClick={() => router.push(`/dashboard/network/${mentor.id}`)}>
+                       Identify
+                    </Button>
+                    <Button className="flex-1 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-bold uppercase tracking-widest text-[9px] shadow-lg shadow-indigo-500/10" onClick={() => handleRequestMentor(mentor.id)}>
+                       Connect
+                    </Button>
+                 </CardFooter>
               </Card>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* My Mentorships Tab */}
-      {activeTab === "my-mentorships" && (
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Active Mentorships</h2>
-          
-          {mentees.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {mentees.map((mentee) => (
-                <Card key={mentee.id}>
-                  <CardHeader>
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={mentee.image} />
-                        <AvatarFallback>
-                          {mentee.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
+        {activeTab === "my-mentorships" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {requests.map((req) => {
+              const other = req.mentorId === profile?.id ? req.mentee : req.mentor;
+              const isAccepted = req.status === 'accepted';
+              return (
+                <Card key={req.id} className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden group hover:translate-y-[-4px] transition-all duration-300">
+                   <CardHeader className="p-8 pb-4 flex flex-row items-center gap-4">
+                      <Avatar className="h-14 w-14 rounded-2xl border-2 border-white shadow-sm">
+                         <AvatarImage src={other?.avatarUrl} />
+                         <AvatarFallback className="bg-slate-900 text-white font-black">{other?.fullName?.[0]}</AvatarFallback>
                       </Avatar>
-                      <div>
-                        <CardTitle className="text-lg">{mentee.name}</CardTitle>
-                        <CardDescription>{mentee.goal}</CardDescription>
+                      <div className="flex-1 min-w-0">
+                         <div className="flex items-center justify-between mb-0.5">
+                            <h3 className="text-base font-bold uppercase italic truncate">{other?.fullName}</h3>
+                            <Badge className={`border-none font-black text-[9px] px-2 rounded-lg ${isAccepted ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                               {req.status.toUpperCase()}
+                            </Badge>
+                         </div>
+                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{req.mentorId === profile?.id ? "Institutional Mentee" : "Expert Mentor"}</p>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-gray-600 dark:text-gray-400">Progress</span>
-                        <span className="font-medium">{mentee.progress}%</span>
+                   </CardHeader>
+                   <CardContent className="px-8 pb-6 pt-2">
+                      <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-50">
+                         <p className="text-[10px] font-black uppercase text-slate-300 tracking-widest mb-2 flex items-center gap-2"><Target className="h-3 w-3" /> Targeted Goals</p>
+                         <p className="text-xs font-medium text-slate-500 italic leading-relaxed line-clamp-2">"{req.goals}"</p>
                       </div>
-                      <Progress value={mentee.progress} className="h-2" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-600 dark:text-gray-400">Next Session</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{mentee.nextSession}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600 dark:text-gray-400">Sessions Completed</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{mentee.sessionsCompleted}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex gap-2">
-                    <Button variant="outline" className="flex-1">
-                      Reschedule
-                    </Button>
-                    <Button className="bg-indigo-600 hover:bg-indigo-700 flex-1">
-                      Prepare Session
-                    </Button>
-                  </CardFooter>
+                   </CardContent>
+                   <CardFooter className="px-8 pb-8 pt-0 flex gap-3">
+                      <Button variant="outline" className="flex-1 h-11 rounded-2xl font-bold uppercase tracking-widest text-[9px] border-none bg-slate-50 hover:bg-slate-100" onClick={() => router.push(`/dashboard/messages?userId=${other?.id}`)}>
+                         <MessageCircle className="h-4 w-4 mr-2" /> Interface
+                      </Button>
+                      {isAccepted && (
+                        <Button className="flex-1 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-bold uppercase tracking-widest text-[9px] shadow-lg shadow-indigo-500/10">
+                           Schedule Cycle
+                        </Button>
+                      )}
+                   </CardFooter>
                 </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="text-center py-12">
-                <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  No active mentorships
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  You don't have any active mentorship relationships yet.
-                </p>
-                <Button 
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                  onClick={() => setActiveTab("mentors")}
-                >
-                  Find a Mentor
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
 
-      {/* Become Mentor Tab */}
-      {activeTab === "become-mentor" && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Become a Mentor</CardTitle>
-              <CardDescription>
-                Share your knowledge and experience with fellow alumni
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Benefits of Mentoring</h3>
-                  <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                    <li className="flex items-center">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                      Give back to the alumni community
-                    </li>
-                    <li className="flex items-center">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                      Enhance your leadership skills
-                    </li>
-                    <li className="flex items-center">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                      Expand your professional network
-                    </li>
-                    <li className="flex items-center">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                      Gain fresh perspectives
-                    </li>
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Requirements</h3>
-                  <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                    <li className="flex items-center">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                      Minimum 3 years professional experience
-                    </li>
-                    <li className="flex items-center">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                      Commitment to monthly sessions
-                    </li>
-                    <li className="flex items-center">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                      Willingness to share knowledge
-                    </li>
-                    <li className="flex items-center">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                      Active alumni association member
-                    </li>
-                  </ul>
-                </div>
+        {activeTab === "apply" && (
+           <Card className="border-none shadow-sm rounded-[3rem] bg-indigo-600 text-white overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
+              <div className="p-16 lg:p-24 flex flex-col items-center text-center space-y-8 relative z-10">
+                 <div className="h-20 w-20 bg-white/20 rounded-[2rem] flex items-center justify-center backdrop-blur-md">
+                    <ShieldCheck className="h-10 w-10 text-white" />
+                 </div>
+                 <div className="space-y-3">
+                    <h2 className="text-3xl lg:text-5xl font-black uppercase italic tracking-tighter">Institutional Mentor</h2>
+                    <p className="text-indigo-100 text-base lg:text-xl font-medium max-w-2xl leading-relaxed">Join the knowledge nexus as a verified mentor and contribute to the growth of students and young professionals within our institutional net.</p>
+                 </div>
+                 <div className="flex gap-4">
+                    <Button className="h-14 px-12 rounded-2xl bg-white text-indigo-600 hover:bg-indigo-50 font-black uppercase tracking-widest text-xs shadow-2xl">Initialize Application</Button>
+                    <Button variant="ghost" className="h-14 px-12 rounded-2xl border-none font-black uppercase tracking-widest text-xs text-white hover:bg-white/10">View Governance</Button>
+                 </div>
               </div>
-              
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <div className="flex items-start space-x-3">
-                  <GraduationCap className="h-6 w-6 text-blue-600 dark:text-blue-400 mt-0.5" />
-                  <div>
-                    <h4 className="font-semibold text-blue-900 dark:text-blue-100">
-                      Ready to make an impact?
-                    </h4>
-                    <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
-                      Join our mentorship program and help shape the next generation of professionals from our alumni community.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="bg-indigo-600 hover:bg-indigo-700 w-full">
-                Apply to Become a Mentor
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      )}
+           </Card>
+        )}
+      </div>
+
+      <footer className="pt-10 border-t border-slate-50 flex items-center justify-center">
+         <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Integrated Mentorship Node v1.0.4 • Knowledge Nexus</p>
+      </footer>
     </div>
   );
 }

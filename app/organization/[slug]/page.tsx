@@ -19,151 +19,367 @@ import {
   Filter, GraduationCap, UserPlus, PieChart, Eye, Activity 
 } from "lucide-react";
 
+import { prisma } from "@/lib/prisma";
+
 type Props = {
-  params?: { slug?: string };
+  params: { slug: string };
+};
+
+// Types based on Prisma schema
+type OrganizationWithRelations = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logoUrl: string | null;
+  website: string | null;
+  countryCode: string | null;
+  isActive: boolean;
+  isVerified: boolean;
+  planTier: string;
+  createdAt: Date;
+  updatedAt: Date;
+  settings: any;
+  metadata: any;
+  _count?: {
+    users: number;
+    events: number;
+    jobPostings: number;
+    groups: number;
+  };
+};
+
+type MemberWithProfile = {
+  id: string;
+  email: string;
+  fullName: string;
+  firstName: string;
+  avatarUrl: string | null;
+  userType: string;
+  status: string;
+  alumniProfile?: {
+    headline: string | null;
+    currentCompany: string | null;
+    currentTitle: string | null;
+    graduationYear: number | null;
+    city: string | null;
+    countryCode: string | null;
+  } | null;
+  studentProfile?: {
+    headline: string | null;
+    major: string | null;
+    expectedGraduation: number | null;
+    city: string | null;
+    countryCode: string | null;
+  } | null;
+  userRoles: Array<{
+    role: {
+      name: string;
+      slug: string;
+    };
+  }>;
 };
 
 /* =========================
- ✅ API HELPERS (Next.js 16 – FINAL FIX)
+   SERVER-SIDE DATA FETCHING
 ========================= */
 
-async function getOrganization(slug?: string) {
-  // ✅ HARD GUARD — PREVENTS ALL CRASHES
-  if (!slug || slug === "undefined") {
-    console.error("❌ getOrganization called with invalid slug:", slug);
-    return null;
-  }
-
+async function getOrganizationBySlug(slug: string) {
   try {
-    const res = await fetch(
-      `/api/organizations?slug=${encodeURIComponent(slug)}`,
-      {
-        cache: "no-store",
-        next: { revalidate: 0 },
+    const organization = await prisma.organization.findUnique({
+      where: { slug },
+      include: {
+        _count: {
+          select: {
+            users: {
+              where: { status: "active", deletedAt: null }
+            },
+            events: {
+              where: { deletedAt: null, cancelledAt: null }
+            },
+            jobPostings: {
+              where: { status: "active", deletedAt: null }
+            },
+            groups: {
+              where: { isArchived: false }
+            }
+          }
+        },
+        country: true,
       }
-    );
+    });
 
-    if (!res.ok) return null;
-    return res.json();
+    if (!organization) return null;
+
+    return {
+      ...organization,
+      settings: organization.settings as any || {},
+      metadata: organization.metadata as any || {},
+    };
   } catch (error) {
-    console.error("❌ Error fetching organization:", error);
+    console.error("Error fetching organization:", error);
     return null;
   }
 }
 
-async function getMembers(orgId?: string) {
-  if (!orgId || orgId === "undefined") {
-    console.error("❌ getMembers called with invalid orgId:", orgId);
-    return [];
-  }
-
+async function getOrganizationMembers(organizationId: string) {
   try {
-    const res = await fetch(
-      `/api/organizations/${encodeURIComponent(orgId)}/members`,
-      {
-        cache: "no-store",
-        next: { revalidate: 0 },
+    const members = await prisma.user.findMany({
+      where: {
+        organizationId,
+        status: "active",
+        deletedAt: null
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        firstName: true,
+        avatarUrl: true,
+        userType: true,
+        status: true,
+        alumniProfile: {
+          select: {
+            headline: true,
+            currentCompany: true,
+            currentTitle: true,
+            graduationYear: true,
+            city: true,
+            countryCode: true,
+          }
+        },
+        studentProfile: {
+          select: {
+            headline: true,
+            major: true,
+            expectedGraduation: true,
+            city: true,
+            countryCode: true,
+          }
+        },
+        userRoles: {
+          where: {
+            organizationId,
+            revokedAt: null,
+            OR: [
+              { expiresAt: null },
+              { expiresAt: { gt: new Date() } }
+            ]
+          },
+          select: {
+            role: {
+              select: {
+                name: true,
+                slug: true,
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
-    );
+    });
 
-    if (!res.ok) return [];
-    return res.json();
+    return members;
   } catch (error) {
-    console.error("❌ Error fetching members:", error);
+    console.error("Error fetching members:", error);
     return [];
   }
 }
 
-async function getOrganizationStats(orgId?: string) {
-  if (!orgId || orgId === "undefined") {
-    console.error("❌ getOrganizationStats called with invalid orgId:", orgId);
-    return null;
-  }
-
+async function getOrganizationEvents(organizationId: string) {
   try {
-    const res = await fetch(
-      `/api/organizations/${encodeURIComponent(orgId)}/stats`,
-      {
-        cache: "no-store",
-        next: { revalidate: 0 },
-      }
-    );
+    const events = await prisma.event.findMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+        cancelledAt: null,
+        isPublished: true,
+        endsAt: { gt: new Date() }
+      },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        description: true,
+        eventType: true,
+        mode: true,
+        locationName: true,
+        locationCity: true,
+        locationCountry: true,
+        startsAt: true,
+        endsAt: true,
+        maxCapacity: true,
+        registeredCount: true,
+        isPaid: true,
+        price: true,
+        bannerUrl: true,
+        organizer: {
+          select: {
+            fullName: true,
+            avatarUrl: true,
+          }
+        }
+      },
+      orderBy: {
+        startsAt: 'asc'
+      },
+      take: 10
+    });
 
-    if (!res.ok) return null;
-    return res.json();
+    return events;
   } catch (error) {
-    console.error("❌ Error fetching stats:", error);
+    console.error("Error fetching events:", error);
+    return [];
+  }
+}
+
+async function getOrganizationJobs(organizationId: string) {
+  try {
+    const jobs = await prisma.jobPosting.findMany({
+      where: {
+        organizationId,
+        status: "active",
+        deletedAt: null,
+        expiresAt: { gt: new Date() }
+      },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        description: true,
+        jobType: true,
+        locationCity: true,
+        locationCountry: true,
+        isRemote: true,
+        salaryMin: true,
+        salaryMax: true,
+        salaryCurrency: true,
+        companyName: true,
+        companyLogoUrl: true,
+        isUrgent: true,
+        isFeatured: true,
+        createdAt: true,
+        expiresAt: true,
+        applicationCount: true,
+      },
+      orderBy: [
+        { isFeatured: 'desc' },
+        { isUrgent: 'desc' },
+        { createdAt: 'desc' }
+      ],
+      take: 10
+    });
+
+    return jobs;
+  } catch (error) {
+    console.error("Error fetching jobs:", error);
+    return [];
+  }
+}
+
+async function getOrganizationStats(organizationId: string) {
+  try {
+    // Get last 30 days stats
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const [totalUsers, newUsersLast30Days, totalEvents, totalJobs, activeMembers] = await Promise.all([
+      prisma.user.count({
+        where: { organizationId, status: "active", deletedAt: null }
+      }),
+      prisma.user.count({
+        where: {
+          organizationId,
+          createdAt: { gte: thirtyDaysAgo },
+          deletedAt: null
+        }
+      }),
+      prisma.event.count({
+        where: { organizationId, deletedAt: null }
+      }),
+      prisma.jobPosting.count({
+        where: { organizationId, deletedAt: null, status: "active" }
+      }),
+      prisma.user.count({
+        where: {
+          organizationId,
+          lastSeenAt: { gte: thirtyDaysAgo },
+          status: "active"
+        }
+      })
+    ]);
+
+    const growthRate = totalUsers > 0 ? (newUsersLast30Days / totalUsers) * 100 : 0;
+    const memberEngagement = totalUsers > 0 ? (activeMembers / totalUsers) * 100 : 0;
+
+    return {
+      totalUsers,
+      newUsersLast30Days,
+      totalEvents,
+      totalJobs,
+      activeMembers,
+      growthRate: Math.round(growthRate * 10) / 10,
+      memberEngagement: Math.round(memberEngagement),
+    };
+  } catch (error) {
+    console.error("Error fetching stats:", error);
     return null;
   }
 }
 
 /* =========================
- ✅ PAGE COMPONENT
+   PAGE COMPONENT
 ========================= */
 
 export default async function OrganizationPage({ params }: Props) {
-  console.log("✅ slug:", 'sycet');
-  
-  // Fetch organization data
-  const organization = await getOrganization('sycet');
-  
-  // If organization not found, show 404
+  const { slug } = params;
+
+  if (!slug || slug === "undefined") {
+    notFound();
+  }
+
+  // Fetch all data in parallel
+  const [organization, members, events, jobs, stats] = await Promise.all([
+    getOrganizationBySlug(slug),
+    getOrganizationMembers(slug), // This needs org ID, adjust accordingly
+    getOrganizationEvents(slug),
+    getOrganizationJobs(slug),
+    getOrganizationStats(slug),
+  ]);
+
   if (!organization) {
     notFound();
   }
 
-  // Fetch additional data in parallel for better performance
-  const [members, stats] = await Promise.all([
-    getMembers(organization.id),
-    getOrganizationStats(organization.id)
-  ]);
+  // Get actual members with proper org ID
+  const organizationMembers = await getOrganizationMembers(organization.id);
+  const organizationEvents = await getOrganizationEvents(organization.id);
+  const organizationJobs = await getOrganizationJobs(organization.id);
+  const organizationStats = await getOrganizationStats(organization.id);
 
-  // Safely access nested properties with fallbacks
+  const settings = organization.settings || {};
   const metadata = organization.metadata || {};
-  const recentDonations = organization.recentDonations || [];
-  const recentAnalytics = organization.recentAnalytics || [];
-  const upcomingEvents = organization.upcomingEvents || [];
-  const activeJobs = organization.activeJobs || [];
-  const donationCampaigns = organization.donationCampaigns || [];
-  const analyticsMetrics = organization.analytics_metrics || [];
 
-  // Calculate totals with safe defaults
-  const totalDonations = recentDonations.reduce(
-    (sum: number, d: any) => sum + (Number(d.amount) || 0),
-    0
-  );
-
-  const recurringDonations = recentDonations.filter((d: any) => d.is_recurring).length;
-  const activeCampaigns = donationCampaigns.filter((c: any) => c.is_active).length;
-
-  // Calculate engagement metrics with safe fallbacks
-  const memberEngagement = stats?.memberEngagement || 72;
-  const eventAttendance = stats?.eventAttendance || 65;
-  const growthRate = stats?.growthRate || 12.5;
-  const completionRate = stats?.completionRate || 85;
-
-  // Get organization features from settings
-  const features = metadata.features || {
-    events: true,
-    jobs: true,
-    donations: true,
-    messaging: true,
-    analytics: true,
-    stories: true,
+  // Format date helper
+  const formatDate = (date: Date | null) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
-  // Format dates safely
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch {
-      return 'Invalid date';
+  // Get member role display name
+  const getMemberRole = (member: MemberWithProfile) => {
+    if (member.userRoles && member.userRoles.length > 0) {
+      const adminRole = member.userRoles.find(ur => ur.role.slug === 'admin' || ur.role.slug === 'super-admin');
+      if (adminRole) return 'Admin';
+      return member.userRoles[0].role.name;
     }
+    return member.userType === 'alumni' ? 'Alumni' : 'Student';
   };
 
   return (
@@ -171,7 +387,7 @@ export default async function OrganizationPage({ params }: Props) {
       {/* ================= BANNER ================= */}
       <div className="relative h-80 w-full overflow-hidden">
         <img
-          src={metadata.cover_image_url || "/branding/alumniconnect-banner.jpg"}
+          src={metadata.coverImageUrl || "/branding/alumniconnect-banner.jpg"}
           alt={organization.name}
           className="w-full h-full object-cover"
           onError={(e) => {
@@ -186,17 +402,14 @@ export default async function OrganizationPage({ params }: Props) {
                 <div className="relative">
                   <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-white shadow-2xl">
                     <AvatarImage 
-                      src={organization.logo_url || "/branding/alumniconnect-logo.png"} 
+                      src={organization.logoUrl || "/branding/alumniconnect-logo.png"} 
                       alt={organization.name}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "/branding/alumniconnect-logo.png";
-                      }}
                     />
                     <AvatarFallback className="bg-gradient-to-br from-[#6C5CE7] to-[#A66CFF] text-white text-2xl sm:text-3xl">
-                      {organization.name?.charAt(0) || 'O'}
+                      {organization.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  {organization.is_verified && (
+                  {organization.isVerified && (
                     <div className="absolute -bottom-2 -right-2 w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shadow-lg">
                       <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5 text-[#6C5CE7]" />
                     </div>
@@ -206,10 +419,10 @@ export default async function OrganizationPage({ params }: Props) {
                 <div className="space-y-3 max-w-2xl">
                   <div className="flex flex-wrap items-center gap-3">
                     <h1 className="text-3xl sm:text-4xl font-bold text-white break-words">
-                      {organization.name || 'Organization'}
+                      {organization.name}
                     </h1>
-                    {organization.is_verified && (
-                      <Badge className="bg-gradient-to-r from-[#6C5CE7] to-[#A66CFF] text-white whitespace-nowrap">
+                    {organization.isVerified && (
+                      <Badge className="bg-gradient-to-r from-[#6C5CE7] to-[#A66CFF] text-white">
                         <Shield className="h-3 w-3 mr-1" />
                         Verified
                       </Badge>
@@ -226,40 +439,38 @@ export default async function OrganizationPage({ params }: Props) {
                         href={organization.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-white/90 hover:text-white transition-colors whitespace-nowrap"
+                        className="flex items-center gap-2 text-white/90 hover:text-white transition-colors"
                       >
-                        <Globe className="h-4 w-4 flex-shrink-0" />
-                        <span className="underline truncate max-w-[200px] sm:max-w-none">
+                        <Globe className="h-4 w-4" />
+                        <span className="underline truncate max-w-[200px]">
                           Official Website
                         </span>
-                        <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                        <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
 
-                    {metadata.location && (
-                      <div className="flex items-center gap-2 text-white/90 whitespace-nowrap">
-                        <MapPin className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate max-w-[150px] sm:max-w-none">
-                          {metadata.location}
-                        </span>
+                    {organization.country && (
+                      <div className="flex items-center gap-2 text-white/90">
+                        <MapPin className="h-4 w-4" />
+                        <span>{organization.country.name}</span>
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2 text-white/90 whitespace-nowrap">
-                      <Building2 className="h-4 w-4 flex-shrink-0" />
-                      <span>{organization.organization_type || 'Organization'}</span>
+                    <div className="flex items-center gap-2 text-white/90">
+                      <Building2 className="h-4 w-4" />
+                      <span className="capitalize">{organization.planTier} Plan</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex gap-3">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         variant="outline"
-                        className="bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white border border-white/20 whitespace-nowrap"
+                        className="bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white border border-white/20"
                       >
                         <Share2 className="h-4 w-4 mr-2" /> Share
                       </Button>
@@ -270,7 +481,7 @@ export default async function OrganizationPage({ params }: Props) {
                   </Tooltip>
                 </TooltipProvider>
 
-                <Button className="bg-gradient-to-r from-[#6C5CE7] to-[#A66CFF] hover:from-[#5A4FD6] hover:to-[#955BFF] text-white shadow-lg shadow-[#6C5CE7]/20 whitespace-nowrap">
+                <Button className="bg-gradient-to-r from-[#6C5CE7] to-[#A66CFF] hover:from-[#5A4FD6] hover:to-[#955BFF] text-white shadow-lg shadow-[#6C5CE7]/20">
                   <PlusCircle className="h-4 w-4 mr-2" /> Join Organization
                 </Button>
               </div>
@@ -284,39 +495,42 @@ export default async function OrganizationPage({ params }: Props) {
         <Tabs defaultValue="overview" className="space-y-6">
           {/* Tabs Navigation */}
           <div className="bg-white rounded-xl border border-gray-200 p-1 overflow-x-auto">
-            <TabsList className="w-full justify-start h-auto bg-transparent p-0 flex-nowrap">
+            <TabsList className="w-full justify-start h-auto bg-transparent p-0">
               <TabsTrigger
                 value="overview"
-                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6C5CE7] data-[state=active]:to-[#A66CFF] data-[state=active]:text-white px-4 sm:px-6 py-3 whitespace-nowrap"
+                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6C5CE7] data-[state=active]:to-[#A66CFF] data-[state=active]:text-white px-4 sm:px-6 py-3"
               >
                 <BarChart3 className="h-4 w-4 mr-2 hidden sm:inline" />
                 Overview
               </TabsTrigger>
               <TabsTrigger
                 value="members"
-                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6C5CE7] data-[state=active]:to-[#A66CFF] data-[state=active]:text-white px-4 sm:px-6 py-3 whitespace-nowrap"
+                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6C5CE7] data-[state=active]:to-[#A66CFF] data-[state=active]:text-white px-4 sm:px-6 py-3"
               >
                 <Users className="h-4 w-4 mr-2 hidden sm:inline" />
                 Members
                 <Badge className="ml-2 bg-[#6C5CE7]/20 text-[#6C5CE7]">
-                  {organization._count?.organization_members || members.length || 0}
+                  {organization._count?.users || 0}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger
-                value="analytics"
-                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6C5CE7] data-[state=active]:to-[#A66CFF] data-[state=active]:text-white px-4 sm:px-6 py-3 whitespace-nowrap"
-              >
-                <Activity className="h-4 w-4 mr-2 hidden sm:inline" />
-                Analytics
-              </TabsTrigger>
-              <TabsTrigger
                 value="events"
-                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6C5CE7] data-[state=active]:to-[#A66CFF] data-[state=active]:text-white px-4 sm:px-6 py-3 whitespace-nowrap"
+                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6C5CE7] data-[state=active]:to-[#A66CFF] data-[state=active]:text-white px-4 sm:px-6 py-3"
               >
                 <Calendar className="h-4 w-4 mr-2 hidden sm:inline" />
                 Events
                 <Badge className="ml-2 bg-[#FF7675]/20 text-[#FF7675]">
-                  {organization._count?.events || upcomingEvents.length || 0}
+                  {organization._count?.events || 0}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger
+                value="jobs"
+                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6C5CE7] data-[state=active]:to-[#A66CFF] data-[state=active]:text-white px-4 sm:px-6 py-3"
+              >
+                <Briefcase className="h-4 w-4 mr-2 hidden sm:inline" />
+                Jobs
+                <Badge className="ml-2 bg-[#4DA3FF]/20 text-[#4DA3FF]">
+                  {organization._count?.jobPostings || 0}
                 </Badge>
               </TabsTrigger>
             </TabsList>
@@ -325,119 +539,116 @@ export default async function OrganizationPage({ params }: Props) {
           {/* ================= OVERVIEW TAB ================= */}
           <TabsContent value="overview" className="space-y-8">
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <CardContent className="p-4 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xl sm:text-2xl font-bold text-[#2D3436]">
-                        {(organization._count?.organization_members || members.length || 0).toLocaleString()}
+                      <p className="text-2xl font-bold text-[#2D3436]">
+                        {organization._count?.users?.toLocaleString() || 0}
                       </p>
-                      <p className="text-xs sm:text-sm text-[#636E72]">Total Members</p>
+                      <p className="text-sm text-[#636E72]">Total Members</p>
                     </div>
-                    <div className="p-2 sm:p-3 bg-gradient-to-br from-[#6C5CE7]/10 to-[#A66CFF]/10 rounded-xl">
-                      <Users className="h-5 w-5 sm:h-6 sm:w-6 text-[#6C5CE7]" />
+                    <div className="p-3 bg-gradient-to-br from-[#6C5CE7]/10 to-[#A66CFF]/10 rounded-xl">
+                      <Users className="h-6 w-6 text-[#6C5CE7]" />
                     </div>
                   </div>
-                  <div className="flex items-center mt-3 sm:mt-4">
-                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-[#2ED8B6] mr-1 sm:mr-2" />
-                    <span className="text-xs sm:text-sm font-medium text-[#2ED8B6]">+{growthRate}% growth</span>
+                  <div className="flex items-center mt-4">
+                    <TrendingUp className="h-4 w-4 text-[#2ED8B6] mr-2" />
+                    <span className="text-sm font-medium text-[#2ED8B6]">+{organizationStats?.growthRate || 0}% growth</span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <CardContent className="p-4 sm:p-6">
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xl sm:text-2xl font-bold text-[#2D3436]">
-                        {organization._count?.events || upcomingEvents.length || 0}
+                      <p className="text-2xl font-bold text-[#2D3436]">
+                        {organization._count?.events || 0}
                       </p>
-                      <p className="text-xs sm:text-sm text-[#636E72]">Total Events</p>
+                      <p className="text-sm text-[#636E72]">Total Events</p>
                     </div>
-                    <div className="p-2 sm:p-3 bg-gradient-to-br from-[#FF7675]/10 to-[#FF7AA2]/10 rounded-xl">
-                      <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-[#FF7675]" />
+                    <div className="p-3 bg-gradient-to-br from-[#FF7675]/10 to-[#FF7AA2]/10 rounded-xl">
+                      <Calendar className="h-6 w-6 text-[#FF7675]" />
                     </div>
                   </div>
-                  <div className="mt-3 sm:mt-4">
-                    <div className="text-xs text-[#636E72] mb-1">Upcoming: {upcomingEvents.length}</div>
-                    <Progress value={eventAttendance} className="h-1.5 bg-gray-200">
-                      <div className="h-full bg-gradient-to-r from-[#FF7675] to-[#FF7AA2] rounded-full" style={{ width: `${eventAttendance}%` }} />
-                    </Progress>
+                  <div className="mt-4">
+                    <div className="text-sm text-[#636E72] mb-1">Upcoming: {organizationEvents.length}</div>
+                    <Progress value={65} className="h-2" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <CardContent className="p-4 sm:p-6">
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xl sm:text-2xl font-bold text-[#2D3436]">
-                        {organization._count?.jobs || activeJobs.length || 0}
+                      <p className="text-2xl font-bold text-[#2D3436]">
+                        {organization._count?.jobPostings || 0}
                       </p>
-                      <p className="text-xs sm:text-sm text-[#636E72]">Active Jobs</p>
+                      <p className="text-sm text-[#636E72]">Active Jobs</p>
                     </div>
-                    <div className="p-2 sm:p-3 bg-gradient-to-br from-[#4DA3FF]/10 to-[#6CB2FF]/10 rounded-xl">
-                      <Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-[#4DA3FF]" />
+                    <div className="p-3 bg-gradient-to-br from-[#4DA3FF]/10 to-[#6CB2FF]/10 rounded-xl">
+                      <Briefcase className="h-6 w-6 text-[#4DA3FF]" />
                     </div>
                   </div>
-                  <div className="flex items-center mt-3 sm:mt-4">
-                    <Target className="h-3 w-3 sm:h-4 sm:w-4 text-[#4DA3FF] mr-1 sm:mr-2" />
-                    <span className="text-xs sm:text-sm text-[#636E72]">{activeJobs.length} open positions</span>
+                  <div className="flex items-center mt-4">
+                    <Target className="h-4 w-4 text-[#4DA3FF] mr-2" />
+                    <span className="text-sm text-[#636E72]">{organizationJobs.length} open positions</span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <CardContent className="p-4 sm:p-6">
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xl sm:text-2xl font-bold text-[#2D3436]">
-                        ${totalDonations.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      <p className="text-2xl font-bold text-[#2D3436]">
+                        {organizationStats?.memberEngagement || 0}%
                       </p>
-                      <p className="text-xs sm:text-sm text-[#636E72]">Total Donations</p>
+                      <p className="text-sm text-[#636E72]">Engagement Rate</p>
                     </div>
-                    <div className="p-2 sm:p-3 bg-gradient-to-br from-[#2ED8B6]/10 to-[#55EFC4]/10 rounded-xl">
-                      <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-[#2ED8B6]" />
+                    <div className="p-3 bg-gradient-to-br from-[#2ED8B6]/10 to-[#55EFC4]/10 rounded-xl">
+                      <Activity className="h-6 w-6 text-[#2ED8B6]" />
                     </div>
                   </div>
-                  <div className="flex items-center mt-3 sm:mt-4">
-                    <Users className="h-3 w-3 sm:h-4 sm:w-4 text-[#4DA3FF] mr-1 sm:mr-2" />
-                    <span className="text-xs sm:text-sm text-[#636E72]">{recurringDonations} recurring · {activeCampaigns} campaigns</span>
+                  <div className="flex items-center mt-4">
+                    <Users2 className="h-4 w-4 text-[#4DA3FF] mr-2" />
+                    <span className="text-sm text-[#636E72]">{organizationStats?.activeMembers || 0} active this month</span>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-              {/* Left Column - About & Engagement */}
-              <div className="lg:col-span-2 space-y-6 sm:space-y-8">
-                {/* About Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Column - About */}
+              <div className="lg:col-span-2 space-y-8">
                 <Card className="border-0 shadow-lg">
                   <CardHeader>
-                    <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                      <Building2 className="h-4 w-4 sm:h-5 sm:w-5 text-[#6C5CE7]" />
-                      About {organization.name || 'Organization'}
+                    <CardTitle className="text-xl flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-[#6C5CE7]" />
+                      About {organization.name}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4 sm:space-y-6">
-                    <p className="text-[#636E72] leading-relaxed text-sm sm:text-base">
+                  <CardContent className="space-y-6">
+                    <p className="text-[#636E72] leading-relaxed">
                       {organization.description || "No description available."}
                     </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {organization.website && (
-                        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-[#F6F4FB] to-white rounded-lg border border-gray-200 hover:border-[#6C5CE7]/30 transition-colors">
-                          <div className="p-2 bg-gradient-to-br from-[#6C5CE7]/10 to-[#A66CFF]/10 rounded-lg flex-shrink-0">
+                        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-[#F6F4FB] to-white rounded-lg border border-gray-200">
+                          <div className="p-2 bg-gradient-to-br from-[#6C5CE7]/10 to-[#A66CFF]/10 rounded-lg">
                             <Globe className="h-4 w-4 text-[#6C5CE7]" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-medium text-[#2D3436]">Website</p>
+                            <p className="text-sm font-medium text-[#2D3436]">Website</p>
                             <a
                               href={organization.website}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs sm:text-sm text-[#6C5CE7] hover:underline truncate block"
+                              className="text-sm text-[#6C5CE7] hover:underline truncate block"
                             >
                               {organization.website.replace(/^https?:\/\//, '')}
                             </a>
@@ -445,267 +656,65 @@ export default async function OrganizationPage({ params }: Props) {
                         </div>
                       )}
 
-                      {metadata.location && (
-                        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-[#F6F4FB] to-white rounded-lg border border-gray-200 hover:border-[#FF7675]/30 transition-colors">
-                          <div className="p-2 bg-gradient-to-br from-[#FF7675]/10 to-[#FF7AA2]/10 rounded-lg flex-shrink-0">
+                      {organization.country && (
+                        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-[#F6F4FB] to-white rounded-lg border border-gray-200">
+                          <div className="p-2 bg-gradient-to-br from-[#FF7675]/10 to-[#FF7AA2]/10 rounded-lg">
                             <MapPin className="h-4 w-4 text-[#FF7675]" />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-medium text-[#2D3436]">Location</p>
-                            <p className="text-xs sm:text-sm text-[#636E72] truncate">{metadata.location}</p>
+                          <div>
+                            <p className="text-sm font-medium text-[#2D3436]">Country</p>
+                            <p className="text-sm text-[#636E72]">{organization.country.name}</p>
                           </div>
                         </div>
                       )}
-
-                      {organization.contact_email && (
-                        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-[#F6F4FB] to-white rounded-lg border border-gray-200 hover:border-[#4DA3FF]/30 transition-colors">
-                          <div className="p-2 bg-gradient-to-br from-[#4DA3FF]/10 to-[#6CB2FF]/10 rounded-lg flex-shrink-0">
-                            <Mail className="h-4 w-4 text-[#4DA3FF]" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-medium text-[#2D3436]">Contact Email</p>
-                            <p className="text-xs sm:text-sm text-[#636E72] truncate">{organization.contact_email}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {organization.phone_number && (
-                        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-[#F6F4FB] to-white rounded-lg border border-gray-200 hover:border-[#2ED8B6]/30 transition-colors">
-                          <div className="p-2 bg-gradient-to-br from-[#2ED8B6]/10 to-[#55EFC4]/10 rounded-lg flex-shrink-0">
-                            <Phone className="h-4 w-4 text-[#2ED8B6]" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-medium text-[#2D3436]">Contact Phone</p>
-                            <p className="text-xs sm:text-sm text-[#636E72] truncate">{organization.phone_number}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Engagement Metrics */}
-                <Card className="border-0 shadow-lg">
-                  <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                      <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-[#6C5CE7]" />
-                      Engagement Metrics
-                    </CardTitle>
-                    <Badge className="bg-gradient-to-r from-[#6C5CE7] to-[#A66CFF] text-white self-start sm:self-auto">
-                      Last 30 days
-                    </Badge>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gradient-to-br from-[#6C5CE7]/10 to-[#A66CFF]/10 rounded-lg">
-                              <Users2 className="h-4 w-4 text-[#6C5CE7]" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-[#2D3436]">Member Engagement</p>
-                              <p className="text-xs text-[#636E72]">Active participation rate</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-base sm:text-lg font-bold text-[#2D3436]">{memberEngagement}%</p>
-                            <div className="flex items-center text-xs sm:text-sm text-[#2ED8B6]">
-                              <ArrowUpRight className="h-3 w-3 mr-1" />
-                              +5.2%
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gradient-to-br from-[#FF7675]/10 to-[#FF7AA2]/10 rounded-lg">
-                              <Calendar className="h-4 w-4 text-[#FF7675]" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-[#2D3436]">Event Attendance</p>
-                              <p className="text-xs text-[#636E72]">Average participation</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-base sm:text-lg font-bold text-[#2D3436]">{eventAttendance}%</p>
-                            <div className="flex items-center text-xs sm:text-sm text-[#2ED8B6]">
-                              <ArrowUpRight className="h-3 w-3 mr-1" />
-                              +8.1%
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gradient-to-br from-[#4DA3FF]/10 to-[#6CB2FF]/10 rounded-lg">
-                              <Target className="h-4 w-4 text-[#4DA3FF]" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-[#2D3436]">Goal Completion</p>
-                              <p className="text-xs text-[#636E72]">Campaign success rate</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-base sm:text-lg font-bold text-[#2D3436]">{completionRate}%</p>
-                            <div className="flex items-center text-xs sm:text-sm text-[#2ED8B6]">
-                              <ArrowUpRight className="h-3 w-3 mr-1" />
-                              +12.3%
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gradient-to-br from-[#2ED8B6]/10 to-[#55EFC4]/10 rounded-lg">
-                              <TrendingUp className="h-4 w-4 text-[#2ED8B6]" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-[#2D3436]">Monthly Growth</p>
-                              <p className="text-xs text-[#636E72]">New members & activity</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-base sm:text-lg font-bold text-[#2D3436]">+{growthRate}%</p>
-                            <div className="flex items-center text-xs sm:text-sm text-[#2ED8B6]">
-                              <ArrowUpRight className="h-3 w-3 mr-1" />
-                              Steady
-                            </div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Right Column - Quick Stats & Features */}
-              <div className="space-y-6 sm:space-y-8">
-                {/* Organization Status */}
+              {/* Right Column - Organization Status */}
+              <div className="space-y-6">
                 <Card className="border-0 shadow-lg">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-6">
                       <h3 className="font-semibold text-[#2D3436] flex items-center gap-2">
-                        <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-[#6C5CE7]" />
+                        <Settings className="h-5 w-5 text-[#6C5CE7]" />
                         Organization Status
                       </h3>
-                      <Badge className={organization.is_active ? "bg-[#2ED8B6]/10 text-[#2ED8B6]" : "bg-[#FF7675]/10 text-[#FF7675]"}>
-                        {organization.is_active ? "Active" : "Inactive"}
+                      <Badge className={organization.isActive ? "bg-[#2ED8B6]/10 text-[#2ED8B6]" : "bg-[#FF7675]/10 text-[#FF7675]"}>
+                        {organization.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </div>
 
-                    <div className="space-y-3 sm:space-y-4">
+                    <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-[#636E72]">Created</span>
-                        <span className="text-xs sm:text-sm font-medium text-[#2D3436]">
-                          {formatDate(organization.created_at)}
+                        <span className="text-sm text-[#636E72]">Created</span>
+                        <span className="text-sm font-medium text-[#2D3436]">
+                          {formatDate(organization.createdAt)}
                         </span>
                       </div>
                       <Separator />
                       <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-[#636E72]">Organization Type</span>
-                        <span className="text-xs sm:text-sm font-medium text-[#2D3436]">
-                          {organization.organization_type || 'N/A'}
+                        <span className="text-sm text-[#636E72]">Plan Tier</span>
+                        <span className="text-sm font-medium text-[#2D3436] capitalize">
+                          {organization.planTier}
                         </span>
                       </div>
                       <Separator />
                       <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-[#636E72]">Last Updated</span>
-                        <span className="text-xs sm:text-sm font-medium text-[#2D3436]">
-                          {formatDate(organization.updated_at)}
-                        </span>
+                        <span className="text-sm text-[#636E72]">Verified</span>
+                        <Badge className={organization.isVerified ? "bg-[#2ED8B6]/10 text-[#2ED8B6]" : "bg-[#FF7675]/10 text-[#FF7675]"}>
+                          {organization.isVerified ? "Yes" : "No"}
+                        </Badge>
                       </div>
                     </div>
 
-                    <Button className="w-full mt-4 sm:mt-6 bg-gradient-to-r from-[#6C5CE7] to-[#A66CFF] text-white">
+                    <Button className="w-full mt-6 bg-gradient-to-r from-[#6C5CE7] to-[#A66CFF] text-white">
                       <Edit3 className="h-4 w-4 mr-2" />
                       Manage Settings
                     </Button>
                   </CardContent>
                 </Card>
-
-                {/* Active Features */}
-                <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                      <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-[#FF7675]" />
-                      Active Features
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {Object.entries(features).map(([key, enabled]) => (
-                        <div key={key} className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {key === 'events' && <Calendar className="h-4 w-4 text-[#FF7675]" />}
-                            {key === 'jobs' && <Briefcase className="h-4 w-4 text-[#4DA3FF]" />}
-                            {key === 'donations' && <DollarSign className="h-4 w-4 text-[#2ED8B6]" />}
-                            {key === 'messaging' && <MessageSquare className="h-4 w-4 text-[#6C5CE7]" />}
-                            {key === 'analytics' && <BarChart3 className="h-4 w-4 text-[#A66CFF]" />}
-                            {key === 'stories' && <FileText className="h-4 w-4 text-[#FF7AA2]" />}
-                            <span className="text-sm font-medium text-[#2D3436] capitalize">{key}</span>
-                          </div>
-                          {enabled ? (
-                            <CheckCircle className="h-4 w-4 text-[#2ED8B6]" />
-                          ) : (
-                            <XCircle className="h-4 w-4 text-[#FF7675]" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Recent Donations */}
-                {recentDonations.length > 0 && (
-                  <Card className="border-0 shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-[#2ED8B6]" />
-                        Recent Donations
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {recentDonations.slice(0, 3).map((donation: any) => (
-                          <div key={donation.id} className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <Avatar className="h-8 w-8 flex-shrink-0">
-                                <AvatarFallback className="bg-gradient-to-br from-[#2ED8B6]/20 to-[#55EFC4]/20 text-[#2ED8B6]">
-                                  {donation.is_anonymous ? 'A' : donation.donor_name?.charAt(0) || 'D'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-[#2D3436] truncate">
-                                  {donation.is_anonymous ? 'Anonymous' : donation.donor_name || 'Donor'}
-                                </p>
-                                <p className="text-xs text-[#636E72]">
-                                  {formatDate(donation.created_at)}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <p className="font-semibold text-[#2D3436] text-sm sm:text-base">
-                                ${Number(donation.amount || 0).toLocaleString()}
-                              </p>
-                              {donation.is_recurring && (
-                                <Badge className="bg-[#2ED8B6]/10 text-[#2ED8B6] text-xs">
-                                  Recurring
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <Button variant="ghost" className="w-full mt-4 text-[#6C5CE7]">
-                        View All Donations
-                        <ChevronRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
             </div>
           </TabsContent>
@@ -715,89 +724,85 @@ export default async function OrganizationPage({ params }: Props) {
             <Card className="border-0 shadow-lg">
               <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <CardTitle className="text-lg sm:text-xl">Organization Members</CardTitle>
+                  <CardTitle className="text-xl">Organization Members</CardTitle>
                   <CardDescription>
-                    {members.length} members in {organization.name}
+                    {organizationMembers.length} members in {organization.name}
                   </CardDescription>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <div className="relative w-full sm:w-64">
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-64">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       placeholder="Search members..."
-                      className="pl-10 w-full bg-gray-50 border-gray-200"
+                      className="pl-10 bg-gray-50 border-gray-200"
                     />
                   </div>
-                  <div className="flex gap-2">
-                    <Select defaultValue="all">
-                      <SelectTrigger className="w-full sm:w-32 border-gray-200">
-                        <SelectValue placeholder="Filter" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Roles</SelectItem>
-                        <SelectItem value="admin">Admins</SelectItem>
-                        <SelectItem value="member">Members</SelectItem>
-                        <SelectItem value="guest">Guests</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button variant="outline" className="border-gray-200 whitespace-nowrap">
-                      <Filter className="h-4 w-4 mr-2" />
-                      Filter
-                    </Button>
-                  </div>
+                  <Select defaultValue="all">
+                    <SelectTrigger className="w-32 border-gray-200">
+                      <SelectValue placeholder="Filter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="admin">Admins</SelectItem>
+                      <SelectItem value="alumni">Alumni</SelectItem>
+                      <SelectItem value="student">Students</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardHeader>
               <CardContent>
-                {members.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                    {members.map((member: any) => (
+                {organizationMembers.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {organizationMembers.map((member) => (
                       <Card key={member.id} className="border border-gray-200 hover:border-[#6C5CE7]/30 transition-colors">
-                        <CardContent className="p-4 sm:p-6">
-                          <div className="flex items-start gap-3 sm:gap-4">
-                            <Avatar className="h-12 w-12 sm:h-16 sm:w-16">
-                              <AvatarImage src={member.profiles?.avatar_url || ""} alt={member.profiles?.full_name} />
-                              <AvatarFallback className="bg-gradient-to-br from-[#6C5CE7]/20 to-[#A66CFF]/20 text-[#6C5CE7] text-sm sm:text-lg">
-                                {member.profiles?.full_name?.charAt(0) || 'U'}
+                        <CardContent className="p-6">
+                          <div className="flex items-start gap-4">
+                            <Avatar className="h-16 w-16">
+                              <AvatarImage src={member.avatarUrl || ""} alt={member.fullName} />
+                              <AvatarFallback className="bg-gradient-to-br from-[#6C5CE7]/20 to-[#A66CFF]/20 text-[#6C5CE7] text-lg">
+                                {member.fullName.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between">
                                 <div className="min-w-0">
-                                  <h4 className="font-semibold text-[#2D3436] text-sm sm:text-base truncate">
-                                    {member.profiles?.full_name || 'Unknown User'}
+                                  <h4 className="font-semibold text-[#2D3436] truncate">
+                                    {member.fullName}
                                   </h4>
-                                  <p className="text-xs sm:text-sm text-[#636E72] truncate">
-                                    {member.profiles?.headline || 'No headline'}
+                                  <p className="text-sm text-[#636E72] truncate">
+                                    {member.alumniProfile?.headline || member.studentProfile?.headline || 'Member'}
                                   </p>
                                 </div>
-                                <Badge className="bg-[#6C5CE7]/10 text-[#6C5CE7] whitespace-nowrap text-xs">
-                                  {member.organization_roles?.display_name || 'Member'}
+                                <Badge className="bg-[#6C5CE7]/10 text-[#6C5CE7]">
+                                  {getMemberRole(member)}
                                 </Badge>
                               </div>
 
-                              <div className="mt-3 sm:mt-4 space-y-1 sm:space-y-2">
-                                {member.profiles?.location && (
-                                  <div className="flex items-center gap-2 text-xs sm:text-sm text-[#636E72]">
-                                    <MapPin className="h-3 w-3" />
-                                    <span className="truncate">{member.profiles.location}</span>
+                              <div className="mt-4 space-y-2">
+                                {member.alumniProfile?.currentCompany && (
+                                  <div className="flex items-center gap-2 text-sm text-[#636E72]">
+                                    <Briefcase className="h-3 w-3" />
+                                    <span className="truncate">{member.alumniProfile.currentCompany}</span>
                                   </div>
                                 )}
 
-                                {member.profiles?.graduation_year && (
-                                  <div className="flex items-center gap-2 text-xs sm:text-sm text-[#636E72]">
+                                {(member.alumniProfile?.graduationYear || member.studentProfile?.expectedGraduation) && (
+                                  <div className="flex items-center gap-2 text-sm text-[#636E72]">
                                     <GraduationCap className="h-3 w-3" />
-                                    <span>Class of {member.profiles.graduation_year}</span>
+                                    <span>
+                                      Class of {member.alumniProfile?.graduationYear || member.studentProfile?.expectedGraduation}
+                                    </span>
                                   </div>
                                 )}
                               </div>
 
                               <div className="flex gap-2 mt-4">
-                                <Button size="sm" variant="outline" className="flex-1 border-gray-200 text-xs">
+                                <Button size="sm" variant="outline" className="flex-1">
                                   <MessageSquare className="h-3 w-3 mr-1" />
                                   Message
                                 </Button>
-                                <Button size="sm" className="flex-1 bg-gradient-to-r from-[#6C5CE7] to-[#A66CFF] text-white text-xs">
+                                <Button size="sm" className="flex-1 bg-gradient-to-r from-[#6C5CE7] to-[#A66CFF] text-white">
                                   <UserPlus className="h-3 w-3 mr-1" />
                                   Connect
                                 </Button>
@@ -812,7 +817,7 @@ export default async function OrganizationPage({ params }: Props) {
                   <div className="text-center py-12">
                     <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-[#2D3436] mb-2">No Members Found</h3>
-                    <p className="text-[#636E72] max-w-md mx-auto">
+                    <p className="text-[#636E72]">
                       This organization doesn't have any members yet.
                     </p>
                   </div>
@@ -821,202 +826,71 @@ export default async function OrganizationPage({ params }: Props) {
             </Card>
           </TabsContent>
 
-          {/* ================= ANALYTICS TAB ================= */}
-          <TabsContent value="analytics" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-2 border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">Performance Metrics</CardTitle>
-                  <CardDescription>Key performance indicators over time</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4 sm:space-y-6">
-                    {analyticsMetrics.length > 0 ? (
-                      analyticsMetrics.map((metric: any) => (
-                        <div key={metric.id} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-lg bg-gradient-to-br from-[#6C5CE7]/10 to-[#A66CFF]/10">
-                                <Activity className="h-4 w-4 text-[#6C5CE7]" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-[#2D3436] text-sm sm:text-base">{metric.metric_name}</p>
-                                <p className="text-xs sm:text-sm text-[#636E72]">{metric.description}</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xl sm:text-2xl font-bold text-[#2D3436]">
-                                {metric.metric_type === 'percentage'
-                                  ? `${metric.target_value || 0}%`
-                                  : metric.target_value?.toLocaleString() || '0'}
-                              </p>
-                              <Badge className="bg-[#2ED8B6]/10 text-[#2ED8B6] mt-1 text-xs">
-                                {metric.metric_category}
-                              </Badge>
-                            </div>
-                          </div>
-                          <Progress value={metric.target_value || 0} className="h-2 bg-gray-200">
-                            <div className="h-full bg-gradient-to-r from-[#6C5CE7] to-[#A66CFF] rounded-full" style={{ width: `${metric.target_value || 0}%` }} />
-                          </Progress>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8">
-                        <Activity className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-[#2D3436] mb-2">No Analytics Data</h3>
-                        <p className="text-[#636E72]">
-                          Analytics data will appear here once the organization starts generating activity.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="space-y-6">
-                <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-[#2ED8B6]" />
-                      Growth Trends
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 sm:space-y-4">
-                    <div className="space-y-2 sm:space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-[#636E72]">Member Growth</span>
-                        <div className="flex items-center text-[#2ED8B6]">
-                          <ArrowUpRight className="h-3 w-3 mr-1" />
-                          <span className="font-semibold text-xs sm:text-sm">+{growthRate}%</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-[#636E72]">Engagement Rate</span>
-                        <div className="flex items-center text-[#2ED8B6]">
-                          <ArrowUpRight className="h-3 w-3 mr-1" />
-                          <span className="font-semibold text-xs sm:text-sm">+{memberEngagement}%</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-[#636E72]">Donation Growth</span>
-                        <div className="flex items-center text-[#2ED8B6]">
-                          <ArrowUpRight className="h-3 w-3 mr-1" />
-                          <span className="font-semibold text-xs sm:text-sm">+24.5%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
-                      <PieChart className="h-4 w-4 sm:h-5 sm:w-5 text-[#FF7675]" />
-                      Activity Distribution
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3 sm:space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-3 h-3 rounded-full bg-[#6C5CE7]"></div>
-                          <span className="text-xs sm:text-sm text-[#2D3436]">Active Members</span>
-                        </div>
-                        <span className="font-semibold text-[#2D3436] text-sm sm:text-base">72%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-3 h-3 rounded-full bg-[#FF7675]"></div>
-                          <span className="text-xs sm:text-sm text-[#2D3436]">Event Participants</span>
-                        </div>
-                        <span className="font-semibold text-[#2D3436] text-sm sm:text-base">65%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-3 h-3 rounded-full bg-[#4DA3FF]"></div>
-                          <span className="text-xs sm:text-sm text-[#2D3436]">Content Creators</span>
-                        </div>
-                        <span className="font-semibold text-[#2D3436] text-sm sm:text-base">28%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-3 h-3 rounded-full bg-[#2ED8B6]"></div>
-                          <span className="text-xs sm:text-sm text-[#2D3436]">Donors</span>
-                        </div>
-                        <span className="font-semibold text-[#2D3436] text-sm sm:text-base">42%</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
-
           {/* ================= EVENTS TAB ================= */}
           <TabsContent value="events" className="space-y-6">
             <Card className="border-0 shadow-lg">
               <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <CardTitle className="text-lg sm:text-xl">Organization Events</CardTitle>
+                  <CardTitle className="text-xl">Organization Events</CardTitle>
                   <CardDescription>
                     Browse and join events organized by {organization.name}
                   </CardDescription>
                 </div>
-                <Button className="bg-gradient-to-r from-[#FF7675] to-[#FF7AA2] text-white whitespace-nowrap">
+                <Button className="bg-gradient-to-r from-[#FF7675] to-[#FF7AA2] text-white">
                   <PlusCircle className="h-4 w-4 mr-2" />
                   Create Event
                 </Button>
               </CardHeader>
               <CardContent>
-                {upcomingEvents.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                    {upcomingEvents.map((event: any) => (
+                {organizationEvents.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {organizationEvents.map((event) => (
                       <Card key={event.id} className="border border-gray-200 hover:border-[#FF7675]/30 transition-colors">
-                        <CardContent className="p-4 sm:p-6">
-                          <div className="flex items-start justify-between mb-3 sm:mb-4">
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between mb-4">
                             <div className="min-w-0">
-                              <h4 className="font-semibold text-[#2D3436] text-base sm:text-lg truncate">{event.title}</h4>
-                              <p className="text-xs sm:text-sm text-[#636E72] mt-1 line-clamp-2">
+                              <h4 className="font-semibold text-[#2D3436] text-lg truncate">{event.title}</h4>
+                              <p className="text-sm text-[#636E72] mt-1 line-clamp-2">
                                 {event.description || 'No description'}
                               </p>
                             </div>
-                            <Badge className="bg-[#FF7675]/10 text-[#FF7675] whitespace-nowrap ml-2">
-                              {event.event_type || 'Event'}
+                            <Badge className="bg-[#FF7675]/10 text-[#FF7675] ml-2">
+                              {event.eventType}
                             </Badge>
                           </div>
 
-                          <div className="space-y-2 sm:space-y-3">
-                            <div className="flex items-center gap-2 text-xs sm:text-sm text-[#636E72]">
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-sm text-[#636E72]">
                               <Calendar className="h-4 w-4" />
                               <span>
-                                {event.starts_at ? formatDate(event.starts_at) : 'TBD'}
-                                {event.ends_at && ` - ${formatDate(event.ends_at)}`}
+                                {formatDate(event.startsAt)}
+                                {event.endsAt && ` - ${formatDate(event.endsAt)}`}
                               </span>
                             </div>
 
-                            {event.location && (
-                              <div className="flex items-center gap-2 text-xs sm:text-sm text-[#636E72]">
+                            {event.locationName && (
+                              <div className="flex items-center gap-2 text-sm text-[#636E72]">
                                 <MapPin className="h-4 w-4" />
-                                <span className="truncate">{event.location}</span>
+                                <span className="truncate">{event.locationName}</span>
                               </div>
                             )}
 
-                            {event.capacity && (
-                              <div className="flex items-center gap-2 text-xs sm:text-sm text-[#636E72]">
+                            {event.maxCapacity && (
+                              <div className="flex items-center gap-2 text-sm text-[#636E72]">
                                 <Users className="h-4 w-4" />
-                                <span>Capacity: {event.capacity} attendees</span>
+                                <span>Capacity: {event.maxCapacity} attendees</span>
                               </div>
                             )}
                           </div>
 
-                          <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-6">
-                            <Button variant="outline" className="flex-1 border-gray-200 text-xs sm:text-sm">
+                          <div className="flex gap-2 mt-6">
+                            <Button variant="outline" className="flex-1">
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </Button>
-                            <Button className="flex-1 bg-gradient-to-r from-[#FF7675] to-[#FF7AA2] text-white text-xs sm:text-sm">
+                            <Button className="flex-1 bg-gradient-to-r from-[#FF7675] to-[#FF7AA2] text-white">
                               <Calendar className="h-4 w-4 mr-2" />
-                              Register Now
+                              Register
                             </Button>
                           </div>
                         </CardContent>
@@ -1027,12 +901,88 @@ export default async function OrganizationPage({ params }: Props) {
                   <div className="text-center py-12">
                     <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-[#2D3436] mb-2">No Upcoming Events</h3>
-                    <p className="text-[#636E72] max-w-md mx-auto mb-6">
+                    <p className="text-[#636E72] mb-6">
                       There are no upcoming events scheduled for this organization.
                     </p>
                     <Button className="bg-gradient-to-r from-[#FF7675] to-[#FF7AA2] text-white">
                       <PlusCircle className="h-4 w-4 mr-2" />
                       Schedule First Event
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ================= JOBS TAB ================= */}
+          <TabsContent value="jobs" className="space-y-6">
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-xl">Job Opportunities</CardTitle>
+                  <CardDescription>
+                    Explore career opportunities from {organization.name}
+                  </CardDescription>
+                </div>
+                <Button className="bg-gradient-to-r from-[#4DA3FF] to-[#6CB2FF] text-white">
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Post a Job
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {organizationJobs.length > 0 ? (
+                  <div className="space-y-4">
+                    {organizationJobs.map((job) => (
+                      <Card key={job.id} className="border border-gray-200 hover:border-[#4DA3FF]/30 transition-colors">
+                        <CardContent className="p-6">
+                          <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-semibold text-[#2D3436] text-lg">{job.title}</h4>
+                                {job.isFeatured && (
+                                  <Badge className="bg-[#4DA3FF]/10 text-[#4DA3FF]">Featured</Badge>
+                                )}
+                                {job.isUrgent && (
+                                  <Badge className="bg-[#FF7675]/10 text-[#FF7675]">Urgent</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-[#636E72] mt-1 line-clamp-2">
+                                {job.description?.substring(0, 200) || 'No description'}
+                              </p>
+                              
+                              <div className="flex flex-wrap gap-3 mt-3">
+                                <Badge variant="outline" className="text-xs">
+                                  {job.jobType?.replace('_', ' ').toUpperCase() || 'Full Time'}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {job.isRemote ? 'Remote' : (job.locationCity || 'On-site')}
+                                </Badge>
+                                {job.salaryMin && (
+                                  <Badge variant="outline" className="text-xs">
+                                    ${job.salaryMin.toLocaleString()} - ${job.salaryMax?.toLocaleString()}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <Button className="bg-gradient-to-r from-[#4DA3FF] to-[#6CB2FF] text-white whitespace-nowrap">
+                              Apply Now
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Briefcase className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-[#2D3436] mb-2">No Active Jobs</h3>
+                    <p className="text-[#636E72] mb-6">
+                      There are no active job postings at this time.
+                    </p>
+                    <Button className="bg-gradient-to-r from-[#4DA3FF] to-[#6CB2FF] text-white">
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Post First Job
                     </Button>
                   </div>
                 )}

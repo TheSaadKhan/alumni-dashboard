@@ -1,0 +1,2849 @@
+// ================================================================
+// ALUMNI CONNECT — COMPLETE PRISMA SCHEMA v3.0
+// Generated from PostgreSQL 16+ Schema
+// ================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+// ================================================================
+// ENUMS
+// ================================================================
+
+enum PlanTier {
+  free
+  starter
+  pro
+  enterprise
+  custom
+}
+
+enum VerificationMethod {
+  dns_txt
+  dns_cname
+  http_file
+  email
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  expired
+  revoked
+}
+
+enum UserStatus {
+  active
+  suspended
+  pending
+  deactivated
+  deleted
+}
+
+enum UserType {
+  alumni
+  student
+  admin
+  super_admin
+}
+
+enum DeviceType {
+  web
+  ios
+  android
+  desktop
+  api
+}
+
+enum OAuthProvider {
+  google
+  linkedin
+  github
+  microsoft
+  apple
+  twitter
+}
+
+enum RoleScope {
+  global
+  organization
+}
+
+enum PermissionAction {
+  create
+  read
+  update
+  delete
+  manage
+}
+
+enum Severity {
+  info
+  warning
+  critical
+}
+
+enum ConnectionStatus {
+  pending
+  accepted
+  declined
+  blocked
+  withdrawn
+}
+
+enum MentorshipStatus {
+  pending
+  accepted
+  declined
+  completed
+  cancelled
+  expired
+}
+
+enum MentorshipFrequency {
+  weekly
+  biweekly
+  monthly
+  flexible
+}
+
+enum MentorshipSessionStatus {
+  scheduled
+  in_progress
+  completed
+  cancelled
+  no_show
+}
+
+enum MeetingType {
+  video
+  phone
+  in_person
+  async
+}
+
+enum PostType {
+  general
+  announcement
+  opportunity
+  question
+  resource
+  achievement
+}
+
+enum PostVisibility {
+  org
+  alumni_only
+  connections
+  private
+}
+
+enum ReactionEmoji {
+  like
+  love
+  celebrate
+  insightful
+  support
+  curious
+  laugh
+  sad
+}
+
+enum ReactionEntityType {
+  post
+  comment
+  message
+  channel_message
+}
+
+enum ThreadType {
+  direct
+  group
+  support
+  bot
+}
+
+enum ThreadMemberRole {
+  owner
+  admin
+  member
+}
+
+enum MessageType {
+  text
+  image
+  file
+  video
+  audio
+  sticker
+  system
+  poll
+}
+
+enum MessageStatus {
+  sending
+  sent
+  delivered
+  read
+  failed
+}
+
+enum EventType {
+  webinar
+  workshop
+  networking
+  career_fair
+  hackathon
+  conference
+  social
+  other
+}
+
+enum EventMode {
+  online
+  in_person
+  hybrid
+}
+
+enum RegistrationStatus {
+  registered
+  waitlisted
+  approved
+  attended
+  cancelled
+  no_show
+}
+
+enum PaymentStatus {
+  paid
+  pending
+  refunded
+  waived
+}
+
+enum JobType {
+  full_time
+  part_time
+  internship
+  contract
+  freelance
+  volunteer
+}
+
+enum ExperienceLevel {
+  entry
+  junior
+  mid
+  senior
+  lead
+  executive
+}
+
+enum EducationLevel {
+  high_school
+  associate
+  bachelor
+  master
+  phd
+  any
+}
+
+enum RemoteType {
+  fully_remote
+  hybrid
+  on_site
+}
+
+enum SalaryPeriod {
+  hourly
+  monthly
+  annual
+}
+
+enum JobStatus {
+  draft
+  active
+  paused
+  closed
+  expired
+  filled
+}
+
+enum ApplicationMethod {
+  platform
+  email
+  external_url
+}
+
+enum ApplicationStatus {
+  submitted
+  reviewing
+  shortlisted
+  interview_scheduled
+  offer_sent
+  hired
+  rejected
+  withdrawn
+}
+
+enum GroupType {
+  interest
+  department
+  year
+  alumni_chapter
+  career
+  project
+  other
+}
+
+enum GroupVisibility {
+  public
+  open
+  private
+  secret
+}
+
+enum JoinPolicy {
+  open
+  invite_only
+  request
+  closed
+}
+
+enum GroupMemberRole {
+  owner
+  admin
+  moderator
+  member
+}
+
+enum GroupMemberStatus {
+  active
+  pending
+  banned
+}
+
+enum NotificationPref {
+  all
+  mentions
+  none
+}
+
+enum ChannelType {
+  text
+  announcements
+  resources
+  qa
+  voice
+}
+
+enum NotificationCategory {
+  social
+  mentorship
+  content
+  events
+  jobs
+  system
+  billing
+  moderation
+}
+
+enum DigestFrequency {
+  instant
+  hourly
+  daily
+  weekly
+  never
+}
+
+enum SurveyStatus {
+  draft
+  active
+  paused
+  closed
+  archived
+}
+
+enum TargetAudience {
+  all
+  alumni
+  students
+  specific_group
+}
+
+enum QuestionType {
+  single_choice
+  multiple_choice
+  text
+  paragraph
+  rating
+  scale
+  date
+  ranking
+  matrix
+}
+
+enum PollVisibility {
+  org
+  alumni_only
+  group
+}
+
+enum AnnouncementAudience {
+  all
+  alumni
+  students
+  admins
+}
+
+enum AnnouncementPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum ReportReason {
+  spam
+  harassment
+  hate_speech
+  misinformation
+  inappropriate
+  copyright
+  other
+}
+
+enum ReportStatus {
+  pending
+  in_review
+  resolved
+  dismissed
+}
+
+enum Resolution {
+  removed
+  warned
+  suspended
+  dismissed
+  escalated
+}
+
+enum ModerationActionType {
+  warn
+  mute
+  suspend
+  ban
+  remove_content
+  restore_content
+  dismiss
+}
+
+enum BlocklistCategory {
+  profanity
+  hate_speech
+  spam
+  pii
+  custom
+}
+
+enum BlocklistAction {
+  flag
+  block
+  auto_remove
+}
+
+enum SubscriptionStatus {
+  active
+  past_due
+  cancelled
+  trialing
+  paused
+  unpaid
+}
+
+enum BillingCycle {
+  monthly
+  annual
+  custom
+}
+
+enum InvoiceStatus {
+  draft
+  open
+  paid
+  void
+  uncollectible
+}
+
+enum OutboxStatus {
+  pending
+  processing
+  done
+  failed
+  dead
+}
+
+enum FlagType {
+  boolean
+  percentage
+  user_list
+  json
+}
+
+enum Environment {
+  development
+  staging
+  production
+}
+
+// ================================================================
+// GLOBAL DOMAINS / LOOKUP TABLES
+// ================================================================
+
+model Country {
+  code      String   @id @map("code") @db.Char(2)
+  name      String
+  dialCode  String?  @map("dial_code")
+  isActive  Boolean  @default(true) @map("is_active")
+
+  organizations Organization[]
+  alumniProfiles AlumniProfile[]
+  studentProfiles StudentProfile[]
+  events        Event[]
+  jobPostings   JobPosting[]
+
+  @@map("countries")
+}
+
+model Currency {
+  code      String   @id @map("code") @db.Char(3)
+  name      String
+  symbol    String
+  isActive  Boolean  @default(true) @map("is_active")
+
+  events        Event[]
+  jobPostings   JobPosting[]
+  jobApplications JobApplication[]
+  subscriptionPlans SubscriptionPlan[]
+  subscriptions Subscription[]
+  invoices      Invoice[]
+
+  @@map("currencies")
+}
+
+model Timezone {
+  name      String   @id
+  utcOffset String   @map("utc_offset")  // Changed from Interval to String
+  isActive  Boolean  @default(true) @map("is_active")
+
+  organizations Organization[]
+  events        Event[]
+  users         User[]
+
+  @@map("timezones")
+}
+model Language {
+  code       String   @id @map("code") @db.Char(5)
+  name       String
+  nativeName String?  @map("native_name")
+  isRtl      Boolean  @default(false) @map("is_rtl")
+  isActive   Boolean  @default(true) @map("is_active")
+
+  organizations Organization[]
+  users         User[]
+
+  @@map("languages")
+}
+
+// ================================================================
+// SECTION 1: TENANCY
+// ================================================================
+
+model Organization {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug              String
+  name              String
+  displayName       String?   @map("display_name")
+  legalName         String?   @map("legal_name")
+  logoUrl           String?   @map("logo_url")
+  faviconUrl        String?   @map("favicon_url")
+  website           String?
+  description       String?
+  establishedYear   Int?      @map("established_year")
+  countryCode       String?   @map("country_code") @db.Char(2)
+  timezone          String?   @map("timezone")
+  defaultLanguage   String?   @map("default_language") @db.Char(5)
+  planTier          PlanTier  @default(free) @map("plan_tier")
+  planSeats         Int       @default(100) @map("plan_seats")
+  isActive          Boolean   @default(true) @map("is_active")
+  isVerified        Boolean   @default(false) @map("is_verified")
+  verifiedAt        DateTime? @map("verified_at") @db.Timestamptz
+  verifiedBy        String?   @map("verified_by") @db.Uuid
+  trialEndsAt       DateTime? @map("trial_ends_at") @db.Timestamptz
+  onboardingStep    String?   @default("created") @map("onboarding_step")
+  customDomain      String?   @unique @map("custom_domain")
+  primaryColor      String?   @map("primary_color") @db.Char(7)
+  secondaryColor    String?   @map("secondary_color") @db.Char(7)
+  settings          Json      @default("{}")
+  metadata          Json      @default("{}")
+  ssoConfig         Json      @default("{}") @map("sso_config")
+  createdBy         String?   @map("created_by") @db.Uuid
+  version           Int       @default(1)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
+
+
+ 
+
+  // Relations
+  country           Country?          @relation(fields: [countryCode], references: [code])
+  timezoneRelation  Timezone?         @relation(fields: [timezone], references: [name])
+  language          Language?         @relation(fields: [defaultLanguage], references: [code])
+  verifiedByUser    User?             @relation("OrgVerifiedBy", fields: [verifiedBy], references: [id])
+  createdByUser     User?             @relation("OrgCreatedBy", fields: [createdBy], references: [id])
+  
+  domains           OrgDomain[]
+  settingsRecords   OrgSetting[]
+  invitations       OrgInvitation[]
+  users             User[]
+  userSessions      UserSession[]
+  oauthAccounts     UserOAuthAccount[]
+  pushSubscriptions PushSubscription[]
+  roles             Role[]
+  alumniProfiles    AlumniProfile[]
+  studentProfiles   StudentProfile[]
+  workHistory       AlumniWorkHistory[]
+  educationRecords  ProfileEducation[]
+  profileSkills     ProfileSkill[]
+  skillEndorsements SkillEndorsement[]
+  verificationRequests VerificationRequest[]
+  connections       Connection[]
+  mentorshipRequests MentorshipRequest[]
+  mentorshipSessions MentorshipSession[]
+  posts             Post[]
+  postAttachments   PostAttachment[]
+  tags              Tag[]
+  taggables         Taggable[]
+  comments          PostComment[]
+  reactions         Reaction[]
+  chatThreads       ChatThread[]
+  threadMembers     ChatThreadMember[]
+  messages          Message[]
+  messageAttachments MessageAttachment[]
+  messageReads      MessageRead[]
+  events            Event[]
+  eventRegistrations EventRegistration[]
+  eventSpeakers     EventSpeaker[]
+  jobCategories     JobCategory[]
+  jobPostings       JobPosting[]
+  jobApplications   JobApplication[]
+  jobBookmarks      JobBookmark[]
+  groups            Group[]
+  groupMembers      GroupMember[]
+  groupChannels     GroupChannel[]
+  channelMessages   ChannelMessage[]
+  notifications     Notification[]
+  notificationPrefs NotificationPreference[]
+  surveys           Survey[]
+  surveyQuestions   SurveyQuestion[]
+  surveyResponses   SurveyResponse[]
+  polls             Poll[]
+  pollVotes         PollVote[]
+  announcements     Announcement[]
+  announcementReads AnnouncementRead[]
+  contentReports    ContentReport[]
+  moderationActions ModerationAction[]
+  userBlocks        UserBlock[]
+  blocklistWords    BlocklistWord[]
+  ipBans            IpBan[]
+  pageViews         PageView[]        // Add this line
+  dailyStats        DailyOrgStat[]
+  searchQueries     SearchQuery[]
+  subscriptions     Subscription[]
+  invoices          Invoice[]
+  webhookEndpoints  WebhookEndpoint[]
+  webhookDeliveries WebhookDelivery[]
+  auditLogs         AuditLog[]
+  outboxEvents      EventOutbox[]
+  featureFlags      FeatureFlag[]
+  userRoles         UserRole[]
+  permissionOverrides UserPermissionOverride[]
+
+  @@unique([slug])
+  @@index([planTier], map: "idx_orgs_plan")
+  @@index([customDomain], map: "idx_orgs_custom_domain")
+  @@index([createdAt(sort: Desc)], map: "idx_orgs_created_at")
+  @@map("organizations")
+}
+
+model OrgDomain {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String             @map("organization_id") @db.Uuid
+  domain             String
+  isPrimary          Boolean            @default(false) @map("is_primary")
+  isVerified         Boolean            @default(false) @map("is_verified")
+  verificationToken  String?            @map("verification_token")
+  verificationMethod VerificationMethod @default(dns_txt) @map("verification_method")
+  verifiedAt         DateTime?          @map("verified_at") @db.Timestamptz
+  lastCheckedAt      DateTime?          @map("last_checked_at") @db.Timestamptz
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([domain])
+  @@index([organizationId], map: "idx_org_domains_org")
+  @@index([organizationId, isVerified], map: "idx_org_domains_verified")
+  @@map("org_domains")
+}
+
+model OrgSetting {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  category       String
+  settingKey     String    @map("setting_key")
+  settingValue   Json      @default("{}") @map("setting_value")
+  isEncrypted    Boolean   @default(false) @map("is_encrypted")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  updatedByUser User?       @relation("OrgSettingUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@unique([organizationId, category, settingKey])
+  @@index([organizationId, category], map: "idx_org_settings_org")
+  @@map("org_settings")
+}
+
+model OrgInvitation {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  email          String
+  roleId         String?      @map("role_id") @db.Uuid
+  userType       UserType     @map("user_type")
+  invitedBy      String       @map("invited_by") @db.Uuid
+  token          String
+  status         InviteStatus @default(pending)
+  message        String?
+  expiresAt      DateTime     @default(dbgenerated("NOW() + INTERVAL '7 days'")) @map("expires_at") @db.Timestamptz
+  acceptedAt     DateTime?    @map("accepted_at") @db.Timestamptz
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role?        @relation(fields: [roleId], references: [id])
+  invitedByUser User        @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@unique([token])
+  @@index([organizationId, status], map: "idx_invites_org")
+  @@index([email, status], map: "idx_invites_email")
+  @@map("org_invitations")
+}
+
+// ================================================================
+// SECTION 2: USERS & AUTHENTICATION
+// ================================================================
+
+model User {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String    @map("organization_id") @db.Uuid
+  email                String
+  emailNormalized      String    @map("email_normalized") @db.Text
+  passwordHash         String?   @map("password_hash")
+  fullName             String    @map("full_name")
+  firstName            String    @map("first_name") @db.Text
+  avatarUrl            String?   @map("avatar_url")
+  coverImageUrl        String?   @map("cover_image_url")
+  phone                String?
+  phoneVerified        Boolean   @default(false) @map("phone_verified")
+  status               UserStatus @default(pending)
+  userType             UserType  @map("user_type")
+  emailVerified        Boolean   @default(false) @map("email_verified")
+  emailVerifiedAt      DateTime? @map("email_verified_at") @db.Timestamptz
+  twoFactorEnabled     Boolean   @default(false) @map("two_factor_enabled")
+  twoFactorSecret      String?   @map("two_factor_secret")
+  failedLoginCount     Int       @default(0) @map("failed_login_count")
+  lockedUntil          DateTime? @map("locked_until") @db.Timestamptz
+  passwordChangedAt    DateTime? @map("password_changed_at") @db.Timestamptz
+  mustChangePassword   Boolean   @default(false) @map("must_change_password")
+  lastLoginAt          DateTime? @map("last_login_at") @db.Timestamptz
+  lastLoginIp          String?   @map("last_login_ip") @db.Inet
+  lastSeenAt           DateTime? @map("last_seen_at") @db.Timestamptz
+  locale               String?   @map("locale") @db.Char(5)
+  timezone             String?   @map("timezone")
+  deactivatedAt        DateTime? @map("deactivated_at") @db.Timestamptz
+  deactivatedReason    String?   @map("deactivated_reason")
+  version              Int       @default(1)
+  metadata             Json      @default("{}")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz
+  searchQueries        SearchQuery[]
+  reversedModerationActions ModerationAction[] @relation("ModerationReversedBy")
+  announcementReads    AnnouncementRead[]
+  pageViews            PageView[]        // Add this line
+  // Relations
+  organization        Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  language            Language?                    @relation(fields: [locale], references: [code])
+  timezoneRelation    Timezone?                    @relation(fields: [timezone], references: [name])
+  
+  orgsVerified        Organization[]               @relation("OrgVerifiedBy")
+  orgsCreated         Organization[]               @relation("OrgCreatedBy")
+  orgSettingsUpdated  OrgSetting[]                 @relation("OrgSettingUpdatedBy")
+  invitationsSent     OrgInvitation[]              @relation("InvitedBy")
+  sessions            UserSession[]
+  oauthAccounts       UserOAuthAccount[]
+  passwordResets      PasswordResetToken[]
+  emailVerifications  EmailVerificationToken[]
+  backupCodes         TwoFactorBackupCode[]
+  pushSubscriptions   PushSubscription[]
+  userRoles           UserRole[]
+  permissionOverrides UserPermissionOverride[]
+  alumniProfile       AlumniProfile?
+  studentProfile      StudentProfile?
+  verificationRequests VerificationRequest[]
+  verificationReviewed VerificationRequest[]       @relation("VerificationReviewedBy")
+  sentConnections     Connection[]                 @relation("Requester")
+  receivedConnections Connection[]                 @relation("Recipient")
+  mentorshipAsStudent MentorshipRequest[]          @relation("StudentMentorship")
+  mentorshipAsAlumni  MentorshipRequest[]          @relation("AlumniMentorship")
+  mentorshipResponses MentorshipRequest[]          @relation("MentorshipRespondedBy")
+  mentorshipCancelled MentorshipRequest[]          @relation("MentorshipCancelledBy")
+  mentorshipSessionsAsMentor MentorshipSession[]   @relation("MentorSessions")
+  mentorshipSessionsAsMentee MentorshipSession[]   @relation("MenteeSessions")
+  posts               Post[]
+  postsPinned         Post[]                       @relation("PostPinnedBy")
+  comments            PostComment[]
+  reactions           Reaction[]
+  chatThreadsCreated  ChatThread[]                 @relation("ChatThreadCreatedBy")
+  threadMemberships   ChatThreadMember[]
+  messages            Message[]
+  messagesPinned      Message[]                    @relation("MessagePinnedBy")
+  eventsOrganized     Event[]                      @relation("EventOrganizer")
+  eventRegistrations  EventRegistration[]
+  eventCheckins       EventRegistration[]          @relation("EventCheckedInBy")
+  jobPostings         JobPosting[]
+  jobApplications     JobApplication[]
+  jobBookmarks        JobBookmark[]
+  groupsCreated       Group[]                      @relation("GroupCreatedBy")
+  groupMemberships    GroupMember[]
+  groupInvitations    GroupMember[]                @relation("GroupInvitedBy")
+  groupBans           GroupMember[]                @relation("GroupBannedBy")
+  channelMessages     ChannelMessage[]
+  notifications       Notification[]
+  notificationPrefs   NotificationPreference[]
+  surveysCreated      Survey[]
+  surveyResponses     SurveyResponse[]
+  pollsCreated        Poll[]
+  pollVotes           PollVote[]
+  announcementsAuthored Announcement[]
+  reportsMade         ContentReport[]              @relation("ReportedBy")
+  reportsReviewed     ContentReport[]              @relation("ReportReviewedBy")
+  moderationActions   ModerationAction[]
+  blocksMade          UserBlock[]                  @relation("Blocker")
+  blocksReceived      UserBlock[]                  @relation("Blocked")
+  blocklistWordsCreated BlocklistWord[]
+  ipBansCreated       IpBan[]
+  webhooksCreated     WebhookEndpoint[]
+  auditLogs           AuditLog[]
+  outboxLocks         EventOutbox[]                @relation("OutboxLockedBy")
+  userRoleGrants      UserRole[]                  @relation("UserRoleGrantedBy")
+  userRoleRevokes     UserRole[]                  @relation("UserRoleRevokedBy")
+  permOverrideGrants  UserPermissionOverride[]    @relation("PermOverrideGrantedBy")
+  alumniVerifications AlumniProfile[]             @relation("AlumniVerifiedBy")
+  studentVerifications StudentProfile[]            @relation("StudentVerifiedBy")
+  skillEndorsements    SkillEndorsement[]
+
+  @@unique([organizationId, emailNormalized])
+  @@index([organizationId], map: "idx_users_org_id")
+  @@index([organizationId, emailNormalized], map: "idx_users_email_norm")
+  @@index([organizationId, status], map: "idx_users_status")
+  @@index([organizationId, userType], map: "idx_users_type")
+  @@index([organizationId, lastSeenAt(sort: Desc)], map: "idx_users_last_seen")
+  @@map("users")
+}
+
+model UserSession {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String     @map("user_id") @db.Uuid
+  organizationId     String     @map("organization_id") @db.Uuid
+  tokenHash          String     @map("token_hash")
+  refreshTokenHash   String?    @map("refresh_token_hash")
+  deviceType         DeviceType?
+  deviceName         String?    @map("device_name")
+  browser            String?
+  os                 String?
+  ipAddress          String?    @map("ip_address") @db.Inet
+  userAgent          String?    @map("user_agent")
+  isActive           Boolean    @default(true) @map("is_active")
+  revokedReason      String?    @map("revoked_reason")
+  expiresAt          DateTime   @map("expires_at") @db.Timestamptz
+  refreshExpiresAt   DateTime?  @map("refresh_expires_at") @db.Timestamptz
+  lastUsedAt         DateTime   @default(now()) @map("last_used_at") @db.Timestamptz
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenHash])
+  @@index([userId], map: "idx_sessions_user")
+  @@index([organizationId], map: "idx_sessions_org")
+  @@index([expiresAt], map: "idx_sessions_expiry")
+  @@map("user_sessions")
+}
+
+model UserOAuthAccount {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  organizationId  String        @map("organization_id") @db.Uuid
+  provider        OAuthProvider
+  providerUserId  String        @map("provider_user_id")
+  providerEmail   String?       @map("provider_email")
+  accessToken     String?       @map("access_token")
+  refreshToken    String?       @map("refresh_token")
+  tokenExpiresAt  DateTime?     @map("token_expires_at") @db.Timestamptz
+  scopes          String[]
+  providerData    Json          @default("{}") @map("provider_data")
+  isPrimary       Boolean       @default(false) @map("is_primary")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId], map: "idx_oauth_user")
+  @@index([provider, providerUserId], map: "idx_oauth_provider")
+  @@map("user_oauth_accounts")
+}
+
+model PasswordResetToken {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  tokenHash   String    @map("token_hash")
+  ipAddress   String?   @map("ip_address") @db.Inet
+  isUsed      Boolean   @default(false) @map("is_used")
+  usedAt      DateTime? @map("used_at") @db.Timestamptz
+  expiresAt   DateTime  @default(dbgenerated("NOW() + INTERVAL '1 hour'")) @map("expires_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenHash])
+  @@index([userId], map: "idx_prt_user")
+  @@index([expiresAt], map: "idx_prt_expiry")
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  tokenHash   String    @map("token_hash")
+  newEmail    String?   @map("new_email")
+  isUsed      Boolean   @default(false) @map("is_used")
+  expiresAt   DateTime  @default(dbgenerated("NOW() + INTERVAL '24 hours'")) @map("expires_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenHash])
+  @@index([userId], map: "idx_evt_user")
+  @@map("email_verification_tokens")
+}
+
+model TwoFactorBackupCode {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  codeHash    String    @map("code_hash")
+  isUsed      Boolean   @default(false) @map("is_used")
+  usedAt      DateTime? @map("used_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_2fa_user")
+  @@map("two_factor_backup_codes")
+}
+
+model PushSubscription {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  platform        String    @db.Text
+  endpoint        String?
+  deviceToken     String?   @unique @map("device_token")
+  deviceName      String?   @map("device_name")
+  appVersion      String?   @map("app_version")
+  isActive        Boolean   @default(true) @map("is_active")
+  lastUsedAt      DateTime? @map("last_used_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_push_user")
+  @@index([organizationId], map: "idx_push_org")
+  @@map("push_subscriptions")
+}
+
+// ================================================================
+// SECTION 3: RBAC
+// ================================================================
+
+model Role {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?     @map("organization_id") @db.Uuid
+  name           String
+  slug           String
+  scope          RoleScope   @default(organization)
+  priority       Int         @default(0)
+  isSystem       Boolean     @default(false) @map("is_system")
+  isDefault      Boolean     @default(false) @map("is_default")
+  description    String?
+  color          String?     @db.Char(7)
+  icon           String?
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization   Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles      UserRole[]
+  invitations    OrgInvitation[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId], map: "idx_roles_org")
+  @@map("roles")
+}
+
+model Permission {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code         String
+  category     String
+  action       PermissionAction
+  resource     String
+  description  String
+  isDangerous  Boolean          @default(false) @map("is_dangerous")
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  rolePermissions RolePermission[]
+  userOverrides   UserPermissionOverride[]
+
+  @@unique([code])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roleId       String    @map("role_id") @db.Uuid
+  permissionId String    @map("permission_id") @db.Uuid
+  grantedAt    DateTime  @default(now()) @map("granted_at") @db.Timestamptz
+  grantedBy    String?   @map("granted_by") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId], map: "idx_rp_role")
+  @@index([permissionId], map: "idx_rp_permission")
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String     @map("user_id") @db.Uuid
+  roleId         String     @map("role_id") @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  grantedBy      String     @map("granted_by") @db.Uuid
+  grantedReason  String?    @map("granted_reason")
+  expiresAt      DateTime?  @map("expires_at") @db.Timestamptz
+  revokedAt      DateTime?  @map("revoked_at") @db.Timestamptz
+  revokedBy      String?    @map("revoked_by") @db.Uuid
+  revokedReason  String?    @map("revoked_reason")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  grantedByUser User        @relation("UserRoleGrantedBy", fields: [grantedBy], references: [id])
+  revokedByUser User?       @relation("UserRoleRevokedBy", fields: [revokedBy], references: [id])
+
+  @@unique([userId, roleId, organizationId])
+  @@index([userId], map: "idx_ur_user")
+  @@index([organizationId], map: "idx_ur_org")
+  @@index([expiresAt], map: "idx_ur_expiry")
+  @@map("user_roles")
+}
+
+model UserPermissionOverride {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  permissionId   String    @map("permission_id") @db.Uuid
+  isGrant        Boolean   @map("is_grant")
+  reason         String?
+  grantedBy      String    @map("granted_by") @db.Uuid
+  expiresAt      DateTime? @map("expires_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedByUser User    @relation("PermOverrideGrantedBy", fields: [grantedBy], references: [id])
+
+  @@unique([userId, permissionId, organizationId])
+  @@index([userId], map: "idx_upo_user")
+  @@map("user_permission_overrides")
+}
+
+// ================================================================
+// SECTION 4: PROFILES
+// ================================================================
+
+model AlumniProfile {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String    @unique @map("user_id") @db.Uuid
+  organizationId       String    @map("organization_id") @db.Uuid
+  headline             String?
+  bio                  String?   @db.Text
+  graduationYear       Int?      @map("graduation_year")
+  degree               String?
+  major                String?
+  minor                String?
+  gpa                  Decimal?  @db.Decimal(3, 2)
+  currentCompany       String?   @map("current_company")
+  currentTitle         String?   @map("current_title")
+  yearsOfExperience    Int?      @map("years_of_experience")
+  industry             String?
+  linkedinUrl          String?   @map("linkedin_url")
+  githubUrl            String?   @map("github_url")
+  twitterUrl           String?   @map("twitter_url")
+  websiteUrl           String?   @map("website_url")
+  resumeUrl            String?   @map("resume_url")
+  countryCode          String?   @map("country_code") @db.Char(2)
+  city                 String?
+  isOpenToWork         Boolean   @default(false) @map("is_open_to_work")
+  isMentorAvailable    Boolean   @default(false) @map("is_mentor_available")
+  mentorshipSlots      Int       @default(0) @map("mentorship_slots")
+  mentorshipTopics     String[]  @map("mentorship_topics")
+  preferredContact     String?   @map("preferred_contact") @db.Text
+  isVerified           Boolean   @default(false) @map("is_verified")
+  isFeatured           Boolean   @default(false) @map("is_featured")
+  verifiedBy           String?   @map("verified_by") @db.Uuid
+  verifiedAt           DateTime? @map("verified_at") @db.Timestamptz
+  profileCompleteness  Int       @default(0) @map("profile_completeness")
+  viewCount            Int       @default(0) @map("view_count")
+  extraData            Json      @default("{}") @map("extra_data")
+  version              Int       @default(1)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  country      Country?     @relation(fields: [countryCode], references: [code])
+  verifiedByUser User?      @relation("AlumniVerifiedBy", fields: [verifiedBy], references: [id])
+
+  workHistory   AlumniWorkHistory[]
+
+  @@unique([userId, organizationId])
+  @@index([organizationId], map: "idx_alumni_org")
+  @@index([organizationId, isVerified], map: "idx_alumni_verified")
+  @@index([organizationId, isMentorAvailable], map: "idx_alumni_mentor")
+  @@index([organizationId, isFeatured], map: "idx_alumni_featured")
+  @@index([organizationId, industry], map: "idx_alumni_industry")
+  @@index([organizationId, graduationYear], map: "idx_alumni_grad_year")
+  @@map("alumni_profiles")
+}
+
+model StudentProfile {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                 String    @unique @map("user_id") @db.Uuid
+  organizationId         String    @map("organization_id") @db.Uuid
+  headline               String?
+  bio                    String?   @db.Text
+  enrollmentYear         Int?      @map("enrollment_year")
+  expectedGraduation     Int?      @map("expected_graduation")
+  major                  String?
+  minor                  String?
+  department             String?
+  gpa                    Decimal?  @db.Decimal(3, 2)
+  studentIdNumber        String?   @map("student_id_number")
+  linkedinUrl            String?   @map("linkedin_url")
+  githubUrl              String?   @map("github_url")
+  portfolioUrl           String?   @map("portfolio_url")
+  countryCode            String?   @map("country_code") @db.Char(2)
+  city                   String?
+  isSeekingMentorship    Boolean   @default(false) @map("is_seeking_mentorship")
+  isSeekingInternship    Boolean   @default(false) @map("is_seeking_internship")
+  isSeekingFulltime      Boolean   @default(false) @map("is_seeking_fulltime")
+  isVerified             Boolean   @default(false) @map("is_verified")
+  isFeatured             Boolean   @default(false) @map("is_featured")
+  verifiedBy             String?   @map("verified_by") @db.Uuid
+  verifiedAt             DateTime? @map("verified_at") @db.Timestamptz
+  profileCompleteness    Int       @default(0) @map("profile_completeness")
+  viewCount              Int       @default(0) @map("view_count")
+  extraData              Json      @default("{}") @map("extra_data")
+  version                Int       @default(1)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  country      Country?     @relation(fields: [countryCode], references: [code])
+  verifiedByUser User?      @relation("StudentVerifiedBy", fields: [verifiedBy], references: [id])
+
+  @@unique([userId, organizationId])
+  @@index([organizationId], map: "idx_student_org")
+  @@index([organizationId, isVerified], map: "idx_student_verified")
+  @@index([organizationId, isSeekingMentorship], map: "idx_student_mentor")
+  @@index([organizationId, expectedGraduation], map: "idx_student_grad")
+  @@map("student_profiles")
+}
+
+model AlumniWorkHistory {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  alumniProfileId   String    @map("alumni_profile_id") @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  company           String
+  title             String
+  employmentType    String?   @map("employment_type") @db.Text
+  location          String?
+  isRemote          Boolean   @default(false) @map("is_remote")
+  isCurrent         Boolean   @default(false) @map("is_current")
+  startedAt         DateTime  @map("started_at") @db.Date
+  endedAt           DateTime? @map("ended_at") @db.Date
+  description       String?   @db.Text
+  companyLogoUrl    String?   @map("company_logo_url")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  alumniProfile AlumniProfile @relation(fields: [alumniProfileId], references: [id], onDelete: Cascade)
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([alumniProfileId], map: "idx_work_alumni")
+  @@index([organizationId], map: "idx_work_org")
+  @@index([alumniProfileId], map: "idx_work_current")
+  @@map("alumni_work_history")
+}
+
+model ProfileEducation {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId         String    @map("owner_id") @db.Uuid
+  ownerType       String    @map("owner_type") @db.Text
+  organizationId  String    @map("organization_id") @db.Uuid
+  institution     String
+  degreeType      String?   @map("degree_type") @db.Text
+  fieldOfStudy    String?   @map("field_of_study")
+  startYear       Int?      @map("start_year")
+  endYear         Int?      @map("end_year")
+  isCurrent       Boolean   @default(false) @map("is_current")
+  grade           String?
+  activities      String?
+  description     String?
+  extraData       Json      @default("{}") @map("extra_data")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, ownerType], map: "idx_edu_owner")
+  @@index([organizationId], map: "idx_edu_org")
+  @@map("profile_education")
+}
+
+model SkillCategory {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String   @unique
+  slug       String   @unique
+  icon       String?
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  skills Skill[]
+
+  @@map("skill_categories")
+}
+
+model Skill {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  normalizedName String         @map("normalized_name") @db.Text
+  slug           String         @unique
+  categoryId     String?        @map("category_id") @db.Uuid
+  aliases        String[]
+  usageCount     Int            @default(0) @map("usage_count")
+  isVerified     Boolean        @default(false) @map("is_verified")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  category SkillCategory? @relation(fields: [categoryId], references: [id])
+  profileSkills ProfileSkill[]
+
+  @@unique([normalizedName])
+  @@index([normalizedName], map: "idx_skills_name_trgm")
+  @@index([categoryId], map: "idx_skills_category")
+  @@index([usageCount(sort: Desc)], map: "idx_skills_usage")
+  @@map("skills")
+}
+
+model ProfileSkill {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId           String    @map("owner_id") @db.Uuid
+  ownerType         String    @map("owner_type") @db.Text
+  organizationId    String    @map("organization_id") @db.Uuid
+  skillId           String    @map("skill_id") @db.Uuid
+  proficiencyLevel  Int?      @map("proficiency_level")
+  yearsExperience   Int?      @map("years_experience")
+  isFeatured        Boolean   @default(false) @map("is_featured")
+  endorsedCount     Int       @default(0) @map("endorsed_count")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  skill        Skill        @relation(fields: [skillId], references: [id])
+  endorsements SkillEndorsement[]
+
+  @@unique([ownerId, ownerType, skillId])
+  @@index([ownerId, ownerType], map: "idx_ps_owner")
+  @@index([skillId], map: "idx_ps_skill")
+  @@index([organizationId], map: "idx_ps_org")
+  @@map("profile_skills")
+}
+
+model SkillEndorsement {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileSkillId  String    @map("profile_skill_id") @db.Uuid
+  endorserId      String    @map("endorser_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  profileSkill ProfileSkill @relation(fields: [profileSkillId], references: [id], onDelete: Cascade)
+  endorser     User         @relation(fields: [endorserId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([profileSkillId, endorserId])
+  @@index([profileSkillId], map: "idx_endorsements_skill")
+  @@index([endorserId], map: "idx_endorsements_endorser")
+  @@map("skill_endorsements")
+}
+
+model VerificationRequest {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  targetType      String    @map("target_type") @db.Text
+  documents       Json      @default("[]")
+  notes           String?
+  status          String    @default("pending") @db.Text
+  rejectionReason String?   @map("rejection_reason")
+  reviewedBy      String?   @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime? @map("reviewed_at") @db.Timestamptz
+  reviewNote      String?   @map("review_note")
+  resubmittedAt   DateTime? @map("resubmitted_at") @db.Timestamptz
+  resubmitCount   Int       @default(0) @map("resubmit_count")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reviewer     User?        @relation("VerificationReviewedBy", fields: [reviewedBy], references: [id])
+
+  @@index([organizationId, status], map: "idx_verif_org")
+  @@index([userId], map: "idx_verif_user")
+  @@map("verification_requests")
+}
+
+// ================================================================
+// SECTION 5: SOCIAL GRAPH
+// ================================================================
+
+model Connection {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String           @map("organization_id") @db.Uuid
+  requesterId     String           @map("requester_id") @db.Uuid
+  recipientId     String           @map("recipient_id") @db.Uuid
+  status          ConnectionStatus @default(pending)
+  message         String?          @db.Text
+  declinedReason  String?          @map("declined_reason")
+  acceptedAt      DateTime?        @map("accepted_at") @db.Timestamptz
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requester    User         @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  recipient    User         @relation("Recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([requesterId, status], map: "idx_connections_requester")
+  @@index([recipientId, status], map: "idx_connections_recipient")
+  @@index([organizationId, status], map: "idx_connections_org_status")
+  @@map("connections")
+}
+
+model MentorshipRequest {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String              @map("organization_id") @db.Uuid
+  studentId            String              @map("student_id") @db.Uuid
+  alumniId             String              @map("alumni_id") @db.Uuid
+  status               MentorshipStatus    @default(pending)
+  subject              String?             @db.Text
+  message              String?             @db.Text
+  goals                String[]
+  preferredFrequency   MentorshipFrequency? @map("preferred_frequency")
+  responseNote         String?             @map("response_note")
+  respondedBy          String?             @map("responded_by") @db.Uuid
+  respondedAt          DateTime?           @map("responded_at") @db.Timestamptz
+  expiresAt            DateTime            @default(dbgenerated("NOW() + INTERVAL '14 days'")) @map("expires_at") @db.Timestamptz
+  completedAt          DateTime?           @map("completed_at") @db.Timestamptz
+  cancelledBy          String?             @map("cancelled_by") @db.Uuid
+  cancelledReason      String?             @map("cancelled_reason")
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  student      User                @relation("StudentMentorship", fields: [studentId], references: [id], onDelete: Cascade)
+  alumni       User                @relation("AlumniMentorship", fields: [alumniId], references: [id], onDelete: Cascade)
+  responder    User?               @relation("MentorshipRespondedBy", fields: [respondedBy], references: [id])
+  cancelledByUser User?            @relation("MentorshipCancelledBy", fields: [cancelledBy], references: [id])
+  sessions     MentorshipSession[]
+
+  @@index([organizationId, status], map: "idx_mr_org")
+  @@index([studentId], map: "idx_mr_student")
+  @@index([alumniId], map: "idx_mr_alumni")
+  @@index([expiresAt], map: "idx_mr_expiry")
+  @@map("mentorship_requests")
+}
+
+model MentorshipSession {
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId          String                   @map("organization_id") @db.Uuid
+  mentorshipRequestId     String                   @map("mentorship_request_id") @db.Uuid
+  mentorId                String                   @map("mentor_id") @db.Uuid
+  menteeId                String                   @map("mentee_id") @db.Uuid
+  status                  MentorshipSessionStatus  @default(scheduled)
+  meetingType             MeetingType              @default(video) @map("meeting_type")
+  meetingLink             String?                  @map("meeting_link")
+  meetingLocation         String?                  @map("meeting_location")
+  scheduledAt             DateTime                 @map("scheduled_at") @db.Timestamptz
+  durationMinutes         Int                      @default(60) @map("duration_minutes")
+  actualDurationMinutes   Int?                     @map("actual_duration_minutes")
+  agenda                  String?
+  notes                   String?
+  mentorRating            Int?                     @map("mentor_rating")
+  menteeRating            Int?                     @map("mentee_rating")
+  mentorFeedback          String?                  @map("mentor_feedback")
+  menteeFeedback          String?                  @map("mentee_feedback")
+  isMentorRated           Boolean                  @default(false) @map("is_mentor_rated")
+  isMenteeRated           Boolean                  @default(false) @map("is_mentee_rated")
+  completedAt             DateTime?                @map("completed_at") @db.Timestamptz
+  reminderSentAt          DateTime?                @map("reminder_sent_at") @db.Timestamptz
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  mentorshipRequest MentorshipRequest @relation(fields: [mentorshipRequestId], references: [id], onDelete: Cascade)
+  mentor           User               @relation("MentorSessions", fields: [mentorId], references: [id])
+  mentee           User               @relation("MenteeSessions", fields: [menteeId], references: [id])
+
+  @@index([organizationId], map: "idx_ms_org")
+  @@index([mentorshipRequestId], map: "idx_ms_request")
+  @@index([mentorId, scheduledAt], map: "idx_ms_mentor")
+  @@index([menteeId, scheduledAt], map: "idx_ms_mentee")
+  @@index([scheduledAt], map: "idx_ms_scheduled")
+  @@map("mentorship_sessions")
+}
+
+// ================================================================
+// SECTION 6: CONTENT FEED
+// ================================================================
+
+model Post {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String          @map("organization_id") @db.Uuid
+  authorId        String          @map("author_id") @db.Uuid
+  content         String          @db.Text
+  contentHtml     String?         @map("content_html")
+  postType        PostType        @default(general) @map("post_type")
+  visibility      PostVisibility  @default(org)
+  isPinned        Boolean         @default(false) @map("is_pinned")
+  pinnedBy        String?         @map("pinned_by") @db.Uuid
+  pinnedAt        DateTime?       @map("pinned_at") @db.Timestamptz
+  isFeatured      Boolean         @default(false) @map("is_featured")
+  isLocked        Boolean         @default(false) @map("is_locked")
+  isEdited        Boolean         @default(false) @map("is_edited")
+  lastEditedAt    DateTime?       @map("last_edited_at") @db.Timestamptz
+  viewCount       Int             @default(0) @map("view_count")
+  commentCount    Int             @default(0) @map("comment_count")
+  reactionCount   Int             @default(0) @map("reaction_count")
+  shareCount      Int             @default(0) @map("share_count")
+  version         Int             @default(1)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  pinnedByUser User?        @relation("PostPinnedBy", fields: [pinnedBy], references: [id])
+
+  attachments PostAttachment[]
+  taggables   Taggable[]
+  comments    PostComment[]
+  reactions   Reaction[]
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_posts_org_feed")
+  @@index([authorId, createdAt(sort: Desc)], map: "idx_posts_author")
+  @@index([organizationId, postType], map: "idx_posts_type")
+  @@index([organizationId, pinnedAt(sort: Desc)], map: "idx_posts_pinned")
+  @@map("posts")
+}
+
+model PostAttachment {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId          String    @map("post_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  fileUrl         String    @map("file_url")
+  cdnUrl          String?   @map("cdn_url")
+  fileName        String    @map("file_name")
+  mimeType        String    @map("mime_type")
+  fileSizeBytes   BigInt    @map("file_size_bytes")
+  widthPx         Int?      @map("width_px")
+  heightPx        Int?      @map("height_px")
+  durationSecs    Int?      @map("duration_secs")
+  thumbnailUrl    String?   @map("thumbnail_url")
+  sortOrder       Int       @default(0) @map("sort_order")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  post         Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([postId], map: "idx_post_attachments")
+  @@map("post_attachments")
+}
+
+model Tag {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  name            String
+  slug            String
+  description     String?
+  colorHex        String?   @map("color_hex") @db.Char(7)
+  category        String?
+  usageCount      Int       @default(0) @map("usage_count")
+  createdBy       String    @map("created_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation(fields: [createdBy], references: [id])
+  taggables    Taggable[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId], map: "idx_tags_org")
+  @@index([organizationId, usageCount(sort: Desc)], map: "idx_tags_usage")
+  @@map("tags")
+}
+
+model Taggable {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  tagId           String    @map("tag_id") @db.Uuid
+  entityType      String    @map("entity_type") @db.Text
+  entityId        String    @map("entity_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tag          Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+questions   SurveyQuestion[]
+
+  @@unique([tagId, entityType, entityId])
+  @@index([entityType, entityId], map: "idx_taggables_entity")
+  @@index([tagId], map: "idx_taggables_tag")
+  @@map("taggables")
+}
+
+model PostComment {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  postId          String    @map("post_id") @db.Uuid
+  authorId        String    @map("author_id") @db.Uuid
+  parentCommentId String?   @map("parent_comment_id") @db.Uuid
+  content         String    @db.Text
+  depth           Int       @default(0)
+  path            String?
+  isEdited        Boolean   @default(false) @map("is_edited")
+  lastEditedAt    DateTime? @map("last_edited_at") @db.Timestamptz
+  reactionCount   Int       @default(0) @map("reaction_count")
+  isDeleted       Boolean   @default(false) @map("is_deleted")
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  post         Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  parent       PostComment? @relation("CommentParent", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies      PostComment[] @relation("CommentParent")
+  reactions    Reaction[]
+
+  @@index([postId, createdAt], map: "idx_comments_post")
+  @@index([parentCommentId], map: "idx_comments_parent")
+  @@index([authorId], map: "idx_comments_author")
+  @@index([postId, path], map: "idx_comments_path")
+  @@map("post_comments")
+}
+
+model Reaction {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String            @map("organization_id") @db.Uuid
+  entityType      ReactionEntityType @map("entity_type")
+  entityId        String            @map("entity_id") @db.Uuid
+  userId          String            @map("user_id") @db.Uuid
+  emoji           ReactionEmoji
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, userId, emoji])
+  @@index([entityType, entityId], map: "idx_reactions_entity")
+  @@index([userId], map: "idx_reactions_user")
+  @@map("reactions")
+}
+
+// ================================================================
+// SECTION 7: MESSAGING
+// ================================================================
+
+model ChatThread {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  createdBy       String       @map("created_by") @db.Uuid
+  threadType      ThreadType   @default(direct) @map("thread_type")
+  title           String?
+  description     String?
+  avatarUrl       String?      @map("avatar_url")
+  isArchived      Boolean      @default(false) @map("is_archived")
+  archivedAt      DateTime?    @map("archived_at") @db.Timestamptz
+  lastMessageId   String?      @map("last_message_id") @db.Uuid
+  lastMessageAt   DateTime?    @map("last_message_at") @db.Timestamptz
+  messageCount    Int          @default(0) @map("message_count")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation("ChatThreadCreatedBy", fields: [createdBy], references: [id])
+  lastMessage  Message?     @relation("ThreadLastMessage", fields: [lastMessageId], references: [id])
+
+  members  ChatThreadMember[]
+  messages Message[]
+
+  @@index([organizationId, lastMessageAt(sort: Desc)], map: "idx_threads_org")
+  @@index([organizationId, threadType], map: "idx_threads_type")
+  @@map("chat_threads")
+}
+
+model ChatThreadMember {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  threadId           String    @map("thread_id") @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  role               ThreadMemberRole @default(member)
+  nickname           String?
+  isMuted            Boolean   @default(false) @map("is_muted")
+  mutedUntil         DateTime? @map("muted_until") @db.Timestamptz
+  unreadCount        Int       @default(0) @map("unread_count")
+  lastReadAt         DateTime? @map("last_read_at") @db.Timestamptz
+  lastReadMessageId  String?   @map("last_read_message_id") @db.Uuid
+  lastMessageAt      DateTime? @map("last_message_at") @db.Timestamptz
+  joinedAt           DateTime  @default(now()) @map("joined_at") @db.Timestamptz
+  leftAt             DateTime? @map("left_at") @db.Timestamptz
+  removedBy          String?   @map("removed_by") @db.Uuid
+
+  thread       ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  remover      User?      @relation("ThreadMemberRemovedBy", fields: [removedBy], references: [id])
+
+  @@unique([threadId, userId])
+  @@index([threadId], map: "idx_tm_thread")
+  @@index([userId, lastMessageAt(sort: Desc)], map: "idx_tm_user")
+  @@index([userId, unreadCount], map: "idx_tm_unread")
+  @@map("chat_thread_members")
+}
+
+model Message {
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String        @map("organization_id") @db.Uuid
+  threadId           String        @map("thread_id") @db.Uuid
+  senderId           String        @map("sender_id") @db.Uuid
+  replyToMessageId   String?       @map("reply_to_message_id") @db.Uuid
+  content            String?       @db.Text
+  contentHtml        String?       @map("content_html")
+  messageType        MessageType   @default(text) @map("message_type")
+  status             MessageStatus @default(sent)
+  isEdited           Boolean       @default(false) @map("is_edited")
+  editedAt           DateTime?     @map("edited_at") @db.Timestamptz
+  isPinned           Boolean       @default(false) @map("is_pinned")
+  pinnedBy           String?       @map("pinned_by") @db.Uuid
+  pinnedAt           DateTime?     @map("pinned_at") @db.Timestamptz
+  metadata           Json          @default("{}")
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime?     @map("deleted_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  thread       ChatThread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  replyTo      Message?     @relation("MessageReply", fields: [replyToMessageId], references: [id])
+  pinnedByUser User?        @relation("MessagePinnedBy", fields: [pinnedBy], references: [id])
+  replies      Message[]    @relation("MessageReply")
+  attachments  MessageAttachment[]
+  reads        MessageRead[]
+  threadAsLast ChatThread?  @relation("ThreadLastMessage")
+
+  @@index([threadId, createdAt(sort: Desc)], map: "idx_messages_thread")
+  @@index([senderId], map: "idx_messages_sender")
+  @@index([organizationId], map: "idx_messages_org")
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId       String    @map("message_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  fileUrl         String    @map("file_url")
+  cdnUrl          String?   @map("cdn_url")
+  fileName        String    @map("file_name")
+  mimeType        String    @map("mime_type")
+  fileSizeBytes   BigInt    @map("file_size_bytes")
+  widthPx         Int?      @map("width_px")
+  heightPx        Int?      @map("height_px")
+  durationSecs    Int?      @map("duration_secs")
+  thumbnailUrl    String?   @map("thumbnail_url")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([messageId], map: "idx_msg_attach_msg")
+  @@map("message_attachments")
+}
+
+model MessageRead {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId       String    @map("message_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  readAt          DateTime  @default(now()) @map("read_at") @db.Timestamptz
+
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId, readAt(sort: Desc)], map: "idx_mr_user")
+  @@map("message_reads")
+}
+
+// ================================================================
+// SECTION 8: EVENTS
+// ================================================================
+
+model Event {
+  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId         String         @map("organization_id") @db.Uuid
+  organizerId            String         @map("organizer_id") @db.Uuid
+  title                  String         @db.Text
+  slug                   String
+  description            String?        @db.Text
+  descriptionHtml        String?        @map("description_html")
+  eventType              EventType      @map("event_type")
+  mode                   EventMode      @default(online)
+  locationName           String?        @map("location_name")
+  locationAddress        String?        @map("location_address")
+  locationCity           String?        @map("location_city")
+  locationCountry        String?        @map("location_country") @db.Char(2)
+  locationLat            Decimal?       @map("location_lat") @db.Decimal(9, 6)
+  locationLng            Decimal?       @map("location_lng") @db.Decimal(9, 6)
+  meetingLink            String?        @map("meeting_link")
+  meetingPassword        String?        @map("meeting_password")
+  bannerUrl              String?        @map("banner_url")
+  thumbnailUrl           String?        @map("thumbnail_url")
+  maxCapacity            Int?           @map("max_capacity")
+  registeredCount        Int            @default(0) @map("registered_count")
+  waitlistCount          Int            @default(0) @map("waitlist_count")
+  isPublished            Boolean        @default(false) @map("is_published")
+  isFeatured             Boolean        @default(false) @map("is_featured")
+  requiresApproval       Boolean        @default(false) @map("requires_approval")
+  isPaid                 Boolean        @default(false) @map("is_paid")
+  price                  Decimal?       @map("price") @db.Decimal(10, 2)
+  currencyCode           String?        @map("currency_code") @db.Char(3)
+  startsAt               DateTime       @map("starts_at") @db.Timestamptz
+  endsAt                 DateTime       @map("ends_at") @db.Timestamptz
+  timezone               String?        @map("timezone")
+  registrationOpensAt    DateTime?      @map("registration_opens_at") @db.Timestamptz
+  registrationClosesAt   DateTime?      @map("registration_closes_at") @db.Timestamptz
+  cancelledAt            DateTime?      @map("cancelled_at") @db.Timestamptz
+  cancellationReason     String?        @map("cancellation_reason")
+  viewCount              Int            @default(0) @map("view_count")
+  extraData              Json           @default("{}") @map("extra_data")
+  version                Int            @default(1)
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt              DateTime?      @map("deleted_at") @db.Timestamptz
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizer       User         @relation("EventOrganizer", fields: [organizerId], references: [id])
+  country         Country?     @relation(fields: [locationCountry], references: [code])
+  currency        Currency?    @relation(fields: [currencyCode], references: [code])
+  timezoneRel     Timezone?    @relation(fields: [timezone], references: [name])
+
+  taggables      Taggable[]
+  registrations  EventRegistration[]
+  speakers       EventSpeaker[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, startsAt(sort: Desc)], map: "idx_events_org_date")
+  @@index([organizationId, startsAt], map: "idx_events_upcoming")
+  @@index([organizationId, eventType], map: "idx_events_type")
+  @@map("events")
+}
+
+model EventRegistration {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String           @map("organization_id") @db.Uuid
+  eventId            String           @map("event_id") @db.Uuid
+  userId             String           @map("user_id") @db.Uuid
+  status             RegistrationStatus @default(registered)
+  registrationToken  String?          @unique @map("registration_token")
+  answers            Json             @default("{}")
+  checkedInAt        DateTime?        @map("checked_in_at") @db.Timestamptz
+  checkedInBy        String?          @map("checked_in_by") @db.Uuid
+  cancelledAt        DateTime?        @map("cancelled_at") @db.Timestamptz
+  cancelledReason    String?          @map("cancelled_reason")
+  paymentStatus      PaymentStatus?   @map("payment_status")
+  paymentReference   String?          @map("payment_reference")
+  registeredAt       DateTime         @default(now()) @map("registered_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkedInByUser User?     @relation("EventCheckedInBy", fields: [checkedInBy], references: [id])
+
+  @@unique([eventId, userId])
+  @@index([eventId, status], map: "idx_er_event")
+  @@index([userId], map: "idx_er_user")
+  @@index([organizationId, status], map: "idx_er_status")
+  @@map("event_registrations")
+}
+
+model EventSpeaker {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId         String    @map("event_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  userId          String?   @map("user_id") @db.Uuid
+  name            String
+  title           String?
+  company         String?
+  bio             String?
+  avatarUrl       String?   @map("avatar_url")
+  topic           String?
+  sortOrder       Int       @default(0) @map("sort_order")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([eventId], map: "idx_event_speakers_event")
+  @@map("event_speakers")
+}
+
+// ================================================================
+// SECTION 9: JOBS BOARD
+// ================================================================
+
+model JobCategory {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  slug           String
+  icon           String?
+  sortOrder      Int      @default(0) @map("sort_order")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobPostings   JobPosting[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, slug])
+  @@index([organizationId], map: "idx_job_categories_org")
+  @@map("job_categories")
+}
+
+model JobPosting {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String            @map("organization_id") @db.Uuid
+  postedBy           String            @map("posted_by") @db.Uuid
+  categoryId         String?           @map("category_id") @db.Uuid
+  title              String            @db.Text
+  slug               String
+  description        String            @db.Text
+  descriptionHtml    String?           @map("description_html")
+  requirements       String?
+  responsibilities  String?
+  benefits          String?
+  jobType            JobType           @map("job_type")
+  experienceLevel    ExperienceLevel?  @map("experience_level")
+  educationLevel     EducationLevel?   @map("education_level")
+  locationCity       String?           @map("location_city")
+  locationCountry    String?           @map("location_country") @db.Char(2)
+  isRemote           Boolean           @default(false) @map("is_remote")
+  remoteType         RemoteType?       @map("remote_type")
+  salaryMin          Decimal?          @map("salary_min") @db.Decimal(12, 2)
+  salaryMax          Decimal?          @map("salary_max") @db.Decimal(12, 2)
+  salaryCurrency     String?           @default("USD") @map("salary_currency") @db.Char(3)
+  salaryPeriod       SalaryPeriod?     @map("salary_period")
+  showSalary         Boolean           @default(true) @map("show_salary")
+  status             JobStatus         @default(draft)
+  isFeatured         Boolean           @default(false) @map("is_featured")
+  isUrgent           Boolean           @default(false) @map("is_urgent")
+  customQuestions    Json              @default("[]") @map("custom_questions")
+  applicationMethod  ApplicationMethod @default(platform) @map("application_method")
+  applicationUrl     String?           @map("application_url")
+  applicationEmail   String?           @map("application_email")
+  applicationCount   Int               @default(0) @map("application_count")
+  viewCount          Int               @default(0) @map("view_count")
+  expiresAt          DateTime?         @map("expires_at") @db.Timestamptz
+  filledAt           DateTime?         @map("filled_at") @db.Timestamptz
+  version            Int               @default(1)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  postedByUser User         @relation(fields: [postedBy], references: [id])
+  category     JobCategory? @relation(fields: [categoryId], references: [id])
+  country      Country?     @relation(fields: [locationCountry], references: [code])
+  currency     Currency?    @relation(fields: [salaryCurrency], references: [code])
+
+  taggables     Taggable[]
+  applications  JobApplication[]
+  bookmarks     JobBookmark[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_jobs_org_active")
+  @@index([organizationId, jobType], map: "idx_jobs_type")
+  @@index([categoryId], map: "idx_jobs_category")
+  @@index([expiresAt], map: "idx_jobs_expiry")
+  @@map("job_postings")
+}
+
+model JobApplication {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String            @map("organization_id") @db.Uuid
+  jobPostingId     String            @map("job_posting_id") @db.Uuid
+  applicantId      String            @map("applicant_id") @db.Uuid
+  status           ApplicationStatus @default(submitted)
+  coverLetter      String?           @map("cover_letter") @db.Text
+  resumeUrl        String?           @map("resume_url")
+  portfolioUrl     String?           @map("portfolio_url")
+  answers          Json              @default("{}")
+  expectedSalary   Decimal?          @map("expected_salary") @db.Decimal(12, 2)
+  salaryCurrency   String?           @map("salary_currency") @db.Char(3)
+  availableFrom    DateTime?         @map("available_from") @db.Date
+  reviewerNote     String?           @map("reviewer_note")
+  rejectionReason  String?           @map("rejection_reason")
+  reviewedBy       String?           @map("reviewed_by") @db.Uuid
+  reviewedAt       DateTime?         @map("reviewed_at") @db.Timestamptz
+  hiredAt          DateTime?         @map("hired_at") @db.Timestamptz
+  withdrawnAt      DateTime?         @map("withdrawn_at") @db.Timestamptz
+  withdrawnReason  String?           @map("withdrawn_reason")
+  version          Int               @default(1)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobPosting   JobPosting   @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  applicant    User         @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  reviewer     User?        @relation("JobApplicationReviewedBy", fields: [reviewedBy], references: [id])
+  currency     Currency?    @relation(fields: [salaryCurrency], references: [code])
+
+  @@unique([jobPostingId, applicantId])
+  @@index([jobPostingId, status], map: "idx_ja_job")
+  @@index([applicantId], map: "idx_ja_applicant")
+  @@index([organizationId, status], map: "idx_ja_org_status")
+  @@map("job_applications")
+}
+
+model JobBookmark {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  jobPostingId    String    @map("job_posting_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobPosting   JobPosting   @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([jobPostingId, userId])
+  @@index([userId], map: "idx_jb_user")
+  @@map("job_bookmarks")
+}
+
+// ================================================================
+// SECTION 10: GROUPS & CHANNELS
+// ================================================================
+
+model Group {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String          @map("organization_id") @db.Uuid
+  createdBy       String          @map("created_by") @db.Uuid
+  name            String          @db.Text
+  slug            String
+  description     String?         @db.Text
+  groupType       GroupType       @default(interest) @map("group_type")
+  visibility      GroupVisibility @default(public)
+  joinPolicy      JoinPolicy      @default(open) @map("join_policy")
+  bannerUrl       String?         @map("banner_url")
+  avatarUrl       String?         @map("avatar_url")
+  memberCount     Int             @default(0) @map("member_count")
+  maxMembers      Int?            @map("max_members")
+  isFeatured      Boolean         @default(false) @map("is_featured")
+  isArchived      Boolean         @default(false) @map("is_archived")
+  archivedAt      DateTime?       @map("archived_at") @db.Timestamptz
+  rules           String?
+  extraData       Json            @default("{}") @map("extra_data")
+  version         Int             @default(1)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation("GroupCreatedBy", fields: [createdBy], references: [id])
+
+  taggables   Taggable[]
+  members     GroupMember[]
+  channels    GroupChannel[]
+  polls       Poll[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId], map: "idx_groups_org")
+  @@index([organizationId, groupType], map: "idx_groups_type")
+  @@index([organizationId, isFeatured], map: "idx_groups_featured")
+  @@map("groups")
+}
+
+model GroupMember {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId           String            @map("group_id") @db.Uuid
+  userId            String            @map("user_id") @db.Uuid
+  organizationId    String            @map("organization_id") @db.Uuid
+  role              GroupMemberRole   @default(member)
+  status            GroupMemberStatus @default(active)
+  isMuted           Boolean           @default(false) @map("is_muted")
+  notificationPref  NotificationPref  @default(all) @map("notification_pref")
+  joinedAt          DateTime          @default(now()) @map("joined_at") @db.Timestamptz
+  invitedBy         String?           @map("invited_by") @db.Uuid
+  leftAt            DateTime?         @map("left_at") @db.Timestamptz
+  bannedAt          DateTime?         @map("banned_at") @db.Timestamptz
+  bannedBy          String?           @map("banned_by") @db.Uuid
+  banReason         String?           @map("ban_reason")
+
+  group        Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter      User?        @relation("GroupInvitedBy", fields: [invitedBy], references: [id])
+  banner       User?        @relation("GroupBannedBy", fields: [bannedBy], references: [id])
+
+  @@unique([groupId, userId])
+  @@index([groupId], map: "idx_gm_group")
+  @@index([userId], map: "idx_gm_user")
+  @@map("group_members")
+}
+
+model GroupChannel {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId         String       @map("group_id") @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  name            String       @db.Text
+  slug            String
+  description     String?
+  channelType     ChannelType  @default(text) @map("channel_type")
+  isDefault       Boolean      @default(false) @map("is_default")
+  isReadonly      Boolean      @default(false) @map("is_readonly")
+  isArchived      Boolean      @default(false) @map("is_archived")
+  messageCount    Int          @default(0) @map("message_count")
+  lastMessageAt   DateTime?    @map("last_message_at") @db.Timestamptz
+  sortOrder       Int          @default(0) @map("sort_order")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  group        Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  messages ChannelMessage[]
+
+  @@unique([groupId, slug])
+  @@index([groupId], map: "idx_gc_group")
+  @@map("group_channels")
+}
+
+model ChannelMessage {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channelId       String    @map("channel_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  senderId        String    @map("sender_id") @db.Uuid
+  replyToId       String?   @map("reply_to_id") @db.Uuid
+  content         String    @db.Text
+  contentHtml     String?   @map("content_html")
+  messageType     String    @default("text") @map("message_type") @db.Text
+  isPinned        Boolean   @default(false) @map("is_pinned")
+  isEdited        Boolean   @default(false) @map("is_edited")
+  editedAt        DateTime? @map("edited_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+
+  channel      GroupChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  replyTo      ChannelMessage? @relation("ChannelMessageReply", fields: [replyToId], references: [id])
+  replies      ChannelMessage[] @relation("ChannelMessageReply")
+
+  @@index([channelId, createdAt(sort: Desc)], map: "idx_cm_channel")
+  @@index([senderId], map: "idx_cm_sender")
+  @@index([channelId], map: "idx_cm_pinned")
+  @@map("channel_messages")
+}
+
+// ================================================================
+// SECTION 11: NOTIFICATIONS
+// ================================================================
+
+model Notification {
+  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String               @map("organization_id") @db.Uuid
+  userId          String               @map("user_id") @db.Uuid
+  type            String
+  category        NotificationCategory
+  title           String
+  body            String?
+  payload         Json                 @default("{}")
+  actionUrl       String?              @map("action_url")
+  iconUrl         String?              @map("icon_url")
+  isRead          Boolean              @default(false) @map("is_read")
+  isSeen          Boolean              @default(false) @map("is_seen")
+  isEmailed       Boolean              @default(false) @map("is_emailed")
+  isPushed        Boolean              @default(false) @map("is_pushed")
+  readAt          DateTime?            @map("read_at") @db.Timestamptz
+  expiresAt       DateTime?            @map("expires_at") @db.Timestamptz
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_notifs_user_unread")
+  @@index([organizationId], map: "idx_notifs_org")
+  @@index([expiresAt], map: "idx_notifs_expiry")
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String          @map("user_id") @db.Uuid
+  organizationId    String          @map("organization_id") @db.Uuid
+  notificationType  String          @map("notification_type")
+  inAppEnabled      Boolean         @default(true) @map("in_app_enabled")
+  emailEnabled      Boolean         @default(true) @map("email_enabled")
+  pushEnabled       Boolean         @default(false) @map("push_enabled")
+  digestFrequency   DigestFrequency @default(instant) @map("digest_frequency")
+  quietHoursStart   DateTime?       @map("quiet_hours_start") @db.Time
+  quietHoursEnd     DateTime?       @map("quiet_hours_end") @db.Time
+  updatedAt         DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId, notificationType])
+  @@index([userId, organizationId], map: "idx_np_user")
+  @@map("notification_preferences")
+}
+
+// ================================================================
+// SECTION 12: SURVEYS & POLLS
+// ================================================================
+
+model Survey {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String         @map("organization_id") @db.Uuid
+  createdBy           String         @map("created_by") @db.Uuid
+  title               String         @db.Text
+  description         String?
+  targetAudience      TargetAudience @default(all) @map("target_audience")
+  status              SurveyStatus   @default(draft)
+  isAnonymous         Boolean        @default(false) @map("is_anonymous")
+  allowMultiple       Boolean        @default(false) @map("allow_multiple")
+  showProgress        Boolean        @default(true) @map("show_progress")
+  randomizeQuestions  Boolean        @default(false) @map("randomize_questions")
+  thankYouMessage     String?        @map("thank_you_message")
+  startsAt            DateTime?      @map("starts_at") @db.Timestamptz
+  endsAt              DateTime?      @map("ends_at") @db.Timestamptz
+  responseCount       Int            @default(0) @map("response_count")
+  maxResponses        Int?           @map("max_responses")
+  version             Int            @default(1)
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation(fields: [createdBy], references: [id])
+
+  taggables   Taggable[]
+  questions   SurveyQuestion[]
+  responses   SurveyResponse[]
+
+  @@index([organizationId, status], map: "idx_surveys_org")
+  @@index([organizationId, startsAt, endsAt], map: "idx_surveys_active")
+  @@map("surveys")
+}
+
+model SurveyQuestion {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  surveyId        String       @map("survey_id") @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  questionText    String       @map("question_text") @db.Text
+  questionType    QuestionType @map("question_type")
+  isRequired      Boolean      @default(true) @map("is_required")
+  sortOrder       Int          @default(0) @map("sort_order")
+  description     String?
+  config          Json         @default("{}")
+  skipLogic       Json         @default("[]") @map("skip_logic")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  survey      Survey                  @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  options     SurveyQuestionOption[]
+  answers     SurveyAnswer[]
+
+  @@index([surveyId, sortOrder], map: "idx_sq_survey")
+  @@map("survey_questions")
+}
+
+model SurveyQuestionOption {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId  String    @map("question_id") @db.Uuid
+  optionText  String    @map("option_text") @db.Text
+  value       String?
+  sortOrder   Int       @default(0) @map("sort_order")
+  isOther     Boolean   @default(false) @map("is_other")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  question SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, sortOrder], map: "idx_sqo_question")
+  @@map("survey_question_options")
+}
+
+model SurveyResponse {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  surveyId              String    @map("survey_id") @db.Uuid
+  organizationId        String    @map("organization_id") @db.Uuid
+  userId                String?   @map("user_id") @db.Uuid
+  respondentToken       String?   @unique @map("respondent_token")
+  isComplete            Boolean   @default(false) @map("is_complete")
+  startedAt             DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  submittedAt           DateTime? @map("submitted_at") @db.Timestamptz
+  ipAddress             String?   @map("ip_address") @db.Inet
+  deviceType            String?   @map("device_type")
+  timeToCompleteSecs    Int?      @map("time_to_complete_secs")
+
+  survey      Survey      @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  answers SurveyAnswer[]
+
+  @@index([surveyId, isComplete], map: "idx_sr_survey")
+  @@index([userId], map: "idx_sr_user")
+  @@map("survey_responses")
+}
+
+model SurveyAnswer {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  responseId         String     @map("response_id") @db.Uuid
+  questionId         String     @map("question_id") @db.Uuid
+  selectedOptionIds  String[]   @map("selected_option_ids") @db.Uuid
+  textValue          String?    @map("text_value")
+  numericValue       Decimal?   @map("numeric_value") @db.Decimal
+  dateValue          DateTime?  @map("date_value") @db.Date
+  jsonValue          Json?      @map("json_value")
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  response SurveyResponse   @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question SurveyQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+  @@index([responseId], map: "idx_sa_response")
+  @@index([questionId], map: "idx_sa_question")
+  @@map("survey_answers")
+}
+
+model Poll {
+  id                       String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId           String         @map("organization_id") @db.Uuid
+  createdBy                String         @map("created_by") @db.Uuid
+  question                 String         @db.Text
+  allowMultipleVotes       Boolean        @default(false) @map("allow_multiple_votes")
+  showResultsBeforeVote    Boolean        @default(false) @map("show_results_before_vote")
+  isAnonymous              Boolean        @default(false) @map("is_anonymous")
+  visibility               PollVisibility @default(org)
+  groupId                  String?        @map("group_id") @db.Uuid
+  totalVotes               Int            @default(0) @map("total_votes")
+  endsAt                   DateTime?      @map("ends_at") @db.Timestamptz
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation(fields: [createdBy], references: [id])
+  group        Group?       @relation(fields: [groupId], references: [id])
+
+  options PollOption[]
+  votes   PollVote[]
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_polls_org")
+  @@map("polls")
+}
+
+model PollOption {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pollId      String    @map("poll_id") @db.Uuid
+  optionText  String    @map("option_text") @db.Text
+  voteCount   Int       @default(0) @map("vote_count")
+  sortOrder   Int       @default(0) @map("sort_order")
+
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes PollVote[]
+
+  @@index([pollId, sortOrder], map: "idx_po_poll")
+  @@map("poll_options")
+}
+
+model PollVote {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  pollId          String    @map("poll_id") @db.Uuid
+  optionId        String    @map("option_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  poll         Poll         @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option       PollOption   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, optionId, userId])
+  @@index([pollId], map: "idx_pv_poll")
+  @@index([userId], map: "idx_pv_user")
+  @@map("poll_votes")
+}
+
+// ================================================================
+// SECTION 13: ANNOUNCEMENTS
+// ================================================================
+
+model Announcement {
+  id                       String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId           String              @map("organization_id") @db.Uuid
+  authorId                 String              @map("author_id") @db.Uuid
+  title                    String              @db.Text
+  content                  String              @db.Text
+  contentHtml              String?             @map("content_html")
+  audience                 AnnouncementAudience @default(all)
+  priority                 AnnouncementPriority @default(normal)
+  requiresAcknowledgement  Boolean             @default(false) @map("requires_acknowledgement")
+  bannerUrl                String?             @map("banner_url")
+  ctaLabel                 String?             @map("cta_label")
+  ctaUrl                   String?             @map("cta_url")
+  readCount                Int                 @default(0) @map("read_count")
+  ackCount                 Int                 @default(0) @map("ack_count")
+  isPinned                 Boolean             @default(false) @map("is_pinned")
+  publishAt                DateTime            @default(now()) @map("publish_at") @db.Timestamptz
+  expiresAt                DateTime?           @map("expires_at") @db.Timestamptz
+  createdAt                DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt                DateTime?           @map("deleted_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id])
+
+  reads AnnouncementRead[]
+
+  @@index([organizationId, publishAt(sort: Desc)], map: "idx_ann_org_active")
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  announcementId  String    @map("announcement_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  acknowledged    Boolean   @default(false)
+  readAt          DateTime  @default(now()) @map("read_at") @db.Timestamptz
+  acknowledgedAt  DateTime? @map("acknowledged_at") @db.Timestamptz
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([announcementId], map: "idx_ar_announcement")
+  @@index([userId], map: "idx_ar_user")
+  @@map("announcement_reads")
+}
+
+// ================================================================
+// SECTION 14: MODERATION
+// ================================================================
+
+model ContentReport {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String         @map("organization_id") @db.Uuid
+  reporterId      String         @map("reporter_id") @db.Uuid
+  entityType      String         @map("entity_type") @db.Text
+  entityId        String         @map("entity_id") @db.Uuid
+  reason          ReportReason
+  description     String?        @db.Text
+  status          ReportStatus   @default(pending)
+  autoScore       Int?           @map("auto_score")
+  reviewedBy      String?        @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime?      @map("reviewed_at") @db.Timestamptz
+  resolution      Resolution?    @map("resolution")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reporter     User         @relation("ReportedBy", fields: [reporterId], references: [id], onDelete: Cascade)
+  reviewer     User?        @relation("ReportReviewedBy", fields: [reviewedBy], references: [id])
+
+  moderationActions ModerationAction[]
+
+  @@index([organizationId, status], map: "idx_reports_org")
+  @@index([entityType, entityId], map: "idx_reports_entity")
+  @@index([reporterId], map: "idx_reports_reporter")
+  @@index([organizationId, createdAt], map: "idx_reports_pending")
+  @@map("content_reports")
+}
+
+model ModerationAction {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  reportId        String?   @map("report_id") @db.Uuid
+  moderatorId     String    @map("moderator_id") @db.Uuid
+  actionType      ModerationActionType @map("action_type")
+  entityType      String    @map("entity_type")
+  entityId        String    @map("entity_id") @db.Uuid
+  reason          String
+  note            String?
+  durationHours   Int?      @map("duration_hours")
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz
+  reversedAt      DateTime? @map("reversed_at") @db.Timestamptz
+  reversedBy      String?   @map("reversed_by") @db.Uuid
+  reversedReason  String?   @map("reversed_reason")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  report       ContentReport? @relation(fields: [reportId], references: [id])
+  moderator    User         @relation(fields: [moderatorId], references: [id])
+  reversedByUser User?      @relation("ModerationReversedBy", fields: [reversedBy], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_ma_org")
+  @@index([entityType, entityId], map: "idx_ma_entity")
+  @@index([moderatorId], map: "idx_ma_moderator")
+  @@map("moderation_actions")
+}
+
+model UserBlock {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  blockerId       String    @map("blocker_id") @db.Uuid
+  blockedId       String    @map("blocked_id") @db.Uuid
+  reason          String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  blocker      User         @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked      User         @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId, organizationId])
+  @@index([blockerId, organizationId], map: "idx_blocks_blocker")
+  @@index([blockedId, organizationId], map: "idx_blocks_blocked")
+  @@map("user_blocks")
+}
+
+model BlocklistWord {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String            @map("organization_id") @db.Uuid
+  pattern         String
+  isRegex         Boolean           @default(false) @map("is_regex")
+  category        BlocklistCategory @default(profanity)
+  action          BlocklistAction   @default(flag)
+  severity        Int               @default(1)
+  createdBy       String            @map("created_by") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation(fields: [createdBy], references: [id])
+
+  @@unique([organizationId, pattern])
+  @@index([organizationId, action], map: "idx_bl_org")
+  @@map("blocklist_words")
+}
+
+model IpBan {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String?   @map("organization_id") @db.Uuid
+  ipAddress       String    @map("ip_address") @db.Inet
+  ipRange         String?   @map("ip_range")
+  reason          String
+  bannedBy        String    @map("banned_by") @db.Uuid
+  isPermanent     Boolean   @default(false) @map("is_permanent")
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bannedByUser User          @relation(fields: [bannedBy], references: [id])
+
+  @@index([ipAddress], map: "idx_ip_bans_addr")
+  @@index([expiresAt], map: "idx_ip_bans_exp")
+  @@map("ip_bans")
+}
+
+// ================================================================
+// SECTION 15: ANALYTICS & REPORTING
+// ================================================================
+model PageView {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  userId          String?   @map("user_id") @db.Uuid
+  sessionId       String?   @map("session_id") @db.Uuid
+
+  searchQueryId   String?   @map("search_query_id") @db.Uuid
+  searchQuery     SearchQuery? @relation(fields: [searchQueryId], references: [id], onDelete: SetNull)
+
+  path            String
+  referrer        String?
+  referrerDomain  String?   @map("referrer_domain")
+  utmSource       String?   @map("utm_source")
+  utmMedium       String?   @map("utm_medium")
+  utmCampaign     String?   @map("utm_campaign")
+  deviceType      String?   @map("device_type") @db.Text
+  browser         String?
+  os              String?
+  countryCode     String?   @map("country_code") @db.Char(2)
+  ipAddress       String?   @map("ip_address") @db.Inet
+  durationSecs    Int?      @map("duration_secs")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_pv_org_date")
+  @@index([organizationId, path], map: "idx_pv_path")
+  @@map("page_views")
+}
+model DailyOrgStat {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String    @map("organization_id") @db.Uuid
+  statDate              DateTime  @map("stat_date") @db.Date
+  dau                   Int       @default(0)
+  mau                   Int       @default(0)
+  newRegistrations      Int       @default(0) @map("new_registrations")
+  postsCreated          Int       @default(0) @map("posts_created")
+  commentsCreated       Int       @default(0) @map("comments_created")
+  messagesSent          Int       @default(0) @map("messages_sent")
+  mentorshipRequests    Int       @default(0) @map("mentorship_requests")
+  mentorshipSessions    Int       @default(0) @map("mentorship_sessions")
+  connectionsMade       Int       @default(0) @map("connections_made")
+  eventsHeld            Int       @default(0) @map("events_held")
+  eventRegistrations    Int       @default(0) @map("event_registrations")
+  jobsPosted            Int       @default(0) @map("jobs_posted")
+  jobApplications       Int       @default(0) @map("job_applications")
+  profileViews          Int       @default(0) @map("profile_views")
+  activeUsers7d         Int       @default(0) @map("active_users_7d")
+  activeUsers30d        Int       @default(0) @map("active_users_30d")
+  computedAt            DateTime  @default(now()) @map("computed_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, statDate])
+  @@index([organizationId, statDate(sort: Desc)], map: "idx_dos_org_date")
+  @@map("daily_org_stats")
+}
+model SearchQuery {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  userId          String?   @map("user_id") @db.Uuid
+  queryText       String    @map("query_text")
+  searchType      String    @map("search_type") @db.Text
+  filters         Json      @default("{}")
+  resultCount     Int       @default(0) @map("result_count")
+  clickedRank     Int?      @map("clicked_rank")
+  clickedId       String?   @map("clicked_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  pageViews    PageView[]
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_sq_org")
+  @@map("search_queries")
+}
+
+// ================================================================
+// SECTION 16: BILLING & SUBSCRIPTIONS
+// ================================================================
+
+model SubscriptionPlan {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String    @unique
+  slug             String    @unique
+  description      String?
+  features         Json      @default("{}")
+  maxUsers         Int?      @map("max_users")
+  maxStorageGb     Int?      @map("max_storage_gb")
+  priceMonthly     Decimal   @map("price_monthly") @db.Decimal(10, 2)
+  priceAnnual      Decimal   @map("price_annual") @db.Decimal(10, 2)
+  currencyCode     String    @default("USD") @map("currency_code") @db.Char(3)
+  stripeMonthlyId  String?   @map("stripe_monthly_id")
+  stripeAnnualId   String?   @map("stripe_annual_id")
+  isActive         Boolean   @default(true) @map("is_active")
+  isCustom         Boolean   @default(false) @map("is_custom")
+  sortOrder        Int       @default(0) @map("sort_order")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  currency Currency? @relation(fields: [currencyCode], references: [code])
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id                      String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId          String            @map("organization_id") @db.Uuid
+  planId                  String            @map("plan_id") @db.Uuid
+  status                  SubscriptionStatus
+  billingCycle            BillingCycle      @map("billing_cycle")
+  quantity                Int               @default(1)
+  unitPrice               Decimal           @map("unit_price") @db.Decimal(10, 2)
+  discountPct             Decimal           @default(0) @map("discount_pct") @db.Decimal(5, 2)
+  currencyCode            String            @map("currency_code") @db.Char(3)
+  stripeSubscriptionId    String?           @unique @map("stripe_subscription_id")
+  stripeCustomerId        String?           @map("stripe_customer_id")
+  currentPeriodStart      DateTime?         @map("current_period_start") @db.Timestamptz
+  currentPeriodEnd        DateTime?         @map("current_period_end") @db.Timestamptz
+  trialStart              DateTime?         @map("trial_start") @db.Timestamptz
+  trialEnd                DateTime?         @map("trial_end") @db.Timestamptz
+  cancelledAt             DateTime?         @map("cancelled_at") @db.Timestamptz
+  cancellationReason      String?           @map("cancellation_reason")
+  metadata                Json              @default("{}")
+  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         SubscriptionPlan  @relation(fields: [planId], references: [id])
+  currency     Currency?         @relation(fields: [currencyCode], references: [code])
+
+  invoices Invoice[]
+
+  @@index([organizationId], map: "idx_subs_org")
+  @@index([status], map: "idx_subs_status")
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String         @map("organization_id") @db.Uuid
+  subscriptionId      String?        @map("subscription_id") @db.Uuid
+  stripeInvoiceId     String?        @unique @map("stripe_invoice_id")
+  number              String
+  description         String?
+  subtotal            Decimal        @db.Decimal(10, 2)
+  taxAmount           Decimal        @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  discountAmount      Decimal        @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  total               Decimal        @db.Decimal(10, 2)
+  amountDue           Decimal        @map("amount_due") @db.Decimal(10, 2)
+  amountPaid          Decimal        @default(0) @map("amount_paid") @db.Decimal(10, 2)
+  currencyCode        String         @map("currency_code") @db.Char(3)
+  status              InvoiceStatus
+  invoiceUrl          String?        @map("invoice_url")
+  pdfUrl              String?        @map("pdf_url")
+  dueDate             DateTime?      @map("due_date") @db.Timestamptz
+  paidAt              DateTime?      @map("paid_at") @db.Timestamptz
+  voidedAt            DateTime?      @map("voided_at") @db.Timestamptz
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription  Subscription? @relation(fields: [subscriptionId], references: [id])
+  currency      Currency?     @relation(fields: [currencyCode], references: [code])
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_invoices_org")
+  @@index([status], map: "idx_invoices_status")
+  @@map("invoices")
+}
+
+// ================================================================
+// SECTION 17: WEBHOOKS & INTEGRATIONS
+// ================================================================
+
+model WebhookEndpoint {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  createdBy       String    @map("created_by") @db.Uuid
+  url             String
+  description     String?
+  secretHash      String    @map("secret_hash")
+  eventTypes      String[]  @map("event_types")
+  headers         Json      @default("{}")
+  isActive        Boolean   @default(true) @map("is_active")
+  retryPolicy     Json      @default("{\"max_retries\": 3, \"backoff\": \"exponential\"}") @map("retry_policy")
+  timeoutMs       Int       @default(30000) @map("timeout_ms")
+  failureCount    Int       @default(0) @map("failure_count")
+  successCount    Int       @default(0) @map("success_count")
+  lastSuccessAt   DateTime? @map("last_success_at") @db.Timestamptz
+  lastFailureAt   DateTime? @map("last_failure_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation(fields: [createdBy], references: [id])
+
+  deliveries WebhookDelivery[]
+
+  @@index([organizationId], map: "idx_webhooks_org")
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  endpointId      String    @map("endpoint_id") @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  eventType       String    @map("event_type")
+  eventId         String    @map("event_id") @db.Uuid
+  payload         Json
+  httpStatus      Int?      @map("http_status")
+  responseHeaders Json?     @map("response_headers")
+  responseBody    String?   @map("response_body")
+  attemptNumber   Int       @default(1) @map("attempt_number")
+  durationMs      Int?      @map("duration_ms")
+  success         Boolean?
+  errorMessage    String?   @map("error_message")
+  nextRetryAt     DateTime? @map("next_retry_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  endpoint     WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId, createdAt(sort: Desc)], map: "idx_wd_endpoint")
+  @@index([nextRetryAt], map: "idx_wd_retry")
+  @@map("webhook_deliveries")
+}
+
+// ================================================================
+// SECTION 18: SYSTEM — AUDIT, OUTBOX, FLAGS
+// ================================================================
+
+model AuditLog {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String?   @map("organization_id") @db.Uuid
+  actorId         String?   @map("actor_id") @db.Uuid
+  actorEmail      String?   @map("actor_email")
+  actorRole       String?   @map("actor_role")
+  action          String
+  entityType      String    @map("entity_type")
+  entityId        String?   @map("entity_id") @db.Uuid
+  entityLabel     String?   @map("entity_label")
+  beforeState     Json?     @map("before_state")
+  afterState      Json?     @map("after_state")
+  diff            Json?
+  ipAddress       String?   @map("ip_address") @db.Inet
+  userAgent       String?   @map("user_agent")
+  sessionId       String?   @map("session_id") @db.Uuid
+  requestId       String?   @map("request_id") @db.Uuid
+  severity        Severity  @default(info)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  actor        User?         @relation(fields: [actorId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "idx_audit_org")
+  @@index([actorId, createdAt(sort: Desc)], map: "idx_audit_actor")
+  @@index([entityType, entityId, createdAt(sort: Desc)], map: "idx_audit_entity")
+  @@index([severity, createdAt(sort: Desc)], map: "idx_audit_severity")
+  @@map("audit_logs")
+}
+
+model EventOutbox {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String        @map("organization_id") @db.Uuid
+  eventType       String        @map("event_type")
+  aggregateType   String        @map("aggregate_type")
+  aggregateId     String        @map("aggregate_id") @db.Uuid
+  payload         Json
+  status          OutboxStatus  @default(pending)
+  retryCount      Int           @default(0) @map("retry_count")
+  maxRetries      Int           @default(5) @map("max_retries")
+  lastError       String?       @map("last_error")
+  processAfter    DateTime      @default(now()) @map("process_after") @db.Timestamptz
+  lockUntil       DateTime?     @map("lock_until") @db.Timestamptz
+  lockedBy        String?       @map("locked_by")
+  processedAt     DateTime?     @map("processed_at") @db.Timestamptz
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lockedByUser User?        @relation("OutboxLockedBy", fields: [lockedBy], references: [id])
+
+  @@index([status, processAfter], map: "idx_outbox_pending")
+  @@index([aggregateType, aggregateId], map: "idx_outbox_agg")
+  @@map("event_outbox")
+}
+
+model FeatureFlag {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String?       @map("organization_id") @db.Uuid
+  flagKey         String        @map("flag_key")
+  flagType        FlagType      @default(boolean) @map("flag_type")
+  isEnabled       Boolean       @default(false) @map("is_enabled")
+  value           Json          @default("{}")
+  description     String?
+  rolloutPct      Int?          @map("rollout_pct")
+  allowedUsers    String[]      @map("allowed_users") @db.Uuid
+  environment     Environment   @default(production)
+  expiresAt       DateTime?     @map("expires_at") @db.Timestamptz
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, flagKey, environment])
+  @@index([organizationId], map: "idx_flags_org")
+  @@index([flagKey, environment], map: "idx_flags_key")
+  @@index([expiresAt], map: "idx_flags_exp")
+  @@map("feature_flags")
+}
+
+// ================================================================
+// VIEWS (These are read-only representations)
+// ================================================================
+
+// Note: Views are not directly represented in Prisma schema.
+// They should be managed via raw SQL and can be queried using $queryRaw.
+// The following views exist in the database:
+// - v_user_effective_permissions
+// - v_available_mentors
+// - v_connection_status
+// - v_org_health

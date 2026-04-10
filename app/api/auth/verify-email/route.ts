@@ -28,8 +28,8 @@ export async function POST(req: Request) {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Store token in profile metadata or create a verification table
-    const profile = await prisma.profiles.findUnique({
-      where: { auth_user_id: clerkUser.id },
+    const profile = await prisma.user.findFirst({
+      where: { metadata: { path: ["clerkId"], equals: clerkUser.id } },
     });
 
     if (!profile) {
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       verified: false,
     };
 
-    await prisma.profiles.update({
+    await prisma.user.update({
       where: { id: profile.id },
       data: { metadata },
     });
@@ -77,7 +77,7 @@ export async function GET(req: Request) {
     }
 
     // Find profile with this verification token
-    const profiles = await prisma.profiles.findMany({
+    const profiles = await prisma.user.findMany({
       where: {
         metadata: {
           path: ["emailVerification", "token"],
@@ -112,7 +112,7 @@ export async function GET(req: Request) {
       verifiedAt: new Date().toISOString(),
     };
 
-    await prisma.profiles.update({
+    await prisma.user.update({
       where: { id: profile.id },
       data: { metadata },
     });

@@ -1,0 +1,80 @@
+// app/api/contact/route.ts
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(req: Request) {
+  try {
+    const { userId: clerkId } = await auth();
+    const body = await req.json();
+    const { name, email, subject, message, userId } = body;
+
+    // Validate required fields
+    if (!name || !email || !message) {
+      return NextResponse.json(
+        { error: "Name, email, and message are required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: "Invalid email format" },
+        { status: 400 }
+      );
+    }
+
+    // Create contact message record
+    const contactMessage = await (prisma as any).contactMessage.create({
+      data: {
+        name,
+        email,
+        subject: subject || null,
+        message,
+        userId: userId || null,
+        userAgent: req.headers.get("user-agent") || null,
+        ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
+      },
+    });
+
+    // TODO: Send email notification to admin
+    // await sendAdminNotification({
+    //   type: "contact_form",
+    //   data: { name, email, subject, message },
+    // });
+
+    // TODO: Send auto-reply to user
+    // await sendAutoReply({
+    //   to: email,
+    //   name,
+    // });
+
+    // Create audit log
+    if (clerkId) {
+      await prisma.auditLog.create({
+        data: {
+          actorId: clerkId,
+          action: "contact.submitted",
+          entityType: "contact_message",
+          entityId: contactMessage.id,
+          severity: "info",
+        },
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Contact message sent successfully",
+    });
+  } catch (error: any) {
+    console.error("Contact API error:", error);
+    return NextResponse.json(
+      { error: "Failed to send message" },
+      { status: 500 }
+    );
+  }
+}

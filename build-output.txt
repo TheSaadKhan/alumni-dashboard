@@ -1,0 +1,152 @@
+﻿
+> alumni-dashboard@0.1.0 build
+> next build --turbopack
+
+node.exe : [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline 
+data, please update: `npm i baseline-browser-mapping@latest -D`
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([baseline-brows...ping@latest -D`:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   Γû▓ Next.js 16.0.3 (Turbopack)
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please 
+update: `npm i baseline-browser-mapping@latest -D`
+ Γ£ô Compiled successfully in 98s
+   Running TypeScript ...
+   Collecting page data using 3 workers ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please 
+update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please 
+update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please 
+update: `npm i baseline-browser-mapping@latest -D`
+   Generating static pages using 3 workers (0/55) ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please 
+update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please 
+update: `npm i baseline-browser-mapping@latest -D`
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please 
+update: `npm i baseline-browser-mapping@latest -D`
+   Generating static pages using 3 workers (13/55) 
+   Generating static pages using 3 workers (27/55) 
+   Generating static pages using 3 workers (41/55) 
+ Γ£ô Generating static pages using 3 workers (55/55) in 9.1s
+   Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ Γùï /about
+Γö£ Γùï /admin
+Γö£ Γùï /admin/alumni
+Γö£ Γùï /admin/analytics
+Γö£ Γùï /admin/donations
+Γö£ ╞Æ /admin/donations/[donationId]
+Γö£ Γùï /admin/events
+Γö£ ╞Æ /admin/events/[eventId]
+Γö£ ╞Æ /admin/events/[eventId]/edit
+Γö£ Γùï /admin/events/create
+Γö£ Γùï /admin/jobs
+Γö£ ╞Æ /admin/jobs/[jobId]
+Γö£ Γùï /admin/jobs/create
+Γö£ Γùï /admin/messages
+Γö£ Γùï /admin/reports
+Γö£ Γùï /admin/settings
+Γö£ Γùï /admin/users
+Γö£ ╞Æ /admin/users/[userId]
+Γö£ ╞Æ /api/admin/stats
+Γö£ ╞Æ /api/auth/sync
+Γö£ ╞Æ /api/auth/verify-email
+Γö£ ╞Æ /api/clerk-webhook
+Γö£ ╞Æ /api/contact
+Γö£ ╞Æ /api/dashboard/events
+Γö£ ╞Æ /api/dashboard/news
+Γö£ ╞Æ /api/dashboard/recommendations
+Γö£ ╞Æ /api/dashboard/stats
+Γö£ ╞Æ /api/dashboard/summary
+Γö£ ╞Æ /api/dashboard/updates
+Γö£ ╞Æ /api/donations
+Γö£ ╞Æ /api/events
+Γö£ ╞Æ /api/events/[eventId]
+Γö£ ╞Æ /api/events/[eventId]/register
+Γö£ ╞Æ /api/internal/profile-status
+Γö£ ╞Æ /api/invitations
+Γö£ ╞Æ /api/invitations/[id]
+Γö£ ╞Æ /api/invitations/[id]/resend
+Γö£ ╞Æ /api/invitations/accept
+Γö£ ╞Æ /api/invitations/create
+Γö£ ╞Æ /api/invitations/info
+Γö£ ╞Æ /api/invitations/reject
+Γö£ ╞Æ /api/jobs
+Γö£ ╞Æ /api/jobs/[jobId]
+Γö£ ╞Æ /api/jobs/[jobId]/apply
+Γö£ ╞Æ /api/mentorship
+Γö£ ╞Æ /api/messages/[conversationId]
+Γö£ ╞Æ /api/messages/conversations
+Γö£ ╞Æ /api/messages/send
+Γö£ ╞Æ /api/network
+Γö£ ╞Æ /api/organizations
+Γö£ ╞Æ /api/organizations/[orgId]/members
+Γö£ ╞Æ /api/organizations/[orgId]/roles
+Γö£ ╞Æ /api/profile
+Γö£ ╞Æ /api/profiles/[alumniId]
+Γö£ ╞Æ /api/users
+Γö£ ╞Æ /api/users/[id]
+Γö£ ╞Æ /api/users/[id]/status
+Γö£ Γùï /apple-icon.png
+Γö£ ╞Æ /auth/callback
+Γö£ Γùï /auth/complete-profile
+Γö£ Γùï /auth/forgot-password
+Γö£ Γùï /auth/reset-password
+Γö£ Γùï /auth/verify-email
+Γö£ Γùï /contact
+Γö£ Γùï /dashboard
+Γö£ Γùï /dashboard/events
+Γö£ ╞Æ /dashboard/events/[eventId]
+Γö£ Γùï /dashboard/events/create
+Γö£ Γùï /dashboard/impact
+Γö£ Γùï /dashboard/invite
+Γö£ Γùï /dashboard/invites
+Γö£ Γùï /dashboard/jobs
+Γö£ ╞Æ /dashboard/jobs/[jobId]
+Γö£ Γùï /dashboard/jobs/post
+Γö£ Γùï /dashboard/mentorship
+Γö£ Γùï /dashboard/messages
+Γö£ ╞Æ /dashboard/messages/[conversationId]
+Γö£ Γùï /dashboard/network
+Γö£ ╞Æ /dashboard/network/[alumniId]
+Γö£ Γùï /dashboard/profile
+Γö£ Γùï /dashboard/profile/edit
+Γö£ Γùï /dashboard/settings
+Γö£ Γùï /dashboard/settings/notifications
+Γö£ Γùï /dashboard/settings/security
+Γö£ Γùï /demo
+Γö£ Γùï /donate
+Γö£ Γùï /icon0.svg
+Γö£ Γùï /icon1.png
+Γö£ Γùï /invite/accept
+Γö£ Γùï /manifest.json
+Γö£ Γùï /onboarding
+Γö£ ╞Æ /organization/[slug]
+Γö£ Γùï /organization/setup
+Γö£ Γùï /pricing
+Γö£ Γùï /privacy
+Γö£ Γùï /setup-organization
+Γö£ ╞Æ /sign-in/[[...sign-in]]
+Γö£ ╞Æ /sign-up/[[...sign-up]]
+Γö£ Γùï /stories
+Γö£ ╞Æ /stories/[slug]
+Γö£ Γùï /support
+Γöö Γùï /terms
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

@@ -11,6 +11,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,25 +26,42 @@ import {
   MoreVertical,
   Loader2,
   UserPlus,
-  Trash,
-  RefreshCcw,
+  Trash2,
+  RefreshCw,
   Edit,
   Shield,
+  User,
+  Mail,
+  Search,
+  Filter,
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertCircle,
+  ChevronRight,
+  HandHeart,
+  Globe,
+  Settings,
+  MoreHorizontal,
+  MailPlus,
+  Monitor,
+  Save
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -53,435 +71,356 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuthProfile } from "@/context/AuthContext";
+import { format } from "date-fns";
+
+type UserType = {
+  id: string;
+  name: string;
+  email: string;
+  imageUrl?: string;
+  role: string;
+  roleDisplay: string;
+  is_active: boolean;
+  lastActive?: string;
+  joinedAt?: string;
+};
+
+type InviteType = {
+  id: string;
+  email: string;
+  organization_roles?: { display_name: string; name: string };
+  role?: { display_name: string; name: string };
+  status: "pending" | "accepted" | "expired";
+  createdAt: string;
+};
+
+type RoleType = {
+  id: string;
+  name: string;
+  display_name: string;
+  description?: string;
+};
 
 export default function AdminUsersPage() {
   const router = useRouter();
   const { user } = useUser();
+  const { profile } = useAuthProfile();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [users, setUsers] = useState<any[]>([]);
-  const [invites, setInvites] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserType[]>([]);
+  const [invites, setInvites] = useState<InviteType[]>([]);
+  const [roles, setRoles] = useState<RoleType[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"users" | "invites">("users");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "suspended">("all");
 
-  const [inviteForm, setInviteForm] = useState({
-    email: "",
-    roleId: "",
-    message: "",
-  });
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ email: "", roleId: "", message: "" });
 
-  /* ✅ LOAD DATA */
+  const orgId = (profile as any)?.organizationId;
+
   const loadData = useCallback(async () => {
-    if (!user) return;
-
+    if (!orgId) return;
     try {
       setLoading(true);
-
-      const orgsRes = await fetch("/api/organizations");
-      const orgsData = await orgsRes.json();
-      const org = orgsData.organizations?.[0];
-      if (!org) return;
-
-      setOrganizationId(org.id);
-
       const [usersRes, rolesRes, invitesRes] = await Promise.all([
-        fetch(`/api/users?organizationId=${org.id}&search=${searchTerm}`),
-        fetch(`/api/organizations/${org.id}/roles`),
-        fetch(`/api/invitations?organizationId=${org.id}`),
+        fetch(`/api/users?organizationId=${orgId}&search=${searchTerm}`),
+        fetch(`/api/organizations/${orgId}/roles`),
+        fetch(`/api/invitations?organizationId=${orgId}`),
       ]);
 
-      if (!usersRes.ok || !rolesRes.ok || !invitesRes.ok) {
-        throw new Error("Failed loading data");
-      }
-
-      const usersData = await usersRes.json();
-      const rolesData = await rolesRes.json();
-      const invitesData = await invitesRes.json();
+      const [usersData, rolesData, invitesData] = await Promise.all([
+        usersRes.json(), rolesRes.json(), invitesRes.json()
+      ]);
 
       setUsers(usersData.users || []);
       setRoles(rolesData.roles || []);
       setInvites(invitesData.invites || []);
     } catch (e) {
-      toast.error("Failed to load users, roles, or invites");
+      toast.error("Failed to synchronize identity directory");
     } finally {
       setLoading(false);
     }
-  }, [user, searchTerm]);
+  }, [orgId, searchTerm]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (orgId) loadData();
+  }, [loadData, orgId]);
 
-  /* ✅ CREATE INVITE */
+  useEffect(() => {
+    let result = users;
+    if (searchTerm) {
+      result = result.filter(u => 
+        u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        u.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    if (filterStatus !== "all") {
+      result = result.filter(u => filterStatus === "active" ? u.is_active : !u.is_active);
+    }
+    setFilteredUsers(result);
+  }, [users, searchTerm, filterStatus]);
+
   const handleInvite = async () => {
-    if (!organizationId || !inviteForm.email || !inviteForm.roleId) {
-      toast.error("All fields required");
+    if (!orgId || !inviteForm.email || !inviteForm.roleId) {
+      toast.error("Required identifiers missing for invitation");
       return;
     }
-
-    setInviteLoading(true);
-
     try {
+      setInviteLoading(true);
       const res = await fetch("/api/invitations/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organizationId,
-          roleId: inviteForm.roleId,
-          email: inviteForm.email,
-          message: inviteForm.message || undefined,
-        }),
+        body: JSON.stringify({ ...inviteForm, organizationId: orgId }),
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Invite failed");
-
-      toast.success("Invitation sent");
-      setInvites((prev) => [data, ...prev]); // supports new API shape
-      setInviteDialogOpen(false);
-      setInviteForm({ email: "", roleId: "", message: "" });
-    } catch (err: any) {
-      toast.error(err.message);
+      if (res.ok) {
+        toast.success("Institutional invitation dispatched");
+        setInviteDialogOpen(false);
+        setInviteForm({ email: "", roleId: "", message: "" });
+        loadData();
+      }
+    } catch {
+      toast.error("Failed to transmit invitation node");
     } finally {
       setInviteLoading(false);
     }
   };
 
-  /* ✅ RESEND INVITE */
-  const resendInvite = async (id: string) => {
-    try {
-      setProcessingId(id);
-      const res = await fetch(`/api/invitations/${id}/resend`, {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error();
-      toast.success("Invite resent");
-    } catch {
-      toast.error("Resend failed");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  /* ✅ DELETE INVITE */
-  const deleteInvite = async (id: string) => {
-    if (!confirm("Delete this invitation?")) return;
-
-    try {
-      setProcessingId(id);
-      const res = await fetch(`/api/invitations/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
-      setInvites((prev) => prev.filter((i) => i.id !== id));
-      toast.success("Invite removed");
-    } catch {
-      toast.error("Delete failed");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  /* ✅ UPDATE INVITE ROLE */
-  const updateInviteRole = async (id: string, roleId: string) => {
-    try {
-      setProcessingId(id);
-      const res = await fetch(`/api/invitations/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roleId }),
-      });
-      if (!res.ok) throw new Error();
-      await loadData();
-      toast.success("Invite updated");
-    } catch {
-      toast.error("Update failed");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  /* ✅ DELETE USER */
-  const deleteUser = async (id: string) => {
-    if (!confirm("Delete this user permanently?")) return;
-
-    try {
-      setProcessingId(id);
-      const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
-      setUsers((prev) => prev.filter((u) => u.id !== id));
-      toast.success("User deleted");
-    } catch {
-      toast.error("Delete failed");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  /* ✅ SUSPEND / ACTIVATE USER */
-  const toggleUserStatus = async (id: string, isActive: boolean) => {
-    try {
-      setProcessingId(id);
-      const res = await fetch(`/api/users/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: isActive ? "suspended" : "active",
-        }),
-      });
-
-      if (!res.ok) throw new Error();
-
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === id ? { ...u, is_active: !isActive } : u
-        )
-      );
-
-      toast.success(isActive ? "User suspended" : "User activated");
-    } catch {
-      toast.error("Status update failed");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  /* ✅ STATUS BADGE USING is_active */
-  const getStatusBadge = (isActive: boolean) =>
-    isActive ? "bg-green-600 text-white" : "bg-red-600 text-white";
-
-  if (loading) {
+  if (loading && users.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
-      </div>
+       <div className="flex h-[60vh] items-center justify-center">
+          <RefreshCw className="h-6 w-6 animate-spin text-slate-200" />
+       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* ✅ HEADER */}
-      <div className="flex justify-between items-center">
+    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-8 animate-in fade-in duration-700">
+      {/* Directory Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h1 className="text-3xl font-bold">Users</h1>
-          <p className="text-muted-foreground">
-            Manage users and invitations
-          </p>
+           <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Identity Matrix</span>
+              <div className="h-1 w-1 rounded-full bg-slate-300"></div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{users.length} Active Nodes</span>
+           </div>
+           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Directory Governance</h1>
+           <p className="text-slate-500 font-medium mt-1">Manage institutional identities, access privileges, and recruitment invitations.</p>
         </div>
-
-        <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="w-4 h-4 mr-2" /> Invite User
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite User</DialogTitle>
-              <DialogDescription>Send invitation by email</DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <div>
-                <Label>Email</Label>
-                <Input
-                  value={inviteForm.email}
-                  onChange={(e) =>
-                    setInviteForm({ ...inviteForm, email: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Role</Label>
-                <Select
-                  value={inviteForm.roleId}
-                  onValueChange={(value) =>
-                    setInviteForm({ ...inviteForm, roleId: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.id}>
-                        {role.display_name || role.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                className="w-full"
-                onClick={handleInvite}
-                disabled={inviteLoading}
-              >
-                {inviteLoading ? "Sending..." : "Send Invite"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-3">
+           <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-400 px-6">
+             <RefreshCw className="h-4 w-4 mr-2" /> Sync Records
+           </Button>
+           <Button onClick={() => setInviteDialogOpen(true)} className="h-11 rounded-xl font-bold px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/10">
+              <UserPlus className="h-4 w-4 mr-2" /> Invite Node
+           </Button>
+        </div>
       </div>
 
-      {/* ✅ USERS TABLE */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-          <CardDescription>Organization members</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Input
-            placeholder="Search users..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="mb-4"
-          />
+      <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full">
+         <TabsList className="bg-slate-100 dark:bg-slate-950/40 p-1.5 rounded-2xl w-fit flex gap-1 h-12 mb-8">
+            <TabsTrigger value="users" className="px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Identity Index</TabsTrigger>
+            <TabsTrigger value="invites" className="px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Recruitment Hub</TabsTrigger>
+         </TabsList>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="font-semibold">{user.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {user.email}
-                    </div>
-                  </TableCell>
+         <TabsContent value="users" className="space-y-6 mt-0">
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+               <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input 
+                    placeholder="IDENTIFY NODE BY NAME OR EMAIL..." 
+                    className="pl-12 h-12 rounded-xl border-none bg-white shadow-sm text-[10px] font-black tracking-widest uppercase focus:ring-2 focus:ring-blue-500/10"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+               </div>
+               <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+                  <SelectTrigger className="w-full sm:w-56 h-12 rounded-xl border-none bg-white shadow-sm text-[10px] font-black tracking-widest uppercase px-6">
+                     <Filter className="w-4 h-4 mr-3 text-slate-400" />
+                     <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                     <SelectItem value="all" className="text-[10px] font-black uppercase tracking-widest cursor-pointer">All Protocols</SelectItem>
+                     <SelectItem value="active" className="text-[10px] font-black uppercase tracking-widest cursor-pointer">Active State</SelectItem>
+                     <SelectItem value="suspended" className="text-[10px] font-black uppercase tracking-widest cursor-pointer">Suspended State</SelectItem>
+                  </SelectContent>
+               </Select>
+            </div>
 
-                  <TableCell>
-                    <Badge variant="outline">
-                      {user.roleDisplay || user.role || "N/A"}
-                    </Badge>
-                  </TableCell>
+            <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden">
+               <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-slate-50/50">
+                      <TableRow className="border-none hover:bg-transparent">
+                        <TableHead className="px-8 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Institutional Identity</TableHead>
+                        <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Security Level</TableHead>
+                        <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Lifecycle State</TableHead>
+                        <TableHead className="px-8 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-right">Telemetry</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.id} className="border-b border-slate-50/50 hover:bg-white/40 transition-all group">
+                          <TableCell className="px-8 py-5">
+                            <div className="flex items-center gap-4">
+                              <Avatar className="h-10 w-10 rounded-xl border-2 border-white shadow-sm">
+                                 <AvatarImage src={user.imageUrl} />
+                                 <AvatarFallback className="bg-slate-900 text-white font-black text-[10px]">{user.name.split(' ').map(n=>n[0]).join('')}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                 <p className="text-sm font-bold text-slate-900 uppercase italic leading-none">{user.name}</p>
+                                 <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1.5">{user.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                             <Badge variant="outline" className="rounded-lg border-none bg-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-500 px-3 py-1 italic">
+                                {user.roleDisplay.toUpperCase()}
+                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                             <div className="flex flex-col items-center gap-1">
+                                <span className={`h-1.5 w-1.5 rounded-full ${user.is_active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-rose-500'} mb-1`}></span>
+                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{user.is_active ? 'ENABLED' : 'ISOLATED'}</span>
+                             </div>
+                          </TableCell>
+                          <TableCell className="px-8 text-right">
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                   <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-blue-50 text-slate-400">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                   </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2 min-w-[180px]">
+                                   <DropdownMenuItem onClick={() => router.push(`/admin/users/${user.id}`)} className="rounded-xl py-3 text-[10px] font-black uppercase tracking-widest cursor-pointer px-4">
+                                      <Monitor className="h-3.5 w-3.5 mr-3 text-slate-400" /> Inspect Node
+                                   </DropdownMenuItem>
+                                   <DropdownMenuItem className="rounded-xl py-3 text-[10px] font-black uppercase tracking-widest cursor-pointer px-4">
+                                      <Shield className="h-3.5 w-3.5 mr-3 text-slate-400" /> Access Protocol
+                                   </DropdownMenuItem>
+                                   <DropdownMenuSeparator className="my-1 bg-slate-50" />
+                                   <DropdownMenuItem className="rounded-xl py-3 text-[10px] font-black uppercase tracking-widest cursor-pointer px-4 text-rose-600 hover:bg-rose-50">
+                                      <Trash2 className="h-3.5 w-3.5 mr-3" /> Terminate Node
+                                   </DropdownMenuItem>
+                                </DropdownMenuContent>
+                             </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+               </div>
+               <CardFooter className="p-8 border-t border-slate-50 flex justify-between items-center bg-slate-50/30">
+                  <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.3em]">{filteredUsers.length} NODES TRACKED</p>
+                  <Button variant="ghost" className="h-9 px-6 rounded-xl font-bold uppercase tracking-widest text-[9px] text-blue-600 hover:bg-blue-50" onClick={loadData}>
+                     Re-Sync Directory
+                  </Button>
+               </CardFooter>
+            </Card>
+         </TabsContent>
 
-                  <TableCell>
-                    <Badge className={getStatusBadge(user.is_active)}>
-                      {user.is_active ? "Active" : "Suspended"}
-                    </Badge>
-                  </TableCell>
+         <TabsContent value="invites" className="space-y-6 mt-0">
+            <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden p-12 text-center">
+               <div className="max-w-md mx-auto space-y-8">
+                  <div className="h-16 w-16 bg-blue-50 rounded-[2rem] flex items-center justify-center mx-auto">
+                     <MailPlus className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <div className="space-y-2">
+                     <h2 className="text-xl font-bold uppercase italic tracking-tight">Recruitment Pipeline</h2>
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-loose">Transmit invitations to external entities to integrate them into the institutional identity matrix.</p>
+                  </div>
+                  <Button onClick={() => setInviteDialogOpen(true)} className="h-12 w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-xl font-bold uppercase tracking-widest text-[10px]">
+                     Initialize Recruitment
+                  </Button>
+               </div>
+            </Card>
 
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            toggleUserStatus(user.id, user.is_active)
-                          }
-                        >
-                          <Shield className="w-4 h-4 mr-2" />
-                          {user.is_active ? "Suspend" : "Activate"}
-                        </DropdownMenuItem>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               {invites.map((invite) => (
+                  <Card key={invite.id} className="border-none shadow-sm rounded-[2rem] bg-white/60 backdrop-blur-xl overflow-hidden group">
+                     <CardHeader className="px-8 pt-8 pb-4">
+                        <div className="flex items-center justify-between mb-2">
+                           <Badge variant="outline" className={`border-none text-[8px] font-black tracking-[0.2em] px-2.5 py-1 rounded-lg ${invite.status === 'accepted' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                              {invite.status.toUpperCase()}
+                           </Badge>
+                           <Clock className="h-3.5 w-3.5 text-slate-200" />
+                        </div>
+                        <h3 className="text-sm font-bold uppercase italic truncate text-slate-900">{invite.email}</h3>
+                     </CardHeader>
+                     <CardContent className="px-8 pb-6">
+                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest leading-none">Security Privilege</p>
+                        <p className="text-xs font-bold text-slate-500 mt-2">{(invite.organization_roles || invite.role)?.display_name || "MEMBER ACCESS"}</p>
+                     </CardContent>
+                     <CardFooter className="px-8 pb-8 pt-0 flex justify-between items-center">
+                        <span className="text-[9px] font-bold text-slate-300 uppercase italic">Sent {format(new Date(invite.createdAt), 'MMM dd')}</span>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-slate-300 hover:text-rose-500"><Trash2 className="h-3.5 w-3.5" /></Button>
+                     </CardFooter>
+                  </Card>
+               ))}
+            </div>
+         </TabsContent>
+      </Tabs>
 
-                        <DropdownMenuItem
-                          onClick={() =>
-                            router.push(`/admin/users/${user.id}`)
-                          }
-                        >
-                          View
-                        </DropdownMenuItem>
+      {/* Recruitment Dialog */}
+      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+         <DialogContent className="border-none shadow-2xl rounded-[3rem] p-12 max-w-lg">
+            <DialogHeader className="space-y-3 mb-6">
+               <div className="h-14 w-14 bg-indigo-50 rounded-[2rem] flex items-center justify-center">
+                  <UserPlus className="h-7 w-7 text-indigo-600" />
+               </div>
+               <DialogTitle className="text-3xl font-black uppercase italic tracking-tighter">Recruit Node</DialogTitle>
+               <DialogDescription className="text-[11px] font-black uppercase tracking-widest text-slate-400">Initialize identity invitation protocol.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-8">
+               <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Email Relay Address</Label>
+                  <Input 
+                    value={inviteForm.email} 
+                    onChange={e => setInviteForm(p=>({...p, email: e.target.value}))}
+                    className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest" 
+                    placeholder="NODE@MAIL.COM" 
+                  />
+               </div>
+               <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Security Privilege</Label>
+                  <Select value={inviteForm.roleId} onValueChange={v => setInviteForm(p=>({...p, roleId: v}))}>
+                     <SelectTrigger className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-black uppercase tracking-widest">
+                        <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent className="rounded-xl border-none shadow-2xl">
+                        {roles.map(r => <SelectItem key={r.id} value={r.id} className="text-[10px] font-black uppercase tracking-widest">{r.display_name}</SelectItem>)}
+                     </SelectContent>
+                  </Select>
+               </div>
+               <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Context Payload (Optional)</Label>
+                  <Textarea 
+                    value={inviteForm.message} 
+                    onChange={e => setInviteForm(p=>({...p, message: e.target.value}))}
+                    className="rounded-2xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-bold uppercase tracking-widest min-h-[100px] p-4 resize-none" 
+                    placeholder="ENTER CONTEXT..." 
+                  />
+               </div>
+            </div>
+            <DialogFooter className="pt-10 flex gap-4">
+               <Button onClick={() => setInviteDialogOpen(false)} variant="ghost" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-xs text-slate-400">Abort</Button>
+               <Button onClick={handleInvite} disabled={inviteLoading} className="flex-1 h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-500/10 font-black uppercase tracking-widest text-xs">
+                  {inviteLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Save All
+               </Button>
+            </DialogFooter>
+         </DialogContent>
+      </Dialog>
 
-                        <DropdownMenuItem onClick={() => deleteUser(user.id)}>
-                          <Trash className="w-4 h-4 mr-2" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* ✅ INVITES TABLE */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Pending Invitations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Expires</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invites.map((invite) => (
-                <TableRow key={invite.id}>
-                  <TableCell>{invite.email}</TableCell>
-
-                  {/* ✅ SUPPORT BOTH API SHAPES */}
-                  <TableCell>
-                    {invite.organization_roles?.display_name ||
-                      invite.organization_roles?.name ||
-                      invite.role?.display_name ||
-                      invite.role?.name ||
-                      "N/A"}
-                  </TableCell>
-
-                  {/* ✅ SUPPORT BOTH DATE FIELDS */}
-                  <TableCell>
-                    {new Date(
-                      invite.expires_at || invite.expiresAt
-                    ).toLocaleDateString()}
-                  </TableCell>
-
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem
-                          onClick={() => resendInvite(invite.id)}
-                        >
-                          <RefreshCcw className="w-4 h-4 mr-2" /> Resend
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                          onClick={() =>
-                            updateInviteRole(invite.id, roles[0]?.id)
-                          }
-                        >
-                          <Edit className="w-4 h-4 mr-2" /> Change Role
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                          onClick={() => deleteInvite(invite.id)}
-                        >
-                          <Trash className="w-4 h-4 mr-2" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <footer className="pt-10 border-t border-slate-50 flex items-center justify-center">
+         <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Integrated Identity Governor v1.2.0 • People Management</p>
+      </footer>
     </div>
   );
 }

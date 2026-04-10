@@ -1,222 +1,255 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MapPin, Briefcase, GraduationCap, Calendar, Mail, MessageCircle, Users, Award } from "lucide-react";
+import { MapPin, Briefcase, GraduationCap, Calendar, Mail, MessageCircle, Users, Award, Loader2, ArrowLeft, Info, Globe, Linkedin, Twitter, Github, RefreshCw, Zap, ShieldCheck } from "lucide-react";
+import { useAuthProfile } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 export default function AlumniProfilePage() {
   const params = useParams();
   const router = useRouter();
+  const { profile: myProfile } = useAuthProfile();
+  const alumniId = params.alumniId as string;
 
-  // Mock alumni data
-  const alumni = {
-    id: params.alumniId,
-    name: "Sarah Chen",
-    role: "Engineering Manager",
-    company: "TechCorp",
-    location: "San Francisco, CA",
-    batch: "2015",
-    degree: "Computer Science",
-    bio: "Experienced engineering leader passionate about building scalable products and mentoring the next generation of developers. Currently leading the platform team at TechCorp.",
-    skills: ["React", "Node.js", "TypeScript", "AWS", "System Design", "Team Leadership"],
-    experience: [
-      {
-        id: "1",
-        role: "Engineering Manager",
-        company: "TechCorp",
-        period: "2022 - Present",
-        description: "Leading a team of 15 engineers building the core platform."
-      },
-      {
-        id: "2",
-        role: "Senior Software Engineer",
-        company: "StartupXYZ",
-        period: "2019 - 2022",
-        description: "Full-stack development and technical leadership."
-      },
-      {
-        id: "3",
-        role: "Software Engineer",
-        company: "DevSolutions",
-        period: "2017 - 2019",
-        description: "Frontend development and API design."
-      }
-    ],
-    education: [
-      {
-        id: "1",
-        degree: "Bachelor of Science in Computer Science",
-        institution: "University of Technology",
-        period: "2011 - 2015",
-        achievements: ["Summa Cum Laude", "President of Coding Club"]
-      }
-    ],
-    achievements: [
-      "Featured in Tech Magazine's 30 Under 30",
-      "Open Source Contributor of the Year 2022",
-      "University Distinguished Alumni Award 2023"
-    ],
-    connections: 245,
-    mutualConnections: 12
+  const [alumni, setAlumni] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [alumniId]);
+
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/profiles/${alumniId}`);
+      if (!res.ok) throw new Error("Failed to fetch profile");
+      const data = await res.json();
+      setAlumni(data.profile);
+    } catch (err) {
+      toast.error("Failed to synchronize identity node");
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const handleMessage = () => {
+    router.push(`/dashboard/messages?userId=${alumniId}`);
+  };
+
+  if (loading) {
+     return (
+        <div className="flex h-[70vh] items-center justify-center">
+           <RefreshCw className="h-6 w-6 animate-spin text-slate-200" />
+        </div>
+     );
+  }
+
+  if (!alumni) {
+     return (
+        <div className="container py-24 text-center space-y-8 max-w-sm mx-auto animate-in fade-in duration-700">
+           <div className="h-16 w-16 bg-rose-50 rounded-[2rem] flex items-center justify-center mx-auto">
+              <Info className="h-8 w-8 text-rose-500" />
+           </div>
+           <div className="space-y-3">
+              <h1 className="text-2xl font-black uppercase italic tracking-tighter">Null Identity</h1>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest leading-loose">The requested institutional identifier has been isolated or deactivated.</p>
+           </div>
+           <Button className="h-12 w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-xl font-bold uppercase tracking-widest text-[10px]" onClick={() => router.push("/dashboard/network")}>
+              Back to Matrix
+           </Button>
+        </div>
+     );
+  }
+
+  const skills = alumni.skills ? (Array.isArray(alumni.skills) ? alumni.skills : Object.keys(alumni.skills)) : [];
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard/network")}>
-            <Users className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{alumni.name}</h1>
-            <p className="text-gray-600 dark:text-gray-400">Alumni Profile</p>
+    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-10 animate-in fade-in duration-700">
+      {/* Premium Profile Header */}
+      <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden relative">
+          <div className="h-48 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-950 relative overflow-hidden group">
+             <div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+             <div className="absolute top-8 left-8 z-10">
+                <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl bg-white/10 backdrop-blur-xl border-none text-white hover:bg-white/20 transition-all shadow-xl" onClick={() => router.back()}>
+                   <ArrowLeft className="h-5 w-5" />
+                </Button>
+             </div>
+             <div className="absolute -bottom-1 w-full h-24 bg-gradient-to-t from-white/90 dark:from-slate-900/90 to-transparent"></div>
           </div>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="outline">
-            <MessageCircle className="h-4 w-4 mr-2" />
-            Message
-          </Button>
-          <Button className="bg-indigo-600 hover:bg-indigo-700">
-            <Users className="h-4 w-4 mr-2" />
-            Connect
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* About */}
-          <Card>
-            <CardHeader>
-              <CardTitle>About</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 dark:text-gray-300">{alumni.bio}</p>
-            </CardContent>
-          </Card>
-
-          {/* Experience */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Work Experience</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {alumni.experience.map((exp) => (
-                <div key={exp.id} className="flex space-x-4">
-                  <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Briefcase className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{exp.role}</h3>
-                    <p className="text-gray-600 dark:text-gray-400">{exp.company}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500">{exp.period}</p>
-                    <p className="mt-2 text-gray-600 dark:text-gray-300">{exp.description}</p>
-                  </div>
+          <div className="px-12 -mt-20 relative z-20 flex flex-col items-center sm:items-start text-center sm:text-left">
+             <Avatar className="h-40 w-40 rounded-[2.5rem] border-8 border-white dark:border-slate-900 shadow-2xl group-hover:scale-105 transition-transform">
+                <AvatarImage src={alumni.avatar_url || ""} className="object-cover" />
+                <AvatarFallback className="bg-slate-900 text-white font-black text-4xl leading-none">{alumni.full_name?.[0]}</AvatarFallback>
+             </Avatar>
+             <div className="mt-8 space-y-2 pb-12 w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8">
+                   <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                         <h1 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase italic">{alumni.full_name}</h1>
+                         {alumni.graduation_year && (
+                           <Badge className="bg-indigo-50 text-indigo-600 border-none font-black text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-lg">
+                              BATCH {alumni.graduation_year}
+                           </Badge>
+                         )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-6">
+                         <div className="flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                            <Briefcase className="h-4 w-4 mr-2 text-slate-300" />
+                            {alumni.headline || "ALUMNI NODE"}
+                         </div>
+                         <div className="flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                            <MapPin className="h-4 w-4 mr-2 text-slate-300" />
+                            {alumni.location || "GLOBAL NETWORK"}
+                         </div>
+                         <div className="flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
+                            <Mail className="h-4 w-4 mr-2 text-slate-300" />
+                            {alumni.email}
+                         </div>
+                      </div>
+                   </div>
+                   <div className="flex gap-4">
+                      <Button className="h-14 px-10 rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-600/20 font-black uppercase tracking-widest text-xs" onClick={handleMessage}>
+                         <MessageCircle className="h-4 w-4 mr-2" /> Interface
+                      </Button>
+                      <Button variant="outline" className="h-14 px-10 rounded-2xl border-none bg-slate-50 hover:bg-slate-100 font-black uppercase tracking-widest text-xs">
+                         <Users className="h-4 w-4 mr-2" /> Connect
+                      </Button>
+                   </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+             </div>
+          </div>
+      </Card>
 
-          {/* Education */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Education</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {alumni.education.map((edu) => (
-                <div key={edu.id} className="flex space-x-4">
-                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <GraduationCap className="h-6 w-6 text-green-600 dark:text-green-400" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+         {/* IDENTITY DETAILS */}
+         <div className="lg:col-span-2 space-y-10">
+            <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden group">
+               <CardHeader className="p-10 pb-4 border-b border-slate-50 dark:border-slate-800 bg-white/40 dark:bg-slate-950/20">
+                  <CardTitle className="text-xl font-black uppercase tracking-tight italic">Biographical Narrative</CardTitle>
+                  <CardDescription className="text-[10px] font-black uppercase tracking-widest text-slate-400">Core personal and professional identity details.</CardDescription>
+               </CardHeader>
+               <CardContent className="p-10">
+                  <p className="text-sm font-bold font-medium text-slate-500 leading-relaxed italic">
+                     "{alumni.bio || "No biographical data nodes found for this identity identifier."}"
+                  </p>
+               </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden">
+               <CardHeader className="p-10 pb-4 border-b border-slate-50 dark:border-slate-800 bg-white/40 dark:bg-slate-950/20">
+                  <CardTitle className="text-xl font-black uppercase tracking-tight italic">Skillset Matrix</CardTitle>
+               </CardHeader>
+               <CardContent className="p-10 flex flex-wrap gap-2.5">
+                  {skills.length > 0 ? skills.map((skill: string, i: number) => (
+                    <Badge key={i} className="px-5 py-2.5 bg-slate-50 text-slate-500 border-none font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-white hover:shadow-sm transition-all italic">
+                       {skill}
+                    </Badge>
+                  )) : (
+                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">Zero skill nodes identified.</p>
+                  )}
+               </CardContent>
+            </Card>
+
+            {(alumni.degree || alumni.headline) && (
+               <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden">
+                  <CardHeader className="p-10 pb-4 border-b border-slate-50 dark:border-slate-800 bg-white/40 dark:bg-slate-950/20">
+                     <CardTitle className="text-xl font-black uppercase tracking-tight italic">Nodal History</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-10 space-y-8">
+                     {alumni.degree && (
+                        <div className="flex gap-6 p-6 bg-slate-50 rounded-[2rem] border border-slate-50">
+                           <div className="h-14 w-14 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                              <GraduationCap className="h-7 w-7 text-indigo-600" />
+                           </div>
+                           <div className="min-w-0">
+                             <h4 className="text-lg font-black italic uppercase tracking-tighter text-slate-900">{alumni.degree}</h4>
+                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Class of {alumni.graduation_year}</p>
+                           </div>
+                        </div>
+                     )}
+                     {alumni.headline && (
+                        <div className="flex gap-6 p-6 bg-slate-900 rounded-[2rem] text-white">
+                           <div className="h-14 w-14 bg-white/10 rounded-2xl flex items-center justify-center shadow-sm">
+                              <Briefcase className="h-7 w-7 text-white" />
+                           </div>
+                           <div className="min-w-0">
+                             <h4 className="text-lg font-black italic uppercase tracking-tighter">{alumni.headline}</h4>
+                             <div className="flex items-center gap-2 mt-1">
+                                <Zap className="h-3 w-3 text-blue-400" />
+                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Active Market Presence</p>
+                             </div>
+                           </div>
+                        </div>
+                     )}
+                  </CardContent>
+               </Card>
+            )}
+         </div>
+
+         {/* SIDEBAR PROTOCOLS */}
+         <div className="space-y-10">
+            {/* SOCIAL REACH */}
+            <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-8">
+               <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-slate-300 border-b border-slate-50 pb-4">Social Reach</h4>
+               <div className="grid grid-cols-4 gap-3">
+                  {[
+                    { icon: Linkedin, color: "hover:bg-blue-50 hover:text-blue-600" },
+                    { icon: Twitter, color: "hover:bg-slate-50 hover:text-slate-900" },
+                    { icon: Github, color: "hover:bg-slate-50 hover:text-slate-950" },
+                    { icon: Globe, color: "hover:bg-indigo-50 hover:text-indigo-600" },
+                  ].map((s, i) => (
+                    <Button key={i} variant="ghost" size="icon" className={`h-12 w-12 rounded-2xl bg-slate-50 text-slate-300 transition-all ${s.color}`}>
+                       <s.icon className="h-5 w-5" />
+                    </Button>
+                  ))}
+               </div>
+            </Card>
+
+            {/* SYNERGY STATS */}
+            <Card className="border-none shadow-sm rounded-[2.5rem] bg-slate-900 text-white p-10 text-center relative overflow-hidden group">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[60px] rounded-full -translate-y-8 translate-x-8"></div>
+               <div className="grid grid-cols-2 gap-8 relative z-10">
+                  <div className="space-y-1">
+                     <p className="text-3xl font-black italic tracking-tighter">245</p>
+                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Connections</p>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{edu.degree}</h3>
-                    <p className="text-gray-600 dark:text-gray-400">{edu.institution}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500">{edu.period}</p>
-                    <div className="mt-2">
-                      {edu.achievements.map((achievement, index) => (
-                        <Badge key={index} variant="secondary" className="mr-2 mb-2">
-                          {achievement}
-                        </Badge>
-                      ))}
+                  <div className="space-y-1">
+                     <p className="text-3xl font-black italic tracking-tighter">12</p>
+                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Mutual</p>
+                  </div>
+               </div>
+            </Card>
+
+            {/* INSTITUTIONAL NODES */}
+            <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden p-8">
+               <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-slate-300 border-b border-slate-50 pb-4">Institutional Presence</h4>
+               <div className="space-y-6">
+                  {alumni.organization_members?.map((m: any) => (
+                    <div key={m.organizations.id} className="flex items-center gap-4 group cursor-pointer">
+                      <Avatar className="h-11 w-11 rounded-xl group-hover:scale-110 transition-transform">
+                        <AvatarFallback className="bg-indigo-50 text-indigo-600 font-black uppercase text-[10px]">
+                          {m.organizations.name?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold truncate group-hover:text-blue-600 transition-colors uppercase italic">{m.organizations.name}</p>
+                        <p className="text-[9px] text-slate-300 uppercase font-black tracking-widest">Verified Member</p>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Profile Card */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-center">
-                <Avatar className="h-24 w-24 mx-auto mb-4 border-4 border-white dark:border-gray-800 shadow-lg">
-                  <AvatarImage src="/avatars/sarah-chen.jpg" />
-                  <AvatarFallback className="text-xl">
-                    {alumni.name.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">{alumni.name}</h2>
-                <p className="text-gray-600 dark:text-gray-400">{alumni.role} at {alumni.company}</p>
-                
-                <div className="mt-4 space-y-3 text-sm">
-                  <div className="flex items-center justify-center">
-                    <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                    {alumni.location}
-                  </div>
-                  <div className="flex items-center justify-center">
-                    <GraduationCap className="h-4 w-4 mr-2 text-gray-400" />
-                    Batch of {alumni.batch} • {alumni.degree}
-                  </div>
-                  <div className="flex items-center justify-center">
-                    <Users className="h-4 w-4 mr-2 text-gray-400" />
-                    {alumni.connections} connections • {alumni.mutualConnections} mutual
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Skills */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Skills</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {alumni.skills.map((skill, index) => (
-                  <Badge key={index} variant="secondary">
-                    {skill}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Achievements */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Achievements</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {alumni.achievements.map((achievement, index) => (
-                <div key={index} className="flex items-center space-x-3">
-                  <Award className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300">{achievement}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+                  ))}
+               </div>
+            </Card>
+         </div>
       </div>
+
+      <footer className="pt-10 border-t border-slate-50 flex items-center justify-center">
+         <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Alumni Insight Matrix v1.4.0 • Verified Node Profile</p>
+      </footer>
     </div>
   );
 }

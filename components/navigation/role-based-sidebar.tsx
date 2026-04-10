@@ -13,13 +13,12 @@ import {
   Settings,
   LogOut,
   X,
-  GraduationCap,
   Shield,
-  BarChart3,
-  DollarSign,
-  UserCog,
-  Building2,
-  FileText,
+  UserCircle,
+  Sun,
+  Moon,
+  ExternalLink,
+  LayoutDashboard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,54 +27,55 @@ import clsx from "clsx";
 import Image from "next/image";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useAuthProfile } from "@/context/AuthContext";
+import { useTheme } from "next-themes";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface NavItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: number | null;
-  roles?: string[]; // If undefined, show to all roles
 }
 
 // Navigation items by role
 const navigationByRole: Record<string, NavItem[]> = {
   super_admin: [
-    { name: "Dashboard", href: "/dashboard", icon: Home, badge: null },
-    { name: "Admin Panel", href: "/admin", icon: Shield, badge: null },
-    { name: "Network", href: "/dashboard/network", icon: Users, badge: null },
-    { name: "Events", href: "/dashboard/events", icon: CalendarDays, badge: null },
-    { name: "Jobs", href: "/dashboard/jobs", icon: Briefcase, badge: null },
-    { name: "Messages", href: "/dashboard/messages", icon: Mail, badge: null },
-    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake, badge: null },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
+    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Admin View", href: "/admin", icon: Shield },
+    { name: "Network", href: "/dashboard/network", icon: Users },
+    { name: "Events", href: "/dashboard/events", icon: CalendarDays },
+    { name: "Careers", href: "/dashboard/jobs", icon: Briefcase },
+    { name: "Messages", href: "/dashboard/messages", icon: Mail },
+    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake },
+    { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ],
   admin: [
-    { name: "Dashboard", href: "/dashboard", icon: Home, badge: null },
-    { name: "Admin Panel", href: "/admin", icon: Shield, badge: null },
-    { name: "Network", href: "/dashboard/network", icon: Users, badge: null },
-    { name: "Events", href: "/dashboard/events", icon: CalendarDays, badge: null },
-    { name: "Jobs", href: "/dashboard/jobs", icon: Briefcase, badge: null },
-    { name: "Messages", href: "/dashboard/messages", icon: Mail, badge: null },
-    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake, badge: null },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
+    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Admin View", href: "/admin", icon: Shield },
+    { name: "Network", href: "/dashboard/network", icon: Users },
+    { name: "Events", href: "/dashboard/events", icon: CalendarDays },
+    { name: "Careers", href: "/dashboard/jobs", icon: Briefcase },
+    { name: "Messages", href: "/dashboard/messages", icon: Mail },
+    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake },
+    { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ],
   alumni: [
-    { name: "Dashboard", href: "/dashboard", icon: Home, badge: null },
-    { name: "Network", href: "/dashboard/network", icon: Users, badge: null },
-    { name: "Events", href: "/dashboard/events", icon: CalendarDays, badge: null },
-    { name: "Jobs", href: "/dashboard/jobs", icon: Briefcase, badge: null },
-    { name: "Messages", href: "/dashboard/messages", icon: Mail, badge: null },
-    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake, badge: null },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
+    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Network", href: "/dashboard/network", icon: Users },
+    { name: "Events", href: "/dashboard/events", icon: CalendarDays },
+    { name: "Careers", href: "/dashboard/jobs", icon: Briefcase },
+    { name: "Messages", href: "/dashboard/messages", icon: Mail },
+    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake },
+    { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ],
   student: [
-    { name: "Dashboard", href: "/dashboard", icon: Home, badge: null },
-    { name: "Network", href: "/dashboard/network", icon: Users, badge: null },
-    { name: "Events", href: "/dashboard/events", icon: CalendarDays, badge: null },
-    { name: "Jobs", href: "/dashboard/jobs", icon: Briefcase, badge: null },
-    { name: "Messages", href: "/dashboard/messages", icon: Mail, badge: null },
-    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake, badge: null },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings, badge: null },
+    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Network", href: "/dashboard/network", icon: Users },
+    { name: "Events", href: "/dashboard/events", icon: CalendarDays },
+    { name: "Careers", href: "/dashboard/jobs", icon: Briefcase },
+    { name: "Messages", href: "/dashboard/messages", icon: Mail },
+    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake },
+    { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ],
 };
 
@@ -89,64 +89,27 @@ export function RoleBasedSidebar({ mobileMenuOpen, setMobileMenuOpen }: RoleBase
   const router = useRouter();
   const { user } = useUser();
   const { signOut } = useClerk();
+  const { theme, setTheme } = useTheme();
   const { profile, loading: profileLoading } = useAuthProfile();
-  const [activeNav, setActiveNav] = useState("dashboard");
 
   // Get user role
-  const userRole = profile?.user_type || "alumni";
+  const userRole = profile?.userType || "alumni";
   const navigation = navigationByRole[userRole] || navigationByRole.alumni;
-
-  // Update active nav based on current path
-  useEffect(() => {
-    const currentNav = navigation.find(item =>
-      pathname === item.href || pathname.startsWith(item.href + '/')
-    );
-    if (currentNav) {
-      setActiveNav(currentNav.name.toLowerCase());
-    }
-  }, [pathname, navigation]);
-
-  // Lock background scroll when sidebar is open (mobile)
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileMenuOpen]);
-
-  // Handle ESC to close
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && mobileMenuOpen) setMobileMenuOpen?.(false);
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [mobileMenuOpen, setMobileMenuOpen]);
-
-  const handleNavClick = (name: string) => {
-    setActiveNav(name.toLowerCase());
-    setMobileMenuOpen?.(false);
-  };
 
   const handleSignOut = async () => {
     try {
       await signOut();
       router.push("/sign-in");
     } catch (error) {
-      console.error("Sign out error:", error);
-      router.push("/sign-in");
+       router.push("/sign-in");
     }
   };
 
   if (profileLoading) {
     return (
-      <aside className="fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+      <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-center h-full">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
         </div>
       </aside>
     );
@@ -157,7 +120,7 @@ export function RoleBasedSidebar({ mobileMenuOpen, setMobileMenuOpen }: RoleBase
       {/* Mobile Overlay */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-40 lg:hidden transition-all duration-300"
           onClick={() => setMobileMenuOpen?.(false)}
         />
       )}
@@ -165,97 +128,104 @@ export function RoleBasedSidebar({ mobileMenuOpen, setMobileMenuOpen }: RoleBase
       {/* Sidebar */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out overflow-y-auto",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-all duration-300 ease-in-out flex flex-col shadow-sm",
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <Link href="/dashboard" className="flex items-center space-x-2">
-            <div className="relative w-10 h-10">
-              <Image
-                src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/bannerLogo.png`}
-                alt="Logo"
-                fill
-                className="object-contain"
-                unoptimized
+        {/* Banner Logo */}
+        <div className="h-16 flex items-center px-6 border-b border-slate-50 dark:border-slate-800/50 justify-between">
+           <Link href="/dashboard" className="flex items-center">
+              <Image 
+                src="/assets/image/bannerLogo.png" 
+                alt="AlumniConnect Logo" 
+                width={120} 
+                height={30} 
+                className="object-contain" 
               />
-            </div>
-            <span className="font-bold text-lg text-gray-900 dark:text-white">
-              AlumniConnect
-            </span>
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setMobileMenuOpen?.(false)}
-          >
-            <X className="h-5 w-5" />
-          </Button>
+           </Link>
+           <Button
+             variant="ghost"
+             size="icon"
+             className="lg:hidden h-8 w-8 text-slate-400"
+             onClick={() => setMobileMenuOpen?.(false)}
+           >
+             <X className="h-4 w-4" />
+           </Button>
         </div>
 
-        {/* User Info */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={profile?.avatar_url || user?.imageUrl} />
-              <AvatarFallback>
-                {profile?.full_name?.charAt(0)?.toUpperCase() || user?.firstName?.charAt(0) || "U"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {profile?.full_name || user?.fullName || "User"}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                {userRole.replace("_", " ")}
-              </p>
-            </div>
-          </div>
+        {/* User Profile Context */}
+        <div className="p-4 border-b border-slate-50 dark:border-slate-800/50 bg-slate-50/30 dark:bg-slate-950/20">
+           <div className="flex items-center gap-3 px-2">
+              <Avatar className="h-8 w-8 rounded-lg border-2 border-white dark:border-slate-800 shadow-sm">
+                 <AvatarImage src={profile?.avatarUrl || user?.imageUrl} />
+                 <AvatarFallback className="bg-blue-100 text-blue-600 font-bold text-xs">
+                    {profile?.fullName?.charAt(0) || "U"}
+                 </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                 <p className="text-xs font-bold text-slate-900 dark:text-white truncate uppercase tracking-tighter">
+                    {profile?.fullName || user?.firstName || "Member"}
+                 </p>
+                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none mt-1">
+                    Verified {userRole.replace("_", " ")}
+                 </p>
+              </div>
+           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-1">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => handleNavClick(item.name)}
-                className={clsx(
-                  "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="flex-1">{item.name}</span>
-                {item.badge !== null && item.badge !== undefined && item.badge > 0 && (
-                  <Badge variant="secondary" className="ml-auto">
-                    {item.badge}
-                  </Badge>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+        <ScrollArea className="flex-1 px-3 py-4">
+           <div className="space-y-1">
+              {navigation.map((item) => {
+                 const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                 return (
+                    <Link
+                       key={item.href}
+                       href={item.href}
+                       onClick={() => setMobileMenuOpen?.(false)}
+                       className={clsx(
+                          "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group",
+                          isActive
+                            ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 font-bold shadow-sm"
+                            : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white"
+                       )}
+                    >
+                       <item.icon className={clsx("h-4.5 w-4.5 transition-transform", isActive ? "scale-110" : "group-hover:scale-110")} />
+                       <span className="text-sm">{item.name}</span>
+                       {item.badge !== null && item.badge !== undefined && item.badge > 0 && (
+                          <Badge variant="secondary" className="ml-auto bg-blue-100 text-blue-600 text-[10px] font-black border-none px-1.5 h-4.5">
+                             {item.badge}
+                          </Badge>
+                       )}
+                    </Link>
+                 );
+              })}
+           </div>
+        </ScrollArea>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700">
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            onClick={handleSignOut}
-          >
-            <LogOut className="h-5 w-5 mr-2" />
-            Sign Out
-          </Button>
+        <div className="p-4 border-t border-slate-50 dark:border-slate-800 gap-2 flex flex-col bg-white dark:bg-slate-900">
+           <div className="flex gap-1">
+              <Button
+                 variant="ghost"
+                 size="icon"
+                 className="flex-1 h-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              >
+                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="flex-1 h-10 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+           </div>
+           <p className="text-[10px] text-center font-bold text-slate-300 uppercase tracking-widest mt-1">Platform v1.0</p>
         </div>
       </aside>
     </>
   );
 }
-

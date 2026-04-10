@@ -82,7 +82,7 @@
     "@types/nodemailer": "^7.0.4",
     "@types/react": "19.2.6",
     "@types/react-dom": "19.2.3",
-    "baseline-browser-mapping": "^2.8.32",
+    "baseline-browser-mapping": "^2.10.17",
     "dotenv": "^17.2.3",
     "patch-package": "^8.0.1",
     "postinstall-postinstall": "^2.1.0",
