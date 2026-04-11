@@ -67,13 +67,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         setProfile(data.profile);
 
-        // Load organization details (best-effort) so pages can render immediately.
-        // This is intentionally tolerant of users without an org yet.
+        // Load organization details
         try {
           const orgRes = await fetch("/api/organizations", { cache: "no-store" });
           if (orgRes.ok) {
             const orgData = await orgRes.json();
-            setOrganization(orgData.organization ?? null);
+            // If it's a super_admin, the API returns 'organizations' as an array.
+            // We'll pick the first one as the primary context, or null if none exist.
+            if (orgData.organizations && Array.isArray(orgData.organizations)) {
+              setOrganization(orgData.organizations[0] ?? null);
+            } else {
+              setOrganization(orgData.organization ?? null);
+            }
           } else {
             setOrganization(null);
           }

@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { UserType, PlanTier, RoleScope } from "@/lib/generated/prisma";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
 
 /* ✅ GET USER'S ORGANIZATION */
 export async function GET(req: NextRequest) {
@@ -44,9 +43,43 @@ export async function GET(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
+        { success: true, organization: null, message: "User profile not found" },
+        { status: 200 }
       );
+    }
+
+    // If no slug is provided, and user is super_admin, return all organizations
+    if (!slug && user.userType === UserType.super_admin) {
+      const allOrgs = await prisma.organization.findMany({
+        where: { deletedAt: null },
+        include: {
+          _count: {
+            select: {
+              users: true,
+              events: true,
+              jobPostings: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return NextResponse.json({
+        success: true,
+        organizations: allOrgs.map(o => ({
+          id: o.id,
+          name: o.name,
+          slug: o.slug,
+          planTier: o.planTier,
+          isActive: o.isActive,
+          isVerified: o.isVerified,
+          memberCount: o._count.users,
+          eventCount: o._count.events,
+          jobCount: o._count.jobPostings,
+          createdAt: o.createdAt,
+        })),
+        userType: user.userType,
+      });
     }
 
     // Determine which organization to fetch
@@ -81,8 +114,8 @@ export async function GET(req: NextRequest) {
 
     if (!orgId) {
       return NextResponse.json(
-        { error: "Organization not found for this user" },
-        { status: 404 }
+        { success: true, organization: null, message: "No organization associated with user" },
+        { status: 200 }
       );
     }
 

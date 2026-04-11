@@ -2,7 +2,6 @@
 
 import { prisma } from "@/lib/prisma";
 import { UserType, UserStatus, RoleScope } from "@/lib/generated/prisma";
-import { redirect } from "next/navigation";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 
 export async function completeOnboarding(formData: FormData) {
@@ -16,7 +15,7 @@ export async function completeOnboarding(formData: FormData) {
   const lastName = formData.get("lastName") as string;
   const orgSlugOrId = formData.get("organizationId") as string;
   
-  // Find organization - handle slug or ID
+  // Find organization
   let orgId = orgSlugOrId;
   const org = await prisma.organization.findFirst({
     where: {
@@ -28,12 +27,12 @@ export async function completeOnboarding(formData: FormData) {
   });
 
   if (!org) {
-    throw new Error("Organization not found. Please provide a valid organization.");
+    throw new Error("Organization not found.");
   }
   
   orgId = org.id;
 
-  // Find user by Clerk ID stored in metadata
+  // Find user
   const user = await prisma.user.findFirst({
     where: {
       metadata: {
@@ -44,109 +43,97 @@ export async function completeOnboarding(formData: FormData) {
   });
 
   if (!user) {
-    throw new Error("User record not found to onboard.");
+    throw new Error("User record not found.");
   }
 
-  // Update user data and activate
+  const needsApproval = userType === UserType.student || !org.isVerified;
+
+  // Update user
   await prisma.user.update({
     where: { id: user.id },
     data: {
       firstName,
       fullName: `${firstName} ${lastName}`,
       userType: userType,
-      status: UserStatus.active,
+      status: needsApproval ? UserStatus.pending : UserStatus.active,
       organizationId: orgId,
     },
   });
 
-  // Create profile based on type
+  // Profiles
   if (userType === UserType.alumni) {
     const graduationYear = formData.get("graduationYear");
     await prisma.alumniProfile.upsert({
       where: { userId: user.id },
-      update: {},
+      update: {
+          graduationYear: graduationYear ? parseInt(graduationYear as string) : null,
+      },
       create: {
         userId: user.id,
         organizationId: orgId,
         graduationYear: graduationYear ? parseInt(graduationYear as string) : null,
+        isVerified: !needsApproval,
       },
     });
   } else if (userType === UserType.student) {
     const expectedGraduation = formData.get("expectedGraduation");
     await prisma.studentProfile.upsert({
       where: { userId: user.id },
-      update: {},
+      update: {
+          expectedGraduation: expectedGraduation ? parseInt(expectedGraduation as string) : null,
+      },
       create: {
         userId: user.id,
         organizationId: orgId,
         expectedGraduation: expectedGraduation ? parseInt(expectedGraduation as string) : null,
+        isVerified: false,
       },
     });
   }
 
-  // Assign default role based on user type
-  const defaultRole = await prisma.role.findFirst({
-    where: {
-      organizationId: orgId,
-      isDefault: true,
-      scope: RoleScope.organization,
-      OR: [
-        { slug: userType.toLowerCase() },
-        { slug: "member" }
-      ]
-    }
-  });
-
-  if (defaultRole) {
-    await prisma.userRole.create({
-      data: {
-        userId: user.id,
-        roleId: defaultRole.id,
-        organizationId: orgId,
-        grantedBy: user.id, // Self-granted during onboarding
-        grantedReason: "Automatic role assignment during onboarding",
-      }
+  if (needsApproval) {
+    await prisma.verificationRequest.create({
+        data: {
+            organizationId: orgId,
+            userId: user.id,
+            targetType: "join_request",
+            status: "pending",
+            notes: `${userType} join request.`,
+        }
     });
-  }
-
-  // Check if organization needs admin assignment (first user)
-  const userCount = await prisma.user.count({
-    where: { organizationId: orgId }
-  });
-
-  if (userCount === 1) {
-    // First user becomes admin
-    const adminRole = await prisma.role.findFirst({
+  } else {
+    const defaultRole = await prisma.role.findFirst({
       where: {
         organizationId: orgId,
-        slug: "admin",
-        scope: RoleScope.organization,
+        isDefault: true,
+        slug: userType.toLowerCase() === 'alumni' ? 'alumni' : 'member'
       }
     });
 
-    if (adminRole) {
-      await prisma.userRole.create({
-        data: {
+    if (defaultRole) {
+      await prisma.userRole.upsert({
+        where: { userId_roleId_organizationId: { userId: user.id, roleId: defaultRole.id, organizationId: orgId } },
+        update: {},
+        create: {
           userId: user.id,
-          roleId: adminRole.id,
+          roleId: defaultRole.id,
           organizationId: orgId,
           grantedBy: user.id,
-          grantedReason: "First user - automatic admin assignment",
         }
       });
     }
   }
 
-  // Sync role and completion to Clerk Public Metadata
+  // Clerk Metadata
   const client = await clerkClient();
   await client.users.updateUserMetadata(userId, {
     publicMetadata: {
       userType: userType,
       organizationId: orgId,
       onboardingCompleted: true,
-      status: UserStatus.active
+      status: needsApproval ? "pending" : "active"
     }
   });
 
-  redirect("/dashboard");
+  return { success: true, slug: org.slug };
 }

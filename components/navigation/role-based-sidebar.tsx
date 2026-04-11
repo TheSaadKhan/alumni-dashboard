@@ -37,46 +37,49 @@ interface NavItem {
   badge?: number | null;
 }
 
-// Navigation items by role
-const navigationByRole: Record<string, NavItem[]> = {
-  super_admin: [
-    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Admin View", href: "/admin", icon: Shield },
-    { name: "Network", href: "/dashboard/network", icon: Users },
-    { name: "Events", href: "/dashboard/events", icon: CalendarDays },
-    { name: "Careers", href: "/dashboard/jobs", icon: Briefcase },
-    { name: "Messages", href: "/dashboard/messages", icon: Mail },
-    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
-  ],
-  admin: [
-    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Admin View", href: "/admin", icon: Shield },
-    { name: "Network", href: "/dashboard/network", icon: Users },
-    { name: "Events", href: "/dashboard/events", icon: CalendarDays },
-    { name: "Careers", href: "/dashboard/jobs", icon: Briefcase },
-    { name: "Messages", href: "/dashboard/messages", icon: Mail },
-    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
-  ],
-  alumni: [
-    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Network", href: "/dashboard/network", icon: Users },
-    { name: "Events", href: "/dashboard/events", icon: CalendarDays },
-    { name: "Careers", href: "/dashboard/jobs", icon: Briefcase },
-    { name: "Messages", href: "/dashboard/messages", icon: Mail },
-    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
-  ],
-  student: [
-    { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Network", href: "/dashboard/network", icon: Users },
-    { name: "Events", href: "/dashboard/events", icon: CalendarDays },
-    { name: "Careers", href: "/dashboard/jobs", icon: Briefcase },
-    { name: "Messages", href: "/dashboard/messages", icon: Mail },
-    { name: "Mentorship", href: "/dashboard/mentorship", icon: HeartHandshake },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
-  ],
+// Navigation items by role function to generate dynamic paths
+const getNavigationByRole = (slug: string): Record<string, NavItem[]> => {
+  const base = `/organization/${slug}/dashboard`;
+  return {
+    super_admin: [
+      { name: "Overview", href: `${base}`, icon: LayoutDashboard },
+      { name: "Admin View", href: "/admin", icon: Shield },
+      { name: "Network", href: `${base}/network`, icon: Users },
+      { name: "Events", href: `${base}/events`, icon: CalendarDays },
+      { name: "Careers", href: `${base}/jobs`, icon: Briefcase },
+      { name: "Messages", href: `${base}/messages`, icon: Mail },
+      { name: "Mentorship", href: `${base}/mentorship`, icon: HeartHandshake },
+      { name: "Settings", href: `${base}/settings`, icon: Settings },
+    ],
+    admin: [
+      { name: "Overview", href: `${base}`, icon: LayoutDashboard },
+      { name: "Admin View", href: "/admin", icon: Shield },
+      { name: "Network", href: `${base}/network`, icon: Users },
+      { name: "Events", href: `${base}/events`, icon: CalendarDays },
+      { name: "Careers", href: `${base}/jobs`, icon: Briefcase },
+      { name: "Messages", href: `${base}/messages`, icon: Mail },
+      { name: "Mentorship", href: `${base}/mentorship`, icon: HeartHandshake },
+      { name: "Settings", href: `${base}/settings`, icon: Settings },
+    ],
+    alumni: [
+      { name: "Overview", href: `${base}`, icon: LayoutDashboard },
+      { name: "Network", href: `${base}/network`, icon: Users },
+      { name: "Events", href: `${base}/events`, icon: CalendarDays },
+      { name: "Careers", href: `${base}/jobs`, icon: Briefcase },
+      { name: "Messages", href: `${base}/messages`, icon: Mail },
+      { name: "Mentorship", href: `${base}/mentorship`, icon: HeartHandshake },
+      { name: "Settings", href: `${base}/settings`, icon: Settings },
+    ],
+    student: [
+      { name: "Overview", href: `${base}`, icon: LayoutDashboard },
+      { name: "Network", href: `${base}/network`, icon: Users },
+      { name: "Events", href: `${base}/events`, icon: CalendarDays },
+      { name: "Careers", href: `${base}/jobs`, icon: Briefcase },
+      { name: "Messages", href: `${base}/messages`, icon: Mail },
+      { name: "Mentorship", href: `${base}/mentorship`, icon: HeartHandshake },
+      { name: "Settings", href: `${base}/settings`, icon: Settings },
+    ],
+  };
 };
 
 interface RoleBasedSidebarProps {
@@ -90,11 +93,12 @@ export function RoleBasedSidebar({ mobileMenuOpen, setMobileMenuOpen }: RoleBase
   const { user } = useUser();
   const { signOut } = useClerk();
   const { theme, setTheme } = useTheme();
-  const { profile, loading: profileLoading } = useAuthProfile();
+  const { profile, organization, loading: profileLoading } = useAuthProfile();
 
-  // Get user role
+  // Get user role and organization slug
   const userRole = profile?.userType || "alumni";
-  const navigation = navigationByRole[userRole] || navigationByRole.alumni;
+  const slug = organization?.slug || "default";
+  const navigation = getNavigationByRole(slug)[userRole] || getNavigationByRole(slug).alumni;
 
   const handleSignOut = async () => {
     try {
@@ -128,20 +132,23 @@ export function RoleBasedSidebar({ mobileMenuOpen, setMobileMenuOpen }: RoleBase
       {/* Sidebar */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-all duration-300 ease-in-out flex flex-col shadow-sm",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-all duration-300 ease-in-out flex flex-col",
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        {/* Banner Logo */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-50 dark:border-slate-800/50 justify-between">
-           <Link href="/dashboard" className="flex items-center">
-              <Image 
-                src="/assets/image/bannerLogo.png" 
-                alt="AlumniConnect Logo" 
-                width={120} 
-                height={30} 
-                className="object-contain" 
-              />
+        {/* Logo */}
+        <div className="h-20 flex items-center px-6 border-b border-slate-200 dark:border-slate-800 justify-between">
+           <Link href={`/organization/${slug}/dashboard`} className="flex items-center gap-2">
+              <div className="relative h-10 w-40">
+                <Image
+                  src={`${process.env.NEXT_PUBLIC_ASSETS_URL}/public/Assets/bannerLogo.png`}
+                  alt="AlumniConnect Logo"
+                  fill
+                  className="object-contain"
+                  priority
+                  unoptimized
+                />
+              </div>
            </Link>
            <Button
              variant="ghost"
@@ -153,21 +160,21 @@ export function RoleBasedSidebar({ mobileMenuOpen, setMobileMenuOpen }: RoleBase
            </Button>
         </div>
 
-        {/* User Profile Context */}
-        <div className="p-4 border-b border-slate-50 dark:border-slate-800/50 bg-slate-50/30 dark:bg-slate-950/20">
+        {/* User Context */}
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800">
            <div className="flex items-center gap-3 px-2">
-              <Avatar className="h-8 w-8 rounded-lg border-2 border-white dark:border-slate-800 shadow-sm">
+              <Avatar className="h-8 w-8 rounded-full border border-slate-200 dark:border-slate-800">
                  <AvatarImage src={profile?.avatarUrl || user?.imageUrl} />
-                 <AvatarFallback className="bg-blue-100 text-blue-600 font-bold text-xs">
+                 <AvatarFallback className="bg-slate-200 text-slate-600 font-medium">
                     {profile?.fullName?.charAt(0) || "U"}
                  </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                 <p className="text-xs font-bold text-slate-900 dark:text-white truncate uppercase tracking-tighter">
+                 <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                     {profile?.fullName || user?.firstName || "Member"}
                  </p>
-                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none mt-1">
-                    Verified {userRole.replace("_", " ")}
+                 <p className="text-xs text-slate-500 truncate capitalize">
+                    {userRole.replace("_", " ")}
                  </p>
               </div>
            </div>
@@ -184,10 +191,10 @@ export function RoleBasedSidebar({ mobileMenuOpen, setMobileMenuOpen }: RoleBase
                        href={item.href}
                        onClick={() => setMobileMenuOpen?.(false)}
                        className={clsx(
-                          "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group",
+                          "flex items-center gap-3 px-4 py-2 rounded-md transition-colors",
                           isActive
-                            ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 font-bold shadow-sm"
-                            : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white"
+                            ? "bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-white font-medium"
+                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50"
                        )}
                     >
                        <item.icon className={clsx("h-4.5 w-4.5 transition-transform", isActive ? "scale-110" : "group-hover:scale-110")} />
@@ -202,6 +209,7 @@ export function RoleBasedSidebar({ mobileMenuOpen, setMobileMenuOpen }: RoleBase
               })}
            </div>
         </ScrollArea>
+
 
         {/* Footer */}
         <div className="p-4 border-t border-slate-50 dark:border-slate-800 gap-2 flex flex-col bg-white dark:bg-slate-900">

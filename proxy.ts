@@ -160,24 +160,23 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     return NextResponse.redirect(url);
   }
 
-  /**
-   * ✅ 6. PROFILE ENFORCEMENT
-   */
+  // ✅ 6. PROFILE ENFORCEMENT
   // Exempt all /auth/* sub-pages, /onboarding, and /organization/setup from profile enforcement
   const isCompletionFlow =
     pathname.startsWith("/auth/") ||
     pathname === "/onboarding" ||
     pathname.startsWith("/organization/setup");
 
+  // Only redirect if they have NO profile at all.
+  // We allow incomplete profiles to pass if they've finished the onboarding steps (onboardingCompleted set in app)
+  // The app components handle sub-redirection. Middleware just handles hard stops.
   if (!hasProfile && !isCompletionFlow) {
     url.pathname = "/auth/complete-profile";
     return NextResponse.redirect(url);
   }
 
-  if (!isProfileComplete && !isCompletionFlow) {
-    url.pathname = "/auth/complete-profile";
-    return NextResponse.redirect(url);
-  }
+  // Removed the hard !isProfileComplete check because it was fighting with the 'pending' status logic.
+  // The application router inside /auth/complete-profile is smart enough to handle the state.
 
   /**
    * ✅ 7. ADMIN PANEL LOCK

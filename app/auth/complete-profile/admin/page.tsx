@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
+import { useAuthProfile } from "@/context/AuthContext";
 
 // Removed dynamic export
 
@@ -42,15 +43,28 @@ function AdminCompleteProfileContent() {
     websiteUrl: "",
   });
 
+  const { profile, loading, organization } = useAuthProfile();
+
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || loading) return;
     if (!user) { router.replace("/"); return; }
+
+    // Guard: If admin profile is already complete
+    if (profile?.onboardingCompleted) {
+       if (profile.organizationId) {
+          router.replace("/admin");
+       } else {
+          router.replace("/organization/setup");
+       }
+       return;
+    }
+
     setForm((prev) => ({
       ...prev,
       firstName: user.firstName || "",
       lastName: user.lastName || "",
     }));
-  }, [isLoaded, user, router]);
+  }, [isLoaded, loading, user, profile, router]);
 
   const set = (key: keyof typeof form, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));

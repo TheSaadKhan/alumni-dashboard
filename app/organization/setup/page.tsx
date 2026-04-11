@@ -14,6 +14,7 @@ import {
 import {
   Loader2, CheckCircle2, AlertCircle, Building2, Globe, MapPin, Calendar, BookOpen, Shield, ArrowRight
 } from "lucide-react";
+import { Country, State, City } from 'country-state-city';
 import { toast } from "sonner";
 import Image from "next/image";
 
@@ -24,10 +25,8 @@ const STEPS = ["Organization Details", "Review & Launch"];
 const orgTypes = [
   { value: "college", label: "College / University" },
   { value: "high_school", label: "High School" },
-  { value: "corporate", label: "Corporate Alumni Network" },
-  { value: "nonprofit", label: "Non-Profit / NGO" },
-  { value: "government", label: "Government / Public Sector" },
-  { value: "training_institute", label: "Training Institute" },
+  { value: "corporate", label: "Corporate" },
+  { value: "nonprofit", label: "Non-Profit" },
   { value: "other", label: "Other" },
 ];
 
@@ -57,17 +56,57 @@ function SetupContent() {
   });
 
   const [slugPreview, setSlugPreview] = useState("");
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    if (!user) { router.replace("/"); return; }
-  }, [isLoaded, user, router]);
+  const [universities, setUniversities] = useState<any[]>([]);
+  const [searchingUni, setSearchingUni] = useState(false);
+  const [countries] = useState(Country.getAllCountries());
+  const [states, setStates] = useState<any[]>([]);
+  const [cities, setCities] = useState<any[]>([]);
 
   useEffect(() => {
     setSlugPreview(
       org.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "your-org"
     );
   }, [org.name]);
+
+  // Fetch universities when type is college and name changes
+  useEffect(() => {
+    const searchUniversities = async () => {
+      if (org.type !== "college" || org.name.length < 3) {
+        setUniversities([]);
+        return;
+      }
+      setSearchingUni(true);
+      try {
+        const res = await fetch(`http://universities.hipolabs.com/search?name=${encodeURIComponent(org.name)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setUniversities(data.slice(0, 10)); // Top 10 matches
+        }
+      } catch (err) {
+        console.error("Uni search failed:", err);
+      } finally {
+        setSearchingUni(false);
+      }
+    };
+
+    const timer = setTimeout(searchUniversities, 500);
+    return () => clearTimeout(timer);
+  }, [org.name, org.type]);
+
+  // Handle Country change
+  useEffect(() => {
+    if (org.country) {
+      setStates(State.getStatesOfCountry(org.country));
+      setCities([]);
+    }
+  }, [org.country]);
+
+  // Handle State change
+  useEffect(() => {
+    if (org.country && org.state) {
+      setCities(City.getCitiesOfState(org.country, org.state));
+    }
+  }, [org.country, org.state]);
 
   const setO = (k: keyof typeof org, v: string) => setOrg((o) => ({ ...o, [k]: v }));
 
@@ -141,10 +180,32 @@ function SetupContent() {
             <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
             <Input value={org.name} onChange={(e) => setO("name", e.target.value)}
               className={`pl-10 ${errors.orgName ? "border-red-400" : ""}`}
-              placeholder="e.g., Harvard Alumni Association" />
+              placeholder="e.g., Harvard University" />
           </div>
+          {searchingUni && <p className="text-xs text-blue-500 mt-1 animate-pulse">Searching institutions...</p>}
+          {universities.length > 0 && org.type === "college" && (
+            <div className="mt-2 border rounded-md bg-white shadow-sm overflow-hidden divide-y">
+              {universities.map((uni, idx) => (
+                <button
+                  key={idx}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                  onClick={() => {
+                    setOrg(prev => ({
+                      ...prev,
+                      name: uni.name,
+                      website: uni.web_pages?.[0] || prev.website,
+                      country: countries.find(c => c.name === uni.country)?.isoCode || prev.country
+                    }));
+                    setUniversities([]);
+                  }}
+                >
+                  {uni.name} <span className="text-xs text-slate-400">({uni.country})</span>
+                </button>
+              ))}
+            </div>
+          )}
           {errors.orgName && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.orgName}</p>}
-          {slugPreview && <p className="text-xs text-slate-400 mt-1">URL: /organization/<strong>{slugPreview}</strong></p>}
+          {slugPreview && <p className="text-xs text-slate-400 mt-1">Slug: {slugPreview}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -174,11 +235,33 @@ function SetupContent() {
 
         <div>
           <Label className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Location</Label>
-          <div className="grid grid-cols-3 gap-3 mt-1">
-            <Input value={org.city} onChange={(e) => setO("city", e.target.value)} placeholder="City" />
-            <Input value={org.state} onChange={(e) => setO("state", e.target.value)} placeholder="State" />
-            <Input value={org.country} onChange={(e) => setO("country", e.target.value)}
-              placeholder="Country *" className={errors.country ? "border-red-400" : ""} />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-1">
+             <Select value={org.country} onValueChange={(v) => setO("country", v)}>
+               <SelectTrigger className={errors.country ? "border-red-400" : ""}>
+                 <SelectValue placeholder="Country" />
+               </SelectTrigger>
+               <SelectContent>
+                 {countries.map(c => <SelectItem key={c.isoCode} value={c.isoCode}>{c.name}</SelectItem>)}
+               </SelectContent>
+             </Select>
+
+             <Select value={org.state} onValueChange={(v) => setO("state", v)} disabled={!org.country}>
+               <SelectTrigger>
+                 <SelectValue placeholder="Province/State" />
+               </SelectTrigger>
+               <SelectContent>
+                 {states.map(s => <SelectItem key={s.isoCode} value={s.isoCode}>{s.name}</SelectItem>)}
+               </SelectContent>
+             </Select>
+
+             <Select value={org.city} onValueChange={(v) => setO("city", v)} disabled={!org.state}>
+               <SelectTrigger>
+                 <SelectValue placeholder="City" />
+               </SelectTrigger>
+               <SelectContent>
+                 {cities.map(c => <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>)}
+               </SelectContent>
+             </Select>
           </div>
           {errors.country && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.country}</p>}
         </div>

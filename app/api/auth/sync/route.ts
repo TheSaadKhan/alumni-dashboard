@@ -19,20 +19,23 @@ export async function POST(req: Request) {
       imageUrl: imageUrl || "",
     });
 
-
     const details = (user as any).alumniProfile || (user as any).studentProfile || null;
 
-    // Sync to Clerk Public Metadata if missing or changed to reduce future API calls
+    // Sync to Clerk Public Metadata if missing or changed
     const client = await clerkClient();
     const clerkUser = await client.users.getUser(clerkId);
     const meta = clerkUser.publicMetadata;
     
-    if (meta.userType !== user.userType || meta.organizationId !== user.organizationId) {
+    // We consider onboarding completed if they have an organization assigned, or if already marked as active/pending
+    const onboardingCompleted = !!user.organizationId || user.status === UserStatus.active || user.status === UserStatus.pending;
+
+    if (meta.userType !== user.userType || meta.organizationId !== user.organizationId || meta.status !== user.status) {
        await client.users.updateUserMetadata(clerkId, {
          publicMetadata: {
            userType: user.userType,
            organizationId: user.organizationId,
-           onboardingCompleted: user.status === UserStatus.active
+           onboardingCompleted: onboardingCompleted,
+           status: user.status
          }
        });
     }
@@ -46,9 +49,10 @@ export async function POST(req: Request) {
         avatarUrl: user.avatarUrl,
         userType: user.userType,
         organizationId: user.organizationId,
-        onboardingCompleted: user.status === UserStatus.active,
+        status: user.status,
+        onboardingCompleted: onboardingCompleted,
         metadata: user.metadata || {},
-        // Flatten key detail fields for easy access by frontend pages
+        // Flatten details
         bio: details?.bio || null,
         location: details?.city || null,
         degree: details?.degree || null,
@@ -61,19 +65,6 @@ export async function POST(req: Request) {
         profileCompleteness: details?.profileCompleteness || 0,
         isVerified: details?.isVerified || false,
         isMentorAvailable: details?.isMentorAvailable || false,
-        // Social links as sub-object for profile page legacy access
-        social: {
-          linkedin_url: details?.linkedinUrl || null,
-          github_url: details?.githubUrl || null,
-          website_url: details?.websiteUrl || null,
-          twitter_url: null,
-        },
-        // Professional info for profile page
-        professional: {
-          current_position: details?.currentTitle || null,
-          company: details?.currentCompany || null,
-          industry: details?.industry || null,
-        },
         details,
       },
     });

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { UserType, RoleScope } from "@/lib/generated/prisma";
 
 /* -------------------------------------------
@@ -53,6 +53,7 @@ export type CreateOrgInput = {
   coverImageUrl?: string;
   customDomain?: string;
   primaryColor?: string;
+  isRequest?: boolean;
 };
 
 /* -------------------------------------------
@@ -81,7 +82,8 @@ export async function createOrganizationAction(input: CreateOrgInput) {
 
   if (!user) throw new Error("User profile not found.");
 
-  // Removed SUPER ADMIN restriction to allow any user to create an org and be promoted
+  // If a student/alumni is trying to create an org, it's always a request unless they are super_admin
+  const isActuallyRequest = user.userType !== UserType.super_admin || input.isRequest;
 
   // Create org slug
   const baseSlug = slugify(input.name);
@@ -102,14 +104,14 @@ export async function createOrganizationAction(input: CreateOrgInput) {
         website: input.website ?? "",
         logoUrl: input.logoUrl ?? "",
         establishedYear: input.establishedYear ?? null,
-        countryCode: null, // Set after countries table is seeded — stored in settings for now
+        countryCode: null, 
         customDomain: input.customDomain ?? null,
         primaryColor: input.primaryColor ?? null,
         createdBy: user.id,
         isActive: true,
-        isVerified: true, // Auto-verify orgs created by super admin
-        verifiedBy: user.id,
-        verifiedAt: new Date(),
+        isVerified: !isActuallyRequest, 
+        verifiedBy: !isActuallyRequest ? user.id : null,
+        verifiedAt: !isActuallyRequest ? new Date() : null,
         settings: {
           organizationType: input.type,
           address: input.address ?? null,
@@ -119,151 +121,97 @@ export async function createOrganizationAction(input: CreateOrgInput) {
           timezone: "UTC",
         },
         metadata: {
-          createdVia: "super_admin_onboarding",
+          createdVia: isActuallyRequest ? "member_request" : "super_admin_onboarding",
           creatorEmail: user.email,
+          requestStatus: isActuallyRequest ? "pending_verification" : "approved",
         },
       },
     });
 
-    // 2. Create organization roles with proper hierarchy
+    // 2. Create organization roles
     const rolesData = [
-      { 
-        name: "super_admin", 
-        slug: "super-admin", 
-        priority: 100, 
-        scope: RoleScope.organization,
-        isSystem: true, 
-        isDefault: false, 
-        description: "Full organization control, can manage all settings and users"
-      },
-      { 
-        name: "admin", 
-        slug: "admin", 
-        priority: 80, 
-        scope: RoleScope.organization,
-        isSystem: true, 
-        isDefault: false, 
-        description: "Can manage users, content, and settings except billing"
-      },
-      { 
-        name: "moderator", 
-        slug: "moderator", 
-        priority: 60, 
-        scope: RoleScope.organization,
-        isSystem: true, 
-        isDefault: false, 
-        description: "Can moderate content and manage reports"
-      },
-      { 
-        name: "alumni", 
-        slug: "alumni", 
-        priority: 30, 
-        scope: RoleScope.organization,
-        isSystem: true, 
-        isDefault: true, 
-        description: "Alumni member with standard access"
-      },
-      { 
-        name: "student", 
-        slug: "student", 
-        priority: 20, 
-        scope: RoleScope.organization,
-        isSystem: true, 
-        isDefault: true, 
-        description: "Student member with limited access"
-      },
+      { name: "super_admin", slug: "super-admin", priority: 100, scope: RoleScope.organization, isSystem: true, isDefault: false },
+      { name: "admin", slug: "admin", priority: 80, scope: RoleScope.organization, isSystem: true, isDefault: false },
+      { name: "alumni", slug: "alumni", priority: 30, scope: RoleScope.organization, isSystem: true, isDefault: true },
+      { name: "student", slug: "student", priority: 20, scope: RoleScope.organization, isSystem: true, isDefault: true },
     ];
 
     for (const roleData of rolesData) {
-      await tx.role.upsert({
-        where: { 
-          organizationId_slug: {
-            organizationId: org.id,
-            slug: roleData.slug
-          }
-        },
-        update: {},
-        create: {
+      await tx.role.create({
+        data: {
           organizationId: org.id,
           ...roleData,
         },
       });
     }
 
-    // 3. Get super_admin role and assign to creator
+    // Assign roles
+    // If it's a super_admin creating it, they stay super_admin of the new org.
+    // If it's a request, the user becomes the 'owner' but org is unverified.
     const superAdminRole = await tx.role.findFirst({
-      where: { 
-        organizationId: org.id, 
-        slug: "super-admin" 
-      },
+      where: { organizationId: org.id, slug: "super-admin" },
     });
     
-    if (!superAdminRole) {
-      throw new Error("super_admin role creation failed!");
+    if (superAdminRole) {
+      await tx.userRole.create({
+        data: {
+          organizationId: org.id,
+          userId: user.id,
+          roleId: superAdminRole.id,
+          grantedBy: user.id,
+        },
+      });
     }
 
-    await tx.userRole.create({
-      data: {
-        organizationId: org.id,
-        userId: user.id,
-        roleId: superAdminRole.id,
-        grantedBy: user.id,
-        grantedReason: "Organization creator - automatic super admin assignment",
-      },
-    });
-
-    // 4. Update user's organization association and promote them to super_admin
+    // Only update user's organizationId if it was a request/setup
     await tx.user.update({
       where: { id: user.id },
       data: {
         organizationId: org.id,
-        userType: UserType.super_admin,
         status: "active",
       },
     });
 
-    // 5. Create default notification preferences for the user
-    await tx.notificationPreference.create({
-      data: {
-        userId: user.id,
-        organizationId: org.id,
-        notificationType: "all",
-        inAppEnabled: true,
-        emailEnabled: true,
-        pushEnabled: false,
-        digestFrequency: "instant",
-      },
-    });
-
-    // 6. Create audit log entry
-    await tx.auditLog.create({
-      data: {
-        organizationId: org.id,
-        actorId: user.id,
-        actorEmail: user.email,
-        action: "organization.created",
-        entityType: "organization",
-        entityId: org.id,
-        entityLabel: org.name,
-        afterState: { name: org.name, slug: org.slug },
-        severity: "info",
-      },
-    });
+    // Create a verification request record if it's a request
+    if (isActuallyRequest) {
+      await tx.verificationRequest.create({
+        data: {
+          organizationId: org.id,
+          userId: user.id,
+          targetType: "organization_creation",
+          status: "pending",
+          notes: `Organization creation request for ${org.name} by ${user.fullName} (${user.email})`,
+        }
+      });
+    }
 
     return { org, slug };
   });
+
+  // Sync to Clerk
+  try {
+     const client = await clerkClient();
+     await client.users.updateUserMetadata(userId, {
+        publicMetadata: {
+           organizationId: result.org.id,
+           organizationSlug: result.slug,
+           onboardingCompleted: true,
+           // Keep existing userType unless they are a super_admin setting up a new org
+           userType: user.userType === UserType.super_admin ? "super_admin" : user.userType
+        }
+     });
+  } catch (err) {
+     console.error("Clerk metadata sync failed:", err);
+  }
 
   return {
     success: true,
     organizationId: result.org.id,
     slug: result.slug,
     name: result.org.name,
+    isRequest: isActuallyRequest
   };
 }
-
-/* -------------------------------------------
-   UPDATE ORGANIZATION ACTION
--------------------------------------------- */
 
 export type UpdateOrgInput = Partial<CreateOrgInput> & {
   organizationId: string;
@@ -275,149 +223,88 @@ export async function updateOrganizationAction(input: UpdateOrgInput) {
 
   const { organizationId, ...updateData } = input;
 
-  // Find the user
   const user = await prisma.user.findFirst({
-    where: { 
-      metadata: { 
-        path: ["clerkId"], 
-        equals: userId 
-      } 
-    },
+    where: { metadata: { path: ["clerkId"], equals: userId } },
     select: { id: true, userType: true },
   });
 
   if (!user) throw new Error("User not found.");
 
-  // Check if user has admin access to this organization
   const userRole = await prisma.userRole.findFirst({
     where: {
       userId: user.id,
       organizationId: organizationId,
-      role: {
-        OR: [
-          { slug: "super-admin" },
-          { slug: "admin" }
-        ]
-      }
-    },
-    include: { role: true }
+      role: { OR: [{ slug: "super-admin" }, { slug: "admin" }] }
+    }
   });
 
-  const isSuperAdmin = user.userType === UserType.super_admin;
-  
-  if (!isSuperAdmin && !userRole) {
-    throw new Error("You don't have permission to update this organization.");
+  if (user.userType !== UserType.super_admin && !userRole) {
+    throw new Error("You don't have permission to updatez this organization.");
   }
 
-  // Prepare update data
   const updatePayload: any = {};
-  
   if (updateData.name) {
     updatePayload.name = updateData.name;
     updatePayload.displayName = updateData.name;
-    if (updateData.name !== updateData.name) {
-      updatePayload.slug = await createUniqueSlug(slugify(updateData.name), organizationId);
-    }
   }
-  
   if (updateData.description !== undefined) updatePayload.description = updateData.description;
   if (updateData.website !== undefined) updatePayload.website = updateData.website;
   if (updateData.establishedYear !== undefined) updatePayload.establishedYear = updateData.establishedYear;
   if (updateData.logoUrl !== undefined) updatePayload.logoUrl = updateData.logoUrl;
-  if (updateData.customDomain !== undefined) updatePayload.customDomain = updateData.customDomain;
-  if (updateData.primaryColor !== undefined) updatePayload.primaryColor = updateData.primaryColor;
   
-  if (updateData.address?.country) {
-    updatePayload.countryCode = updateData.address.country.slice(0, 2).toUpperCase();
-  }
-
-  // Update settings in metadata
-  if (updateData.type || updateData.address || updateData.coverImageUrl) {
-    const currentOrg = await prisma.organization.findUnique({
-      where: { id: organizationId },
-      select: { settings: true }
-    });
-    
-    updatePayload.settings = {
-      ...(currentOrg?.settings as object || {}),
-      ...(updateData.type && { organizationType: updateData.type }),
-      ...(updateData.address && { address: updateData.address }),
-      ...(updateData.coverImageUrl && { coverImageUrl: updateData.coverImageUrl }),
-    };
-  }
-
   const org = await prisma.organization.update({
     where: { id: organizationId },
     data: updatePayload,
   });
 
-  // Create audit log
-  await prisma.auditLog.create({
-    data: {
-      organizationId: org.id,
-      actorId: user.id,
-      action: "organization.updated",
-      entityType: "organization",
-      entityId: org.id,
-      entityLabel: org.name,
-      afterState: { updatedFields: Object.keys(updatePayload) },
-      severity: "info",
-    },
-  });
-
-  return {
-    success: true,
-    organization: org,
-  };
+  return { success: true, organization: org };
 }
-
-/* -------------------------------------------
-   GET USER'S ORGANIZATIONS (For Super Admin)
--------------------------------------------- */
 
 export async function getUserOrganizationsAction() {
   const { userId } = await auth();
   if (!userId) throw new Error("Not authenticated.");
 
   const user = await prisma.user.findFirst({
-    where: { 
-      metadata: { 
-        path: ["clerkId"], 
-        equals: userId 
-      } 
-    },
+    where: { metadata: { path: ["clerkId"], equals: userId } },
     select: { id: true, userType: true },
   });
 
   if (!user) throw new Error("User not found.");
 
-  // Super admin can see all organizations
   if (user.userType === UserType.super_admin) {
     const orgs = await prisma.organization.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      include: {
-        _count: {
-          select: { users: true }
-        }
-      }
+      include: { _count: { select: { users: true } } }
     });
     return { organizations: orgs };
   }
 
-  // Regular users see only their organizations
   const userOrgs = await prisma.user.findUnique({
     where: { id: user.id },
-    include: {
-      organization: true,
-      userRoles: {
-        include: { role: true }
-      }
-    }
+    include: { organization: true, userRoles: { include: { role: true } } }
   });
 
   return {
     organizations: userOrgs?.organization ? [userOrgs.organization] : [],
     roles: userOrgs?.userRoles || []
   };
+}
+
+export async function searchOrganizationsAction(query: string) {
+  if (!query || query.length < 2) return { organizations: [] };
+
+  const orgs = await prisma.organization.findMany({
+    where: {
+      deletedAt: null,
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { displayName: { contains: query, mode: 'insensitive' } },
+      ]
+    },
+    select: { id: true, name: true, slug: true, logoUrl: true },
+    take: 10
+  });
+
+  return { organizations: orgs };
 }

@@ -23,29 +23,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  MoreVertical,
   Loader2,
   UserPlus,
-  Trash2,
   RefreshCw,
-  Edit,
-  Shield,
-  User,
-  Mail,
   Search,
-  Filter,
   CheckCircle,
   XCircle,
   Clock,
-  AlertCircle,
-  ChevronRight,
-  HandHeart,
-  Globe,
-  Settings,
   MoreHorizontal,
   MailPlus,
-  Monitor,
-  Save
+  Mail,
+  UserCheck,
+  UserX,
+  User
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -82,18 +72,18 @@ type UserType = {
   name: string;
   email: string;
   imageUrl?: string;
-  role: string;
-  roleDisplay: string;
-  is_active: boolean;
-  lastActive?: string;
+  userType: string;
+  status: string;
+  roles: Array<{ name: string; slug: string }>;
   joinedAt?: string;
+  major?: string;
+  graduationYear?: number;
+  expectedGraduation?: number;
 };
 
 type InviteType = {
   id: string;
   email: string;
-  organization_roles?: { display_name: string; name: string };
-  role?: { display_name: string; name: string };
   status: "pending" | "accepted" | "expired";
   createdAt: string;
 };
@@ -102,325 +92,374 @@ type RoleType = {
   id: string;
   name: string;
   display_name: string;
-  description?: string;
 };
 
 export default function AdminUsersPage() {
   const router = useRouter();
-  const { user } = useUser();
   const { profile } = useAuthProfile();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<UserType[]>([]);
   const [invites, setInvites] = useState<InviteType[]>([]);
   const [roles, setRoles] = useState<RoleType[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"users" | "invites">("users");
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "suspended">("all");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"active" | "pending" | "invites">("active");
 
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", roleId: "", message: "" });
 
-  const orgId = (profile as any)?.organizationId;
+  const isSuperAdmin = profile?.userType === "super_admin";
+  const orgId = profile?.organizationId;
 
   const loadData = useCallback(async () => {
-    if (!orgId) return;
+    // Super admins can view global users, others need an orgId
+    if (!orgId && !isSuperAdmin) return;
     try {
       setLoading(true);
+      // Fetch users with different statuses based on tab
+      const statusFilter = activeTab === "pending" ? "pending" : "active";
+      const queryParams = new URLSearchParams({
+         status: statusFilter,
+         search: searchTerm
+      });
+      if (orgId) queryParams.set("organizationId", orgId);
+
       const [usersRes, rolesRes, invitesRes] = await Promise.all([
-        fetch(`/api/users?organizationId=${orgId}&search=${searchTerm}`),
+        fetch(`/api/users?${queryParams.toString()}`),
         fetch(`/api/organizations/${orgId}/roles`),
         fetch(`/api/invitations?organizationId=${orgId}`),
       ]);
 
-      const [usersData, rolesData, invitesData] = await Promise.all([
-        usersRes.json(), rolesRes.json(), invitesRes.json()
-      ]);
+      const usersData = await usersRes.json();
+      const rolesData = await rolesRes.json();
+      const invitesData = await invitesRes.json();
 
       setUsers(usersData.users || []);
       setRoles(rolesData.roles || []);
       setInvites(invitesData.invites || []);
     } catch (e) {
-      toast.error("Failed to synchronize identity directory");
+      toast.error("Failed to load users data");
     } finally {
       setLoading(false);
     }
-  }, [orgId, searchTerm]);
+  }, [orgId, searchTerm, activeTab]);
 
   useEffect(() => {
-    if (orgId) loadData();
-  }, [loadData, orgId]);
+    if (orgId || isSuperAdmin) loadData();
+  }, [loadData, orgId, isSuperAdmin]);
 
-  useEffect(() => {
-    let result = users;
-    if (searchTerm) {
-      result = result.filter(u => 
-        u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        u.email.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    if (filterStatus !== "all") {
-      result = result.filter(u => filterStatus === "active" ? u.is_active : !u.is_active);
-    }
-    setFilteredUsers(result);
-  }, [users, searchTerm, filterStatus]);
+  const handleApprove = async (userId: string) => {
+     try {
+        setActionLoading(userId);
+        const res = await fetch("/api/users", {
+           method: "PATCH",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ userId, status: "active", organizationId: orgId }),
+        });
+        if (res.ok) {
+           toast.success("Member approved and added to network!");
+           loadData();
+        } else {
+           toast.error("Failed to approve member");
+        }
+     } catch (err) {
+        toast.error("Something went wrong");
+     } finally {
+        setActionLoading(null);
+     }
+  };
+
+  const handleReject = async (userId: string) => {
+     try {
+        setActionLoading(userId);
+        // Suspend or delete logic
+        const res = await fetch("/api/users", {
+           method: "PATCH",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ userId, status: "suspended", organizationId: orgId }),
+        });
+        if (res.ok) {
+           toast.info("Request rejected/suspended.");
+           loadData();
+        }
+     } finally {
+        setActionLoading(null);
+     }
+  };
 
   const handleInvite = async () => {
     if (!orgId || !inviteForm.email || !inviteForm.roleId) {
-      toast.error("Required identifiers missing for invitation");
+      toast.error("Please fill in all required fields");
       return;
     }
     try {
-      setInviteLoading(true);
       const res = await fetch("/api/invitations/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...inviteForm, organizationId: orgId }),
       });
       if (res.ok) {
-        toast.success("Institutional invitation dispatched");
+        toast.success("Invitation sent successfully");
         setInviteDialogOpen(false);
         setInviteForm({ email: "", roleId: "", message: "" });
         loadData();
       }
     } catch {
-      toast.error("Failed to transmit invitation node");
-    } finally {
-      setInviteLoading(false);
+      toast.error("Failed to send invitation");
     }
   };
 
-  if (loading && users.length === 0) {
-    return (
-       <div className="flex h-[60vh] items-center justify-center">
-          <RefreshCw className="h-6 w-6 animate-spin text-slate-200" />
-       </div>
-    );
-  }
-
   return (
-    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-8 animate-in fade-in duration-700">
-      {/* Directory Header */}
+    <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-           <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Identity Matrix</span>
-              <div className="h-1 w-1 rounded-full bg-slate-300"></div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{users.length} Active Nodes</span>
-           </div>
-           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Directory Governance</h1>
-           <p className="text-slate-500 font-medium mt-1">Manage institutional identities, access privileges, and recruitment invitations.</p>
+           <h1 className="text-3xl font-bold tracking-tight">Member Directory</h1>
+           <p className="text-slate-500 mt-1">Manage network access, verification, and roles.</p>
         </div>
         <div className="flex items-center gap-3">
-           <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-400 px-6">
-             <RefreshCw className="h-4 w-4 mr-2" /> Sync Records
+           <Button variant="outline" onClick={loadData} className="rounded-xl">
+             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Sync
            </Button>
-           <Button onClick={() => setInviteDialogOpen(true)} className="h-11 rounded-xl font-bold px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/10">
-              <UserPlus className="h-4 w-4 mr-2" /> Invite Node
+           <Button onClick={() => setInviteDialogOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none">
+              <UserPlus className="h-4 w-4 mr-2" /> Invite Member
            </Button>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full">
-         <TabsList className="bg-slate-100 dark:bg-slate-950/40 p-1.5 rounded-2xl w-fit flex gap-1 h-12 mb-8">
-            <TabsTrigger value="users" className="px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Identity Index</TabsTrigger>
-            <TabsTrigger value="invites" className="px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Recruitment Hub</TabsTrigger>
-         </TabsList>
+         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <TabsList className="bg-slate-100 dark:bg-slate-900 border p-1 rounded-2xl h-12">
+               <TabsTrigger value="active" className="rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">Verified Members</TabsTrigger>
+               <TabsTrigger value="pending" className="relative rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
+                  New Requests
+                  {activeTab !== "pending" && (
+                     /* If we're not on the pending tab, we can't reliably show the count without a separate API call.
+                        For now, we'll hide it to avoid showing the 'active' count as a 'pending' count.
+                     */
+                     null
+                  )}
+                  {activeTab === "pending" && users.length > 0 && (
+                     <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                        <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 text-[10px] text-white items-center justify-center font-bold">{users.length}</span>
+                     </span>
+                  )}
+               </TabsTrigger>
+               <TabsTrigger value="invites" className="rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">Invitations</TabsTrigger>
+            </TabsList>
 
-         <TabsContent value="users" className="space-y-6 mt-0">
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-               <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input 
-                    placeholder="IDENTIFY NODE BY NAME OR EMAIL..." 
-                    className="pl-12 h-12 rounded-xl border-none bg-white shadow-sm text-[10px] font-black tracking-widest uppercase focus:ring-2 focus:ring-blue-500/10"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-               </div>
-               <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
-                  <SelectTrigger className="w-full sm:w-56 h-12 rounded-xl border-none bg-white shadow-sm text-[10px] font-black tracking-widest uppercase px-6">
-                     <Filter className="w-4 h-4 mr-3 text-slate-400" />
-                     <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-none shadow-2xl">
-                     <SelectItem value="all" className="text-[10px] font-black uppercase tracking-widest cursor-pointer">All Protocols</SelectItem>
-                     <SelectItem value="active" className="text-[10px] font-black uppercase tracking-widest cursor-pointer">Active State</SelectItem>
-                     <SelectItem value="suspended" className="text-[10px] font-black uppercase tracking-widest cursor-pointer">Suspended State</SelectItem>
-                  </SelectContent>
-               </Select>
+            <div className="relative flex-1 max-w-sm">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+               <Input 
+                 placeholder="Search members..." 
+                 className="pl-9 rounded-2xl h-12 border-slate-200"
+                 value={searchTerm}
+                 onChange={(e) => setSearchTerm(e.target.value)}
+               />
             </div>
+         </div>
 
-            <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden">
-               <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-slate-50/50">
-                      <TableRow className="border-none hover:bg-transparent">
-                        <TableHead className="px-8 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Institutional Identity</TableHead>
-                        <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Security Level</TableHead>
-                        <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Lifecycle State</TableHead>
-                        <TableHead className="px-8 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-right">Telemetry</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredUsers.map((user) => (
-                        <TableRow key={user.id} className="border-b border-slate-50/50 hover:bg-white/40 transition-all group">
-                          <TableCell className="px-8 py-5">
-                            <div className="flex items-center gap-4">
-                              <Avatar className="h-10 w-10 rounded-xl border-2 border-white shadow-sm">
-                                 <AvatarImage src={user.imageUrl} />
-                                 <AvatarFallback className="bg-slate-900 text-white font-black text-[10px]">{user.name.split(' ').map(n=>n[0]).join('')}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                 <p className="text-sm font-bold text-slate-900 uppercase italic leading-none">{user.name}</p>
-                                 <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1.5">{user.email}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                             <Badge variant="outline" className="rounded-lg border-none bg-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-500 px-3 py-1 italic">
-                                {user.roleDisplay.toUpperCase()}
-                             </Badge>
-                          </TableCell>
-                          <TableCell>
-                             <div className="flex flex-col items-center gap-1">
-                                <span className={`h-1.5 w-1.5 rounded-full ${user.is_active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-rose-500'} mb-1`}></span>
-                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{user.is_active ? 'ENABLED' : 'ISOLATED'}</span>
+         <TabsContent value="active" className="space-y-6">
+            <Card className="rounded-3xl border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+               <Table>
+                 <TableHeader className="bg-slate-50 dark:bg-slate-900/50">
+                   <TableRow>
+                     <TableHead className="font-bold py-4">Member</TableHead>
+                     <TableHead className="font-bold">Role & Type</TableHead>
+                     <TableHead className="font-bold">Affiliation</TableHead>
+                     <TableHead className="font-bold text-right">Actions</TableHead>
+                   </TableRow>
+                 </TableHeader>
+                 <TableBody>
+                   {users.map((user) => (
+                     <TableRow key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50">
+                       <TableCell className="py-4">
+                         <div className="flex items-center gap-3">
+                           <Avatar className="h-10 w-10 border-2 border-white dark:border-slate-800">
+                              <AvatarImage src={user.imageUrl} />
+                              <AvatarFallback className="bg-indigo-100 text-indigo-700 font-bold">{user.name[0]}</AvatarFallback>
+                           </Avatar>
+                           <div>
+                              <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{user.name}</p>
+                              <p className="text-xs text-slate-500">{user.email}</p>
+                           </div>
+                         </div>
+                       </TableCell>
+                       <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                             <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-none px-2 py-0.5 capitalize">{user.userType}</Badge>
+                             {user.roles.map(r => <Badge key={r.slug} className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-none px-2 py-0.5">{r.name}</Badge>)}
+                          </div>
+                       </TableCell>
+                       <TableCell>
+                          <p className="text-xs font-medium">{user.major || 'Global Member'}</p>
+                          <p className="text-[10px] text-slate-400">{user.graduationYear || user.expectedGraduation ? `Class of ${user.graduationYear || user.expectedGraduation}` : 'Joined ' + (user.joinedAt ? format(new Date(user.joinedAt), 'MMM yyyy') : 'Recently')}</p>
+                       </TableCell>
+                       <TableCell className="text-right">
+                          <DropdownMenu>
+                             <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="rounded-xl">
+                                   <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                             </DropdownMenuTrigger>
+                             <DropdownMenuContent align="end" className="rounded-2xl p-2 border-slate-100 shadow-2xl">
+                                <DropdownMenuItem className="rounded-xl p-3" onClick={() => router.push(`/admin/users/${user.id}`)}>
+                                   View Detailed Profile
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="rounded-xl p-3">
+                                   Edit Permissions
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="rounded-xl p-3 text-rose-600 focus:bg-rose-50" onClick={() => handleReject(user.id)}>
+                                   Suspend Access
+                                </DropdownMenuItem>
+                             </DropdownMenuContent>
+                          </DropdownMenu>
+                       </TableCell>
+                     </TableRow>
+                   ))}
+                   {!loading && !users.length && (
+                       <TableRow>
+                          <TableCell colSpan={4} className="h-60 text-center">
+                             <div className="flex flex-col items-center gap-3 text-slate-400">
+                                <div className="p-4 bg-slate-50 rounded-full"><User className="h-8 w-8" /></div>
+                                <p className="font-medium">No verified members found.</p>
                              </div>
                           </TableCell>
-                          <TableCell className="px-8 text-right">
-                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                   <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-blue-50 text-slate-400">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                   </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2 min-w-[180px]">
-                                   <DropdownMenuItem onClick={() => router.push(`/admin/users/${user.id}`)} className="rounded-xl py-3 text-[10px] font-black uppercase tracking-widest cursor-pointer px-4">
-                                      <Monitor className="h-3.5 w-3.5 mr-3 text-slate-400" /> Inspect Node
-                                   </DropdownMenuItem>
-                                   <DropdownMenuItem className="rounded-xl py-3 text-[10px] font-black uppercase tracking-widest cursor-pointer px-4">
-                                      <Shield className="h-3.5 w-3.5 mr-3 text-slate-400" /> Access Protocol
-                                   </DropdownMenuItem>
-                                   <DropdownMenuSeparator className="my-1 bg-slate-50" />
-                                   <DropdownMenuItem className="rounded-xl py-3 text-[10px] font-black uppercase tracking-widest cursor-pointer px-4 text-rose-600 hover:bg-rose-50">
-                                      <Trash2 className="h-3.5 w-3.5 mr-3" /> Terminate Node
-                                   </DropdownMenuItem>
-                                </DropdownMenuContent>
-                             </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-               </div>
-               <CardFooter className="p-8 border-t border-slate-50 flex justify-between items-center bg-slate-50/30">
-                  <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.3em]">{filteredUsers.length} NODES TRACKED</p>
-                  <Button variant="ghost" className="h-9 px-6 rounded-xl font-bold uppercase tracking-widest text-[9px] text-blue-600 hover:bg-blue-50" onClick={loadData}>
-                     Re-Sync Directory
-                  </Button>
-               </CardFooter>
+                       </TableRow>
+                   )}
+                 </TableBody>
+               </Table>
             </Card>
          </TabsContent>
 
-         <TabsContent value="invites" className="space-y-6 mt-0">
-            <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden p-12 text-center">
-               <div className="max-w-md mx-auto space-y-8">
-                  <div className="h-16 w-16 bg-blue-50 rounded-[2rem] flex items-center justify-center mx-auto">
-                     <MailPlus className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <div className="space-y-2">
-                     <h2 className="text-xl font-bold uppercase italic tracking-tight">Recruitment Pipeline</h2>
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-loose">Transmit invitations to external entities to integrate them into the institutional identity matrix.</p>
-                  </div>
-                  <Button onClick={() => setInviteDialogOpen(true)} className="h-12 w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-xl font-bold uppercase tracking-widest text-[10px]">
-                     Initialize Recruitment
-                  </Button>
-               </div>
-            </Card>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {invites.map((invite) => (
-                  <Card key={invite.id} className="border-none shadow-sm rounded-[2rem] bg-white/60 backdrop-blur-xl overflow-hidden group">
-                     <CardHeader className="px-8 pt-8 pb-4">
-                        <div className="flex items-center justify-between mb-2">
-                           <Badge variant="outline" className={`border-none text-[8px] font-black tracking-[0.2em] px-2.5 py-1 rounded-lg ${invite.status === 'accepted' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                              {invite.status.toUpperCase()}
-                           </Badge>
-                           <Clock className="h-3.5 w-3.5 text-slate-200" />
+         <TabsContent value="pending" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               {users.map((user) => (
+                  <Card key={user.id} className="rounded-[2rem] border-amber-100 dark:border-amber-900/30 overflow-hidden shadow-xl shadow-amber-50 dark:shadow-none hover:border-amber-400 transition-all group">
+                     <CardHeader className="pb-4 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-slate-900">
+                        <div className="flex justify-between items-start mb-4">
+                           <Badge className="bg-amber-100 text-amber-700 border-none px-3 py-1 font-bold tracking-tight bg-white animate-pulse">Pending Approval</Badge>
+                           <Clock className="h-5 w-5 text-amber-400" />
                         </div>
-                        <h3 className="text-sm font-bold uppercase italic truncate text-slate-900">{invite.email}</h3>
+                        <div className="flex items-center gap-4">
+                           <Avatar className="h-14 w-14 ring-4 ring-white shadow-lg">
+                              <AvatarImage src={user.imageUrl} />
+                              <AvatarFallback className="bg-amber-100 text-amber-700 text-xl font-bold">{user.name[0]}</AvatarFallback>
+                           </Avatar>
+                           <div>
+                              <CardTitle className="text-xl font-extrabold">{user.name}</CardTitle>
+                              <CardDescription className="flex items-center gap-1 font-medium"><Mail className="h-3 w-3" /> {user.email}</CardDescription>
+                           </div>
+                        </div>
                      </CardHeader>
-                     <CardContent className="px-8 pb-6">
-                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest leading-none">Security Privilege</p>
-                        <p className="text-xs font-bold text-slate-500 mt-2">{(invite.organization_roles || invite.role)?.display_name || "MEMBER ACCESS"}</p>
+                     <CardContent className="pt-6 space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                           <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Role Type</p>
+                              <p className="text-sm font-bold capitalize">{user.userType}</p>
+                           </div>
+                           <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Academic</p>
+                              <p className="text-sm font-bold truncate">{user.major || 'N/A'}</p>
+                              <p className="text-[10px] font-medium text-slate-500">Class of {user.graduationYear || user.expectedGraduation}</p>
+                           </div>
+                        </div>
                      </CardContent>
-                     <CardFooter className="px-8 pb-8 pt-0 flex justify-between items-center">
-                        <span className="text-[9px] font-bold text-slate-300 uppercase italic">Sent {format(new Date(invite.createdAt), 'MMM dd')}</span>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-slate-300 hover:text-rose-500"><Trash2 className="h-3.5 w-3.5" /></Button>
+                     <CardFooter className="bg-slate-50/50 dark:bg-slate-900/50 p-4 flex gap-3">
+                        <Button 
+                          onClick={() => handleApprove(user.id)} 
+                          className="flex-1 bg-indigo-600 hover:bg-indigo-700 rounded-2xl h-12 shadow-lg shadow-indigo-100 font-bold"
+                          disabled={actionLoading === user.id}
+                        >
+                           {actionLoading === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserCheck className="h-4 w-4 mr-2" /> Approve Join</>}
+                        </Button>
+                        <Button 
+                           variant="outline" 
+                           onClick={() => handleReject(user.id)}
+                           className="rounded-2xl h-12 border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
+                           disabled={actionLoading === user.id}
+                        >
+                           <UserX className="h-4 w-4" />
+                        </Button>
                      </CardFooter>
                   </Card>
                ))}
+               {!loading && !users.length && (
+                  <div className="col-span-full py-24 text-center border-4 border-dashed rounded-[3rem] border-slate-100 bg-slate-50/50">
+                     <div className="p-6 bg-white rounded-full w-fit mx-auto shadow-sm mb-4">
+                        <CheckCircle className="h-8 w-8 text-emerald-500" />
+                     </div>
+                     <h3 className="text-xl font-bold text-slate-900 mb-2">Queue is Clear!</h3>
+                     <p className="text-slate-500 max-w-xs mx-auto text-sm">All pending join requests have been processed. Great job maintaining the network.</p>
+                  </div>
+               )}
+            </div>
+         </TabsContent>
+
+         <TabsContent value="invites" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               {invites.map((invite) => (
+                  <Card key={invite.id} className="rounded-3xl border-slate-100">
+                     <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start mb-2">
+                           <Badge variant={invite.status === 'pending' ? 'outline' : 'secondary'} className="rounded-full px-3">
+                              {invite.status}
+                           </Badge>
+                           <Clock className="h-4 w-4 text-slate-300" />
+                        </div>
+                        <CardTitle className="text-base truncate">{invite.email}</CardTitle>
+                     </CardHeader>
+                     <CardFooter className="pt-0 flex justify-end">
+                        <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50 rounded-xl">Revoke</Button>
+                     </CardFooter>
+                  </Card>
+               ))}
+               {!invites.length && (
+                  <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl text-slate-400">
+                     No active invitations.
+                  </div>
+               )}
             </div>
          </TabsContent>
       </Tabs>
 
-      {/* Recruitment Dialog */}
+      {/* Invite Dialog */}
       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-         <DialogContent className="border-none shadow-2xl rounded-[3rem] p-12 max-w-lg">
-            <DialogHeader className="space-y-3 mb-6">
-               <div className="h-14 w-14 bg-indigo-50 rounded-[2rem] flex items-center justify-center">
-                  <UserPlus className="h-7 w-7 text-indigo-600" />
-               </div>
-               <DialogTitle className="text-3xl font-black uppercase italic tracking-tighter">Recruit Node</DialogTitle>
-               <DialogDescription className="text-[11px] font-black uppercase tracking-widest text-slate-400">Initialize identity invitation protocol.</DialogDescription>
+         <DialogContent className="rounded-[2.5rem] p-10 max-w-lg">
+            <DialogHeader>
+               <DialogTitle className="text-2xl font-extrabold tracking-tight">Invite Professional</DialogTitle>
+               <DialogDescription>Grow your institutional network by inviting colleagues.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-8">
-               <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Email Relay Address</Label>
+            <div className="space-y-5 py-6">
+               <div className="space-y-2">
+                  <Label className="font-bold text-slate-700">Email Destination</Label>
                   <Input 
                     value={inviteForm.email} 
                     onChange={e => setInviteForm(p=>({...p, email: e.target.value}))}
-                    className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest" 
-                    placeholder="NODE@MAIL.COM" 
+                    placeholder="name@university.edu" 
+                    className="h-12 rounded-2xl border-slate-200"
                   />
                </div>
-               <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Security Privilege</Label>
+               <div className="space-y-2">
+                  <Label className="font-bold text-slate-700">Assigned Role</Label>
                   <Select value={inviteForm.roleId} onValueChange={v => setInviteForm(p=>({...p, roleId: v}))}>
-                     <SelectTrigger className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-black uppercase tracking-widest">
-                        <SelectValue />
+                     <SelectTrigger className="h-12 rounded-2xl border-slate-200">
+                        <SelectValue placeholder="Select a role" />
                      </SelectTrigger>
-                     <SelectContent className="rounded-xl border-none shadow-2xl">
-                        {roles.map(r => <SelectItem key={r.id} value={r.id} className="text-[10px] font-black uppercase tracking-widest">{r.display_name}</SelectItem>)}
+                     <SelectContent className="rounded-2xl">
+                        {roles.map(r => <SelectItem key={r.id} value={r.id}>{r.display_name}</SelectItem>)}
                      </SelectContent>
                   </Select>
                </div>
-               <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Context Payload (Optional)</Label>
-                  <Textarea 
-                    value={inviteForm.message} 
-                    onChange={e => setInviteForm(p=>({...p, message: e.target.value}))}
-                    className="rounded-2xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-bold uppercase tracking-widest min-h-[100px] p-4 resize-none" 
-                    placeholder="ENTER CONTEXT..." 
-                  />
-               </div>
             </div>
-            <DialogFooter className="pt-10 flex gap-4">
-               <Button onClick={() => setInviteDialogOpen(false)} variant="ghost" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-xs text-slate-400">Abort</Button>
-               <Button onClick={handleInvite} disabled={inviteLoading} className="flex-1 h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-500/10 font-black uppercase tracking-widest text-xs">
-                  {inviteLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Save All
+            <DialogFooter>
+               <Button onClick={handleInvite} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 rounded-2xl font-bold shadow-xl shadow-indigo-100">
+                  <MailPlus className="h-5 w-5 mr-3" /> Send Network Invite
                </Button>
             </DialogFooter>
          </DialogContent>
       </Dialog>
-
-      <footer className="pt-10 border-t border-slate-50 flex items-center justify-center">
-         <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Integrated Identity Governor v1.2.0 • People Management</p>
-      </footer>
     </div>
   );
 }

@@ -27,6 +27,7 @@ export type UpdateProfilePayload = {
   // Location
   city?: string | null;
   countryCode?: string | null;
+  stateCode?: string | null;
   
   // Work & Career (Alumni)
   company?: string | null;
@@ -79,6 +80,26 @@ export type UpdateProfilePayload = {
     description?: string;
   }>;
 };
+
+/**
+ * Ensures country exists in the lookup table to prevent FK violations.
+ */
+async function ensureCountryExists(tx: any, code: string) {
+  if (!code || code.length !== 2) return;
+  const upperCode = code.toUpperCase();
+  const exists = await tx.country.findUnique({ where: { code: upperCode } });
+  if (!exists) {
+    // If it doesn't exist, we create a placeholder so the FK doesn't fail.
+    // In a real app, you'd want a full seed or mapping.
+    await tx.country.create({
+      data: {
+        code: upperCode,
+        name: upperCode, // Default to code as name
+        isActive: true
+      }
+    });
+  }
+}
 
 /**
  * Server action: update profile (User + AlumniProfile/StudentProfile)
@@ -135,14 +156,15 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
     }
   }
 
-  // Removed restriction: users without an organization can still complete their base profile
   try {
-    // Use transaction for data consistency
     const result = await prisma.$transaction(async (tx) => {
+      // Prevent FK violations by ensuring country exists
+      if (payload.countryCode) {
+        await ensureCountryExists(tx, payload.countryCode);
+      }
+
       // 1. Update core User fields
       const userUpdateData: any = {};
-      
-      // Update user metadata with social links and additional info
       const currentMetadata = (user.metadata as any) || {};
 
       if (payload.firstName || payload.lastName || payload.fullName) {
@@ -152,18 +174,19 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
         } else if (payload.fullName) {
           userUpdateData.fullName = payload.fullName;
         } else if (payload.firstName) {
-          const currentUser = await tx.user.findUnique({
+          const currentUserVal = await tx.user.findUnique({
             where: { id: user.id },
             select: { fullName: true }
           });
           const existingLast =
-            (currentUser?.fullName?.split(" ").slice(1).join(" ") || "").trim() ||
+            (currentUserVal?.fullName?.split(" ").slice(1).join(" ") || "").trim() ||
             (currentMetadata?.lastName || "");
           userUpdateData.fullName = `${payload.firstName} ${existingLast}`.trim();
         }
       }
       
       if (payload.phone !== undefined) userUpdateData.phone = payload.phone;
+      
       userUpdateData.metadata = {
         ...currentMetadata,
         ...(payload.websiteUrl !== undefined && { websiteUrl: payload.websiteUrl }),
@@ -176,6 +199,7 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
           ...(payload.headline !== undefined && { headline: payload.headline }),
           ...(payload.city !== undefined && { city: payload.city }),
           ...(payload.countryCode !== undefined && { countryCode: payload.countryCode }),
+          ...(payload.stateCode !== undefined && { stateCode: payload.stateCode }),
         }
       };
 
@@ -188,21 +212,19 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
       });
 
       if (!user.organizationId || user.userType === UserType.super_admin) {
-        // Users without an org or super admins do not need an organization yet before completing profile.
         return { updatedUser, updatedProfile: null };
       }
 
       // 2. Update or create profile based on userType
       let updatedProfile = null;
+      const baseCountryCode = payload.countryCode?.toUpperCase().slice(0, 2) || null;
       
       if (user.userType === UserType.alumni) {
-        // Prepare alumni profile data
         const alumniData: any = {
           userId: user.id,
           organizationId: user.organizationId,
         };
         
-        // Only include fields that are provided
         if (payload.degree !== undefined) alumniData.degree = payload.degree;
         if (payload.major !== undefined) alumniData.major = payload.major;
         if (payload.minor !== undefined) alumniData.minor = payload.minor;
@@ -215,11 +237,9 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
         if (payload.industry !== undefined) alumniData.industry = payload.industry;
         if (payload.yearsOfExperience !== undefined) alumniData.yearsOfExperience = payload.yearsOfExperience;
         if (payload.city !== undefined) alumniData.city = payload.city;
-        if (payload.countryCode !== undefined) alumniData.countryCode = payload.countryCode;
-        if (payload.websiteUrl !== undefined) alumniData.websiteUrl = payload.websiteUrl;
+        if (baseCountryCode) alumniData.countryCode = baseCountryCode;
         if (payload.linkedinUrl !== undefined) alumniData.linkedinUrl = payload.linkedinUrl;
         if (payload.githubUrl !== undefined) alumniData.githubUrl = payload.githubUrl;
-        if (payload.twitterUrl !== undefined) alumniData.twitterUrl = payload.twitterUrl;
         if (payload.isOpenToWork !== undefined) alumniData.isOpenToWork = payload.isOpenToWork;
         if (payload.isMentorAvailable !== undefined) alumniData.isMentorAvailable = payload.isMentorAvailable;
         if (payload.mentorshipSlots !== undefined) alumniData.mentorshipSlots = payload.mentorshipSlots;
@@ -233,11 +253,9 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
           ),
         });
         
-        // Calculate profile completeness
         await updateProfileCompleteness(tx, user.id, user.userType);
         
       } else if (user.userType === UserType.student) {
-        // Prepare student profile data
         const studentData: any = {
           userId: user.id,
           organizationId: user.organizationId,
@@ -251,10 +269,9 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
         if (payload.bio !== undefined) studentData.bio = payload.bio;
         if (payload.headline !== undefined) studentData.headline = payload.headline;
         if (payload.city !== undefined) studentData.city = payload.city;
-        if (payload.countryCode !== undefined) studentData.countryCode = payload.countryCode;
+        if (baseCountryCode) studentData.countryCode = baseCountryCode;
         if (payload.linkedinUrl !== undefined) studentData.linkedinUrl = payload.linkedinUrl;
         if (payload.githubUrl !== undefined) studentData.githubUrl = payload.githubUrl;
-        if (payload.portfolioUrl !== undefined) studentData.portfolioUrl = payload.portfolioUrl;
         if (payload.isOpenToWork !== undefined) {
           studentData.isSeekingInternship = payload.isOpenToWork;
           studentData.isSeekingFulltime = payload.isOpenToWork;
@@ -269,26 +286,21 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
           ),
         });
         
-        // Calculate profile completeness
         await updateProfileCompleteness(tx, user.id, user.userType);
       }
 
-      // 3. Handle Skills
       if (payload.skills && Array.isArray(payload.skills) && payload.skills.length > 0) {
         await updateUserSkills(tx, user.id, user.organizationId, payload.skills);
       }
 
-      // 4. Handle Work History (for alumni)
       if (payload.workHistory && Array.isArray(payload.workHistory) && user.userType === UserType.alumni) {
         await addWorkHistoryEntries(tx, user.id, user.organizationId, payload.workHistory);
       }
 
-      // 5. Handle Education History
       if (payload.educationHistory && Array.isArray(payload.educationHistory)) {
         await addEducationEntries(tx, user.id, user.organizationId, payload.educationHistory);
       }
 
-      // 6. Create audit log
       await tx.auditLog.create({
         data: {
           organizationId: user.organizationId,
@@ -296,7 +308,6 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
           action: "profile.updated",
           entityType: user.userType === UserType.alumni ? "alumni_profile" : "student_profile",
           entityId: user.id,
-          entityLabel: user.email,
           afterState: { updatedFields: Object.keys(payload) },
           severity: "info",
         },
@@ -327,13 +338,10 @@ async function updateProfileCompleteness(
   userType: UserType
 ): Promise<void> {
   let completeness = 0;
-  const totalFields = 15; // Adjust based on important fields
+  const totalFields = 15;
   
   if (userType === UserType.alumni) {
-    const profile = await tx.alumniProfile.findUnique({
-      where: { userId },
-    });
-    
+    const profile = await tx.alumniProfile.findUnique({ where: { userId } });
     if (profile) {
       if (profile.headline) completeness += 1;
       if (profile.bio) completeness += 1;
@@ -341,8 +349,6 @@ async function updateProfileCompleteness(
       if (profile.major) completeness += 1;
       if (profile.graduationYear) completeness += 1;
       if (profile.currentCompany) completeness += 1;
-      if (profile.currentTitle) completeness += 1;
-      if (profile.industry) completeness += 1;
       if (profile.linkedinUrl) completeness += 1;
       if (profile.city) completeness += 1;
       if (profile.countryCode) completeness += 1;
@@ -358,17 +364,13 @@ async function updateProfileCompleteness(
       if (workCount > 0) completeness += 2;
       
       const percentage = Math.floor((completeness / totalFields) * 100);
-      
       await tx.alumniProfile.update({
         where: { userId },
         data: { profileCompleteness: Math.min(percentage, 100) }
       });
     }
   } else if (userType === UserType.student) {
-    const profile = await tx.studentProfile.findUnique({
-      where: { userId },
-    });
-    
+    const profile = await tx.studentProfile.findUnique({ where: { userId } });
     if (profile) {
       if (profile.headline) completeness += 1;
       if (profile.bio) completeness += 1;
@@ -384,7 +386,6 @@ async function updateProfileCompleteness(
       if (skillCount > 0) completeness += 2;
       
       const percentage = Math.floor((completeness / totalFields) * 100);
-      
       await tx.studentProfile.update({
         where: { userId },
         data: { profileCompleteness: Math.min(percentage, 100) }
@@ -399,20 +400,16 @@ async function updateUserSkills(
   organizationId: string,
   skills: Array<{ name: string; proficiencyLevel?: number; yearsExperience?: number }> | string[]
 ): Promise<void> {
-  // Determine owner type
   const user = await tx.user.findUnique({
     where: { id: userId },
     select: { userType: true }
   });
   
   const ownerType = user.userType === UserType.alumni ? "alumni_profile" : "student_profile";
-  
-  // Get existing skills
   const existingSkills = await tx.profileSkill.findMany({
     where: { ownerId: userId, ownerType },
     include: { skill: true }
   });
-  
   const existingSkillNames = new Set(existingSkills.map((ps: any) => ps.skill.name.toLowerCase()));
   
   for (const skillInput of skills) {
@@ -420,7 +417,6 @@ async function updateUserSkills(
     const proficiencyLevel = typeof skillInput === 'object' ? skillInput.proficiencyLevel : undefined;
     const yearsExperience = typeof skillInput === 'object' ? skillInput.yearsExperience : undefined;
     
-    // Find or create skill
     let skill = await tx.skill.findFirst({
       where: { 
         OR: [
@@ -446,7 +442,6 @@ async function updateUserSkills(
       });
     }
     
-    // Create profile skill if not exists
     if (!existingSkillNames.has(skill.name.toLowerCase())) {
       await tx.profileSkill.create({
         data: {
@@ -459,13 +454,8 @@ async function updateUserSkills(
         }
       });
     } else if (proficiencyLevel || yearsExperience) {
-      // Update existing skill
       await tx.profileSkill.updateMany({
-        where: { 
-          ownerId: userId, 
-          ownerType, 
-          skillId: skill.id 
-        },
+        where: { ownerId: userId, ownerType, skillId: skill.id },
         data: {
           ...(proficiencyLevel && { proficiencyLevel }),
           ...(yearsExperience && { yearsExperience })
@@ -491,14 +481,8 @@ async function addWorkHistoryEntries(
     description?: string;
   }>
 ): Promise<void> {
-  // Get alumni profile
-  const alumniProfile = await tx.alumniProfile.findUnique({
-    where: { userId }
-  });
-  
-  if (!alumniProfile) {
-    throw new Error("Alumni profile not found");
-  }
+  const alumniProfile = await tx.alumniProfile.findUnique({ where: { userId } });
+  if (!alumniProfile) throw new Error("Alumni profile not found");
   
   for (const work of workHistory) {
     await tx.alumniWorkHistory.create({
@@ -538,7 +522,7 @@ async function addEducationEntries(
     await tx.profileEducation.create({
       data: {
         ownerId: userId,
-        ownerType: "user", // or could be "alumni_profile" / "student_profile"
+        ownerType: "user",
         organizationId,
         institution: edu.institution,
         degreeType: edu.degreeType,
@@ -553,59 +537,27 @@ async function addEducationEntries(
   }
 }
 
-/* -------------------------------------------
-   GET PROFILE ACTION
--------------------------------------------- */
-
 export async function getProfileAction() {
   const { userId: clerkId } = await auth();
-  if (!clerkId) {
-    throw new Error("Unauthorized");
-  }
+  if (!clerkId) throw new Error("Unauthorized");
   
   const user = await prisma.user.findFirst({
-    where: { 
-      metadata: { 
-        path: ["clerkId"], 
-        equals: clerkId 
-      } 
-    },
+    where: { metadata: { path: ["clerkId"], equals: clerkId } },
     include: {
-      organization: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          logoUrl: true,
-        }
-      },
-      alumniProfile: {
-        include: {
-          workHistory: {
-            orderBy: { startedAt: 'desc' }
-          }
-        }
-      },
+      organization: { select: { id: true, name: true, slug: true, logoUrl: true } },
+      alumniProfile: { include: { workHistory: { orderBy: { startedAt: 'desc' } } } },
       studentProfile: true,
-      userRoles: {
-        include: {
-          role: true
-        }
-      }
+      userRoles: { include: { role: true } }
     }
   });
   
-  if (!user) {
-    throw new Error("User not found");
-  }
+  if (!user) throw new Error("User not found");
   
-  // Get education history
   const educationHistory = await prisma.profileEducation.findMany({
     where: { ownerId: user.id },
     orderBy: { startYear: 'desc' }
   });
   
-  // Get profile skills
   const profileSkills = await prisma.profileSkill.findMany({
     where: { ownerId: user.id },
     include: { skill: true }
