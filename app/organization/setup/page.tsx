@@ -17,7 +17,7 @@ import {
 import { toast } from "sonner";
 import Image from "next/image";
 
-export const dynamic = "force-dynamic";
+// Removed dynamic export
 
 const STEPS = ["Organization Details", "Review & Launch"];
 

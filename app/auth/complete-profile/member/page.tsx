@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-export const dynamic = "force-dynamic";
+// Removed dynamic export
 
 type UserRole = "alumni" | "student";
 

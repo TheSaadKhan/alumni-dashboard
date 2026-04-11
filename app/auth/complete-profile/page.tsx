@@ -6,7 +6,7 @@ import { useUser } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { syncUserMetadataAction } from "@/app/actions/syncUserMetadata";
 
-export const dynamic = "force-dynamic";
+// Removed dynamic export
 
 function CompleteProfileRouterContent() {
   const router = useRouter();

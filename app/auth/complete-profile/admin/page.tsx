@@ -21,7 +21,7 @@ import {
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 
-export const dynamic = "force-dynamic";
+// Removed dynamic export
 
 const STEPS = ["Your Identity", "Review & Launch"];
 
