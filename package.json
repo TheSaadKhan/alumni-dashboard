@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "postinstall": "patch-package"
+    "postinstall": "prisma generate && patch-package"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.35.1",
