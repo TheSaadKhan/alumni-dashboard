@@ -97,8 +97,7 @@ export default function SignUpPage() {
             /**
              * ✅ Send Clerk through the auth callback so the app can sync the user record.
              */
-            afterSignUpUrl={`/auth/callback?redirect_url=${encodeURIComponent(redirectUrl)}`}
-            redirectUrl={`/auth/callback?redirect_url=${encodeURIComponent(redirectUrl)}`}
+            fallbackRedirectUrl={`/auth/callback?redirect_url=${encodeURIComponent(redirectUrl)}`}
           />
         </div>
 

@@ -32,12 +32,13 @@ const stories = {
 };
 
 interface StoryPageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
-export default function StoryPage({ params }: StoryPageProps) {
+export default async function StoryPage(props: StoryPageProps) {
+  const params = await props.params;
   const story = stories[params.slug as keyof typeof stories];
 
   if (!story) {

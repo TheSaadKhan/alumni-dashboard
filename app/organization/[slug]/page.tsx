@@ -22,7 +22,7 @@ import {
 import { prisma } from "@/lib/prisma";
 
 type Props = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
 // Types based on Prisma schema
@@ -333,7 +333,8 @@ async function getOrganizationStats(organizationId: string) {
    PAGE COMPONENT
 ========================= */
 
-export default async function OrganizationPage({ params }: Props) {
+export default async function OrganizationPage(props: Props) {
+  const params = await props.params;
   const { slug } = params;
 
   if (!slug || slug === "undefined") {
@@ -489,7 +490,6 @@ export default async function OrganizationPage({ params }: Props) {
           </div>
         </div>
       </div>
-
       {/* ================= MAIN CONTENT ================= */}
       <div className="container mx-auto px-4 sm:px-6 py-8">
         <Tabs defaultValue="overview" className="space-y-6">

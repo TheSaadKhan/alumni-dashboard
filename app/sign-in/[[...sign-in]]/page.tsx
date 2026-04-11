@@ -123,12 +123,7 @@ export default function SignInPage() {
               routing="path"
               path="/sign-in"
               signUpUrl={`/sign-up?redirect=${encodeURIComponent(redirectUrl)}`}
-
-              /**
-               * ✅ Send Clerk through the auth callback so the app can sync the user record.
-               */
-              afterSignInUrl={`/auth/callback?redirect_url=${encodeURIComponent(redirectUrl)}`}
-              redirectUrl={`/auth/callback?redirect_url=${encodeURIComponent(redirectUrl)}`}
+              fallbackRedirectUrl={`/auth/callback?redirect_url=${encodeURIComponent(redirectUrl)}`}
             />
           </div>
         </div>
