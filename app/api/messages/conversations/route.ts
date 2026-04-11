@@ -362,7 +362,7 @@ export async function POST(req: NextRequest) {
     const newThread = await prisma.$transaction(async (tx) => {
       const thread = await tx.chatThread.create({
         data: {
-          organizationId: user.organizationId,
+          organizationId: user.organizationId as string,
           createdBy: user.id,
           threadType: threadType === "direct" ? ThreadType.direct : ThreadType.group,
           title: title || null,
@@ -375,7 +375,7 @@ export async function POST(req: NextRequest) {
           data: {
             threadId: thread.id,
             userId: participantId,
-            organizationId: user.organizationId,
+            organizationId: user.organizationId as string,
             role: participantId === user.id ? ThreadMemberRole.owner : ThreadMemberRole.member,
             joinedAt: new Date(),
           },
@@ -389,7 +389,7 @@ export async function POST(req: NextRequest) {
           data: {
             threadId: thread.id,
             senderId: user.id,
-            organizationId: user.organizationId,
+            organizationId: user.organizationId as string,
             content: initialMessage,
             messageType: MessageType.text,
             status: "sent",
@@ -411,7 +411,7 @@ export async function POST(req: NextRequest) {
           await tx.notification.create({
             data: {
               userId: participantId,
-              organizationId: user.organizationId,
+              organizationId: user.organizationId as string,
               type: "new_conversation",
               category: "social",
               title: threadType === "direct" ? "New Message" : `Added to group: ${title}`,
@@ -432,7 +432,7 @@ export async function POST(req: NextRequest) {
       // Create audit log
       await tx.auditLog.create({
         data: {
-          organizationId: user.organizationId,
+          organizationId: user.organizationId as string,
           actorId: user.id,
           action: "conversation.created",
           entityType: "chat_thread",
@@ -604,7 +604,7 @@ export async function PATCH(req: NextRequest) {
             await tx.notification.create({
               data: {
                 userId: member.userId,
-                organizationId: user.organizationId,
+                organizationId: user.organizationId as string,
                 type: "member_left",
                 category: "social",
                 title: "Member Left",
@@ -632,7 +632,7 @@ export async function PATCH(req: NextRequest) {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        organizationId: user.organizationId,
+        organizationId: user.organizationId as string,
         actorId: user.id,
         action: `conversation.${action}`,
         entityType: "chat_thread",

@@ -227,7 +227,7 @@ export async function PATCH(
       // Create audit log
       await tx.auditLog.create({
         data: {
-          organizationId: targetOrgId,
+          organizationId: targetOrgId as string,
           actorId: currentUser.id,
           action: "user.status_updated",
           entityType: "user",
@@ -273,7 +273,7 @@ export async function PATCH(
         await tx.notification.create({
           data: {
             userId: id,
-            organizationId: targetOrgId,
+            organizationId: targetOrgId as string,
             type: notificationType,
             category: "system",
             title: notificationTitle,
@@ -430,7 +430,7 @@ export async function POST(
         // Create audit log for each user
         await tx.auditLog.create({
           data: {
-            organizationId: currentUser.organizationId,
+            organizationId: currentUser.organizationId as string,
             actorId: currentUser.id,
             action: "user.bulk_status_updated",
             entityType: "user",

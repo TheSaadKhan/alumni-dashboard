@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     // Get user's connections to know connection status
     const connections = await prisma.connection.findMany({
       where: {
-        organizationId,
+        organizationId: organizationId as string,
         OR: [
           { requesterId: currentUser.id, status: ConnectionStatus.accepted },
           { recipientId: currentUser.id, status: ConnectionStatus.accepted },
@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
 
     // Build where clause
     const whereClause: any = {
-      organizationId,
+      organizationId: organizationId as string,
       status: "active",
       deletedAt: null,
       id: { not: currentUser.id }, // Exclude self
@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
           studentProfile: true,
           userRoles: {
             where: {
-              organizationId,
+              organizationId: organizationId as string,
               revokedAt: null,
             },
             include: {
@@ -254,7 +254,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Get filter options for frontend
-    const filterOptions = await getFilterOptions(organizationId);
+    const filterOptions = await getFilterOptions(organizationId as string);
 
     // Get statistics
     const stats = {
@@ -262,10 +262,10 @@ export async function GET(req: NextRequest) {
       connected: connectedUserIds.size,
       pending: pendingSentUserIds.size + pendingReceivedUserIds.size,
       alumni: await prisma.user.count({
-        where: { organizationId, userType: UserType.alumni, status: "active", deletedAt: null },
+        where: { organizationId: organizationId as string, userType: UserType.alumni, status: "active", deletedAt: null },
       }),
       students: await prisma.user.count({
-        where: { organizationId, userType: UserType.student, status: "active", deletedAt: null },
+        where: { organizationId: organizationId as string, userType: UserType.student, status: "active", deletedAt: null },
       }),
     };
 
@@ -334,7 +334,7 @@ export async function POST(req: NextRequest) {
     const targetUser = await prisma.user.findFirst({
       where: {
         id: targetUserId,
-        organizationId: currentUser.organizationId,
+        organizationId: currentUser.organizationId as string,
         status: "active",
       },
       select: {
@@ -353,7 +353,7 @@ export async function POST(req: NextRequest) {
     // Check if connection already exists
     const existingConnection = await prisma.connection.findFirst({
       where: {
-        organizationId: currentUser.organizationId,
+        organizationId: currentUser.organizationId as string,
         OR: [
           { requesterId: currentUser.id, recipientId: targetUserId },
           { requesterId: targetUserId, recipientId: currentUser.id },
@@ -387,7 +387,7 @@ export async function POST(req: NextRequest) {
           await prisma.notification.create({
             data: {
               userId: targetUserId,
-              organizationId: currentUser.organizationId,
+              organizationId: currentUser.organizationId as string,
               type: "connection_accepted",
               category: "social",
               title: "Connection Accepted",
@@ -412,7 +412,7 @@ export async function POST(req: NextRequest) {
     // Create new connection request
     const connection = await prisma.connection.create({
       data: {
-        organizationId: currentUser.organizationId,
+        organizationId: currentUser.organizationId as string,
         requesterId: currentUser.id,
         recipientId: targetUserId,
         status: ConnectionStatus.pending,
@@ -424,7 +424,7 @@ export async function POST(req: NextRequest) {
     await prisma.notification.create({
       data: {
         userId: targetUserId,
-        organizationId: currentUser.organizationId,
+        organizationId: currentUser.organizationId as string,
         type: "connection_request",
         category: "social",
         title: "New Connection Request",
@@ -442,7 +442,7 @@ export async function POST(req: NextRequest) {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        organizationId: currentUser.organizationId,
+        organizationId: currentUser.organizationId as string,
         actorId: currentUser.id,
         action: "connection.request_sent",
         entityType: "connection",

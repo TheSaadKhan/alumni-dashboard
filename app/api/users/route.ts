@@ -209,23 +209,23 @@ export async function GET(req: NextRequest) {
         adminCount,
       ] = await Promise.all([
         prisma.user.count({
-          where: { organizationId: targetOrgId, deletedAt: null },
+          where: { organizationId: targetOrgId as string, deletedAt: null },
         }),
         prisma.user.count({
-          where: { organizationId: targetOrgId, status: UserStatus.active, deletedAt: null },
+          where: { organizationId: targetOrgId as string, status: UserStatus.active, deletedAt: null },
         }),
         prisma.user.count({
-          where: { organizationId: targetOrgId, status: UserStatus.pending, deletedAt: null },
+          where: { organizationId: targetOrgId as string, status: UserStatus.pending, deletedAt: null },
         }),
         prisma.user.count({
-          where: { organizationId: targetOrgId, userType: UserType.alumni, deletedAt: null },
+          where: { organizationId: targetOrgId as string, userType: UserType.alumni, deletedAt: null },
         }),
         prisma.user.count({
-          where: { organizationId: targetOrgId, userType: UserType.student, deletedAt: null },
+          where: { organizationId: targetOrgId as string, userType: UserType.student, deletedAt: null },
         }),
         prisma.userRole.count({
           where: {
-            organizationId: targetOrgId,
+            organizationId: targetOrgId as string,
             role: { slug: { in: ["admin", "super-admin"] } },
             revokedAt: null,
           },
@@ -438,7 +438,7 @@ export async function POST(req: NextRequest) {
           emailNormalized: email.toLowerCase(),
           firstName,
           fullName: `${firstName} ${String(lastName || "").trim()}`.trim(),
-          organizationId,
+          organizationId: organizationId as string,
           status: UserStatus.pending,
           userType: userType as UserType,
           emailVerified: false,
@@ -456,7 +456,7 @@ export async function POST(req: NextRequest) {
           data: {
             userId: user.id,
             roleId: finalRoleId,
-            organizationId,
+            organizationId: organizationId as string,
             grantedBy: currentUser.id,
             grantedReason: "User created by admin",
           },
@@ -468,14 +468,14 @@ export async function POST(req: NextRequest) {
         await tx.alumniProfile.create({
           data: {
             userId: user.id,
-            organizationId,
+            organizationId: organizationId as string,
           },
         });
       } else if (userType === UserType.student) {
         await tx.studentProfile.create({
           data: {
             userId: user.id,
-            organizationId,
+            organizationId: organizationId as string,
           },
         });
       }
@@ -483,7 +483,7 @@ export async function POST(req: NextRequest) {
       // Create audit log
       await tx.auditLog.create({
         data: {
-          organizationId,
+          organizationId: organizationId as string,
           actorId: currentUser.id,
           action: "user.created",
           entityType: "user",
@@ -506,7 +506,7 @@ export async function POST(req: NextRequest) {
 
     const invitation = await prisma.orgInvitation.create({
       data: {
-        organizationId,
+        organizationId: organizationId as string,
         invitedBy: currentUser.id,
         roleId: finalRoleId,
         userType: userType as UserType,
@@ -524,7 +524,7 @@ export async function POST(req: NextRequest) {
     await prisma.notification.create({
       data: {
         userId: newUser.id,
-        organizationId,
+        organizationId: organizationId as string,
         type: "welcome",
         category: "system",
         title: `Welcome to ${organization.name}!`,
@@ -641,7 +641,7 @@ export async function PATCH(req: NextRequest) {
       const existingRole = await prisma.userRole.findFirst({
         where: {
           userId,
-          organizationId: targetOrgId,
+          organizationId: targetOrgId as string,
           revokedAt: null,
         },
       });
@@ -656,7 +656,7 @@ export async function PATCH(req: NextRequest) {
           data: {
             userId,
             roleId,
-            organizationId: targetOrgId,
+            organizationId: targetOrgId as string,
             grantedBy: currentUser.id,
             grantedReason: "Role updated by admin",
           },
@@ -667,7 +667,7 @@ export async function PATCH(req: NextRequest) {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        organizationId: targetOrgId,
+        organizationId: targetOrgId as string,
         actorId: currentUser.id,
         action: "user.updated",
         entityType: "user",

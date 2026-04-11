@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       const existingThread = await prisma.chatThread.findFirst({
         where: {
           threadType: ThreadType.direct,
-          organizationId: user.organizationId,
+          organizationId: user.organizationId as string,
           members: {
             every: {
               userId: { in: [user.id, receiverId] },
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
         const receiver = await prisma.user.findFirst({
           where: {
             id: receiverId,
-            organizationId: user.organizationId,
+            organizationId: user.organizationId as string,
             status: "active",
           },
           select: {
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
         const newThread = await prisma.$transaction(async (tx) => {
           const thread = await tx.chatThread.create({
             data: {
-              organizationId: user.organizationId,
+              organizationId: user.organizationId as string,
               createdBy: user.id,
               threadType: ThreadType.direct,
             },
@@ -135,14 +135,14 @@ export async function POST(req: NextRequest) {
               {
                 threadId: thread.id,
                 userId: user.id,
-                organizationId: user.organizationId,
+                organizationId: user.organizationId as string,
                 role: ThreadMemberRole.owner,
                 joinedAt: new Date(),
               },
               {
                 threadId: thread.id,
                 userId: receiverId,
-                organizationId: user.organizationId,
+                organizationId: user.organizationId as string,
                 role: ThreadMemberRole.member,
                 joinedAt: new Date(),
               },
@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
         data: {
           threadId,
           senderId: user.id,
-          organizationId: user.organizationId,
+          organizationId: user.organizationId as string,
           content: content || null,
           messageType: messageType as MessageType,
           replyToMessageId: replyToMessageId || null,
@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
         await tx.messageAttachment.createMany({
           data: attachments.map((att: any) => ({
             messageId: newMessage.id,
-            organizationId: user.organizationId,
+            organizationId: user.organizationId as string,
             fileUrl: att.url,
             cdnUrl: att.cdnUrl || null,
             fileName: att.name,
@@ -289,7 +289,7 @@ export async function POST(req: NextRequest) {
           await tx.notification.create({
             data: {
               userId: member.userId,
-              organizationId: user.organizationId,
+              organizationId: user.organizationId as string,
               type: "new_message",
               category: "social",
               title: "New Message",
@@ -310,7 +310,7 @@ export async function POST(req: NextRequest) {
       // Create audit log
       await tx.auditLog.create({
         data: {
-          organizationId: user.organizationId,
+          organizationId: user.organizationId as string,
           actorId: user.id,
           action: "message.sent",
           entityType: "message",
@@ -440,7 +440,7 @@ export async function PUT(req: NextRequest) {
     const recipients = await prisma.user.findMany({
       where: {
         id: { in: recipientIds },
-        organizationId: user.organizationId,
+        organizationId: user.organizationId as string,
         status: "active",
       },
       select: {
@@ -465,7 +465,7 @@ export async function PUT(req: NextRequest) {
         let thread = await tx.chatThread.findFirst({
           where: {
             threadType: ThreadType.direct,
-            organizationId: user.organizationId,
+            organizationId: user.organizationId as string,
             members: {
               every: {
                 userId: { in: [user.id, recipient.id] },
@@ -477,13 +477,13 @@ export async function PUT(req: NextRequest) {
         if (!thread) {
           thread = await tx.chatThread.create({
             data: {
-              organizationId: user.organizationId,
+              organizationId: user.organizationId as string,
               createdBy: user.id,
               threadType: ThreadType.direct,
               members: {
                 create: [
-                  { userId: user.id, organizationId: user.organizationId, role: ThreadMemberRole.owner },
-                  { userId: recipient.id, organizationId: user.organizationId, role: ThreadMemberRole.member },
+                  { userId: user.id, organizationId: user.organizationId as string, role: ThreadMemberRole.owner },
+                  { userId: recipient.id, organizationId: user.organizationId as string, role: ThreadMemberRole.member },
                 ],
               },
             },
@@ -495,7 +495,7 @@ export async function PUT(req: NextRequest) {
           data: {
             threadId: thread.id,
             senderId: user.id,
-            organizationId: user.organizationId,
+            organizationId: user.organizationId as string,
             content: content,
             messageType: messageType as MessageType,
             status: MessageStatus.sent,
@@ -530,7 +530,7 @@ export async function PUT(req: NextRequest) {
         await tx.notification.create({
           data: {
             userId: recipient.id,
-            organizationId: user.organizationId,
+            organizationId: user.organizationId as string,
             type: "bulk_message",
             category: "system",
             title: subject || "Announcement",

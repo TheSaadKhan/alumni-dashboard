@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   MapPin, Clock, DollarSign, Building2, Users, Share2, Bookmark, 
   ArrowLeft, Calendar, Loader2, Info, CheckCircle2, Briefcase, 
-  GraduationCap, Award, Globe, Send, ExternalLink, Mail, RefreshCw, Zap
+  GraduationCap, Award, Globe, Send, ExternalLink, Mail, RefreshCw, Zap, ShieldCheck
 } from "lucide-react";
 import { useAuthProfile } from "@/context/AuthContext";
 import { toast } from "sonner";

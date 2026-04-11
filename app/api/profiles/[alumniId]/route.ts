@@ -130,7 +130,7 @@ export async function GET(
     if (currentUser && !isOwnProfile) {
       const connection = await prisma.connection.findFirst({
         where: {
-          organizationId: profile.organizationId,
+          organizationId: profile.organizationId as string,
           OR: [
             { requesterId: currentUser.id, recipientId: profile.id },
             { requesterId: profile.id, recipientId: currentUser.id },
@@ -161,7 +161,7 @@ export async function GET(
       // Calculate mutual connections
       const currentUserConnections = await prisma.connection.findMany({
         where: {
-          organizationId: profile.organizationId,
+          organizationId: profile.organizationId as string,
           OR: [
             { requesterId: currentUser.id, status: ConnectionStatus.accepted },
             { recipientId: currentUser.id, status: ConnectionStatus.accepted },
@@ -175,7 +175,7 @@ export async function GET(
 
       const profileConnections = await prisma.connection.findMany({
         where: {
-          organizationId: profile.organizationId,
+          organizationId: profile.organizationId as string,
           OR: [
             { requesterId: profile.id, status: ConnectionStatus.accepted },
             { recipientId: profile.id, status: ConnectionStatus.accepted },
@@ -487,7 +487,7 @@ export async function POST(
       where: {
         ownerId: alumniId,
         skillId,
-        organizationId: currentUser.organizationId,
+        organizationId: currentUser.organizationId as string,
       },
     });
 
@@ -518,7 +518,7 @@ export async function POST(
       data: {
         profileSkillId: profileSkill.id,
         endorserId: currentUser.id,
-        organizationId: currentUser.organizationId,
+        organizationId: currentUser.organizationId as string,
       },
     });
 
@@ -532,7 +532,7 @@ export async function POST(
     await prisma.notification.create({
       data: {
         userId: alumniId,
-        organizationId: currentUser.organizationId,
+        organizationId: currentUser.organizationId as string,
         type: "skill_endorsement",
         category: "social",
         title: "Skill Endorsement",

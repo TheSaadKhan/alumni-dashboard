@@ -100,7 +100,7 @@ export async function DELETE(
     if (!isSuperAdmin && !isTargetSuperAdmin) {
       const adminCount = await prisma.userRole.count({
         where: {
-          organizationId: targetOrgId,
+          organizationId: targetOrgId as string,
           role: { slug: { in: ["admin", "super-admin"] } },
           revokedAt: null,
         },
@@ -162,7 +162,7 @@ export async function DELETE(
         // Create audit log
         await tx.auditLog.create({
           data: {
-            organizationId: targetOrgId,
+            organizationId: targetOrgId as string,
             actorId: currentUser.id,
             action: "user.permanently_deleted",
             entityType: "user",
@@ -191,7 +191,7 @@ export async function DELETE(
         await tx.userRole.updateMany({
           where: {
             userId: id,
-            organizationId: targetOrgId,
+            organizationId: targetOrgId as string,
             revokedAt: null,
           },
           data: {
@@ -237,7 +237,7 @@ export async function DELETE(
         // Create audit log
         await tx.auditLog.create({
           data: {
-            organizationId: targetOrgId,
+            organizationId: targetOrgId as string,
             actorId: currentUser.id,
             action: "user.deactivated",
             entityType: "user",
@@ -252,7 +252,7 @@ export async function DELETE(
         await tx.notification.create({
           data: {
             userId: id,
-            organizationId: targetOrgId,
+            organizationId: targetOrgId as string,
             type: "account_deactivated",
             category: "system",
             title: "Account Deactivated",

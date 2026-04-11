@@ -26,12 +26,15 @@ import {
   RefreshCw,
   MoreVertical,
   ChevronRight,
-  Globe
+  Globe,
+  Activity
 } from "lucide-react";
 import { useAuthProfile } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export default function NetworkPage() {
+  const router = useRouter();
   const { profile, loading: profileLoading } = useAuthProfile();
   const [searchTerm, setSearchTerm] = useState("");
   const [alumni, setAlumni] = useState<any[]>([]);

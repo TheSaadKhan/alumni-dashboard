@@ -510,13 +510,13 @@ export async function PUT(req: NextRequest) {
 
     // Update skills
     if (skills !== undefined && Array.isArray(skills)) {
-      await updateUserSkills(user.id, user.organizationId!, user.userType, skills);
+      await updateUserSkills(user.id, user.organizationId as string, user.userType, skills);
     }
 
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        organizationId: user.organizationId,
+        organizationId: user.organizationId as string,
         actorId: user.id,
         action: "profile.updated",
         entityType: "user",

@@ -363,7 +363,7 @@ export async function POST(
         data: {
           threadId: conversationId,
           senderId: user.id,
-          organizationId: membership.thread.organizationId || user.organizationId,
+          organizationId: (membership.thread.organizationId || user.organizationId) as string,
           content: content || null,
           messageType: messageType as MessageType,
           replyToMessageId: replyToMessageId || null,
@@ -385,7 +385,7 @@ export async function POST(
         await tx.messageAttachment.createMany({
           data: attachments.map((att: any) => ({
             messageId: newMessage.id,
-            organizationId: membership.thread.organizationId || user.organizationId,
+            organizationId: (membership.thread.organizationId || user.organizationId) as string,
             fileUrl: att.url,
             fileName: att.name,
             mimeType: att.type,
@@ -432,7 +432,7 @@ export async function POST(
         await tx.notification.create({
           data: {
             userId: member.userId,
-            organizationId: membership.thread.organizationId || user.organizationId,
+            organizationId: (membership.thread.organizationId || user.organizationId) as string,
             type: "new_message",
             category: "social",
             title: "New Message",
@@ -450,7 +450,7 @@ export async function POST(
       // Create audit log
       await tx.auditLog.create({
         data: {
-          organizationId: membership.thread.organizationId || user.organizationId,
+          organizationId: (membership.thread.organizationId || user.organizationId) as string,
           actorId: user.id,
           action: "message.sent",
           entityType: "message",
