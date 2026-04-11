@@ -37,8 +37,14 @@ export default function OnboardingPage() {
   const [showCustomOrg, setShowCustomOrg] = useState(false);
 
   useEffect(() => {
-    if (!loading && profile?.onboardingCompleted) {
-      router.push("/");
+    if (!loading && profile) {
+      if (profile.onboardingCompleted) {
+        router.push("/dashboard"); // Redirect to dashboard if already completed
+      } else if (profile.userType === "alumni" || profile.userType === "student") {
+        // If they already have a type but aren't completed, pre-select and go to step 2
+        setUserType(profile.userType);
+        setStep(2);
+      }
     }
   }, [loading, profile, router]);
 

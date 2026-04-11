@@ -1,6 +1,6 @@
 // app/api/organizations/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { UserType, PlanTier, RoleScope } from "@/lib/generated/prisma";
 
@@ -483,6 +483,15 @@ export async function POST(req: NextRequest) {
       });
 
       return newOrg;
+    });
+
+    // Sync organization to Clerk Public Metadata for the creator
+    const client = await clerkClient();
+    await client.users.updateUserMetadata(clerkId, {
+      publicMetadata: {
+        organizationId: result.id,
+        userType: actor.userType
+      }
     });
 
     return NextResponse.json(

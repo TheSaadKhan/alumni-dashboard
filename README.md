@@ -1,260 +1,86 @@
-# 🎓 Alumni Dashboard
+# 🎓 AlumniConnect - Institutional Network Hub
 
-![License](https://img.shields.io/badge/license-MIT-green)
-![Next.js](https://img.shields.io/badge/Next.js-13+-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-blue)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-38BDF8)
-![Build](https://github.com/your-org/alumni-dashboard/actions/workflows/ci.yml/badge.svg)
-![Tests](https://img.shields.io/github/actions/workflow/status/your-org/alumni-dashboard/tests.yml?label=tests)
-![Deployment](https://img.shields.io/github/deployments/your-org/alumni-dashboard/production?label=vercel)
+![Next.js 14](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript)
+![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma)
+![Clerk](https://img.shields.io/badge/Clerk-6C47FF?style=for-the-badge&logo=clerk)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql)
 
-A next-generation Alumni Dashboard built with Next.js 13+, TypeScript, and a modern, scalable architecture.  
-Designed to connect graduates, foster meaningful networking, and celebrate impact across generations.
+A premium, enterprise-grade alumni networking platform designed for modern educational institutions. This platform bridges the gap between current students and professional alumni through mentorship, career opportunities, and institutional engagement.
+
+---
+
+## 🚀 Presentation Highlights
+
+### 🛡️ Intelligence-Driven Access (RBAC)
+- **Zero-Latency Permission Checks**: Leverages **Clerk Public Metadata** synchronization to provide instantaneous role validation without recurrent database round-trips.
+- **Strict Role Isolation**: Discrete access layers for `Super Admin`, `Admin`, `Alumni`, and `Student`. 
+- **Security-First Headers**: Redirect logic implemented at the layout level ensures unauthorized users never render sensitive dashboard telemetry.
+
+### 🏂 Streamlined Onboarding 2.0
+- **Context-Aware Setup**: The system automatically detects pre-assigned roles (Alumni/Student) via invites or sync, bypassing redundant steps to reduce friction.
+- **Institution Linkage**: Seamlessly connects users to their specific university nodes through a verified organization registry.
+- **Progressive Profiling**: Multi-step flow that gathers essential professional data while maintaining high conversion rates.
+
+### 🌐 High-Performance Architecture
+- **Server-Side SEO (Metadata API)**: Optimized Next.js 14 Metadata for every major route (`/admin`, `/dashboard`, `/onboarding`), ensuring social link previews and search engine indexability.
+- **Server/Client Hybrid Layouts**: Strategic separation of interactive components from parent server layouts to maximize performance and SEO.
+- **Type-Safe Persistence**: End-to-end type safety from the Prisma schema through Zod validation to the frontend interactive components.
 
 ---
 
 ## ✨ Features
 
-- Secure login, registration, and password recovery  
-- Personalized dashboards with events, jobs, and messaging  
-- Admin management system for users, jobs, events, and donations  
-- Real-time impact tracking and alumni engagement tools  
-- Fully responsive and accessibility-optimized interface  
-- Modular API routes for authentication and data services  
+- **Knowledge Nexus (Mentorship)**: Connect students with industry veterans through a goal-oriented request system.
+- **Career Market (Jobs)**: Specialized job board for alumni to post opportunities within their private institutional network.
+- **Administrative Intelligence**: Comprehensive dashboard for governors to track engagement, user growth, and philanthropy goals.
+- **Modern Aesthetics**: Rich visual language using glassmorphism, dynamic gradients, and micro-animations for a premium feel.
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Framework:** Next.js (App Router)  
-- **Language:** TypeScript  
-- **UI:** Tailwind CSS, Radix UI  
-- **State Management:** Zustand or Redux Toolkit  
-- **Auth:** NextAuth.js or Clerk  
-- **Testing:** Jest, React Testing Library  
-- **Linting & Formatting:** ESLint, Prettier  
+- **Framework:** Next.js 14 (App Router)
+- **Language:** TypeScript
+- **Database:** PostgreSQL (via Prisma ORM)
+- **Authentication:** Clerk Express / Next.js SDK
+- **Styling:** Tailwind CSS + Headless UI / Radix
+- **Animations:** Framer Motion + Aceternity UI components
+- **State:** Context API for best-effort Auth/Org data persistence
 
 ---
 
-## 📁 Project Structure
+## 📁 Access Matrix
 
-```
-/alumni-dashboard
-│
-├── public/                      
-│   └── assets/                  
-│
-├── app/                        
-│
-├── (auth)/
-│   ├── login/
-│   │   ├── page.tsx
-│   │   └── login-form.tsx
-│   ├── register/
-│   │   ├── page.tsx
-│   │   └── register-form.tsx
-│   ├── organization-register/
-│   │   ├── page.tsx
-│   │   └── register-org-form.tsx
-│   ├── forgot-password/
-│   │   ├── page.tsx
-│   │   └── reset-form.tsx
-│   └── callback/   # Supabase OAuth callbacks
-│       └── route.ts
-│
-├── (dashboard)/
-│   ├── alumni/
-│   │   └── dashboard/page.tsx
-│   ├── student/
-│   │   └── dashboard/page.tsx
-│   ├── faculty/
-│   │   └── dashboard/page.tsx
-│   ├── organization/
-│   │   └── dashboard/page.tsx
-│   └── admin/
-│       └── dashboard/page.tsx
-│
-├── organizations/
-│   ├── [orgId]/
-│   │   ├── profile/page.tsx
-│   │   ├── members/page.tsx
-│   │   ├── roles/page.tsx
-│   │   ├── settings/page.tsx
-│   │   └── invitations/page.tsx
-│
-├── events/
-│   ├── page.tsx
-│   ├── create/page.tsx
-│   ├── [eventId]/
-│   │   ├── page.tsx
-│   │   └── attendees/page.tsx
-│
-├── jobs/
-│   ├── page.tsx
-│   ├── create/page.tsx
-│   ├── [jobId]/
-│   │   ├── page.tsx
-│   │   └── applications/page.tsx
-│
-├── donations/
-│   ├── campaigns/
-│   │   ├── page.tsx
-│   │   ├── create/page.tsx
-│   │   └── [campaignId]/page.tsx
-│   ├── receipts/[receiptId]/page.tsx
-│   └── donate/[campaignId]/page.tsx
-│
-├── stories/
-│   ├── page.tsx
-│   ├── create/page.tsx
-│   ├── [slug]/
-│   │   ├── page.tsx
-│   │   └── edit/page.tsx
-│
-├── messages/
-│   ├── page.tsx
-│   ├── create/
-│   │   └── page.tsx
-│   ├── [conversationId]/
-│   │   └── page.tsx
-│
-├── connections/
-│   ├── page.tsx
-│   ├── recommendations/page.tsx
-│   ├── [connectionId]/page.tsx
-│   └── requests/page.tsx
-│
-├── analytics/
-│   ├── dashboard/page.tsx
-│   ├── funnels/page.tsx
-│   ├── events/page.tsx
-│   ├── metrics/page.tsx
-│   └── sessions/page.tsx
-│
-├── settings/
-│   ├── account/page.tsx
-│   ├── notifications/page.tsx
-│   ├── preferences/page.tsx
-│   ├── privacy/page.tsx
-│   └── organization/[orgId]/page.tsx
-│
-├── api/
-│   ├── auth/route.ts
-│   ├── upload/route.ts
-│   ├── analytics/route.ts
-│   ├── events/route.ts
-│   ├── jobs/route.ts
-│   ├── stories/route.ts
-│   └── organizations/route.ts
-│
-└── layout.tsx
-└── page.tsx        
-│
-├── components/                  
-│   ├── dashboard/               
-│   ├── ui/                      
-│   └── common/                  
-│
-├── hooks/                       
-├── context/                     
-├── lib/                         
-├── services/                    
-├── styles/                      
-└── types/                       
-
-├── .env.local                   
-├── next.config.js               
-├── tailwind.config.js           
-├── tsconfig.json                
-└── README.md                    
-```
+| Role | Entry Route | Permissions | Restrictions |
+| :--- | :--- | :--- | :--- |
+| **Super Admin** | `/admin` | Full System Control, Org Creation, Global Analytics | Standard Dashboard |
+| **Admin** | `/admin` | Org Member Management, Event/Job Moderation | Setup Organization |
+| **Alumni** | `/dashboard` | Job Posting, Mentorship, Networking | Admin Hub Access |
+| **Student** | `/dashboard` | Seek Mentorship, Career Search, Community Access | Admin Hub, Job Posting |
 
 ---
 
-## 🚀 Getting Started
+## 🏗 Getting Started
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/your-org/alumni-dashboard.git
-cd alumni-dashboard
-```
-
-### 2. Install dependencies
-```bash
-npm install
-# or
-yarn install
-```
-
-### 3. Setup environment variables
-Copy `.env.example` to `.env.local` and configure your authentication and database credentials.
-
-### 4. Run the development server
-```bash
-npm run dev
-# or
-yarn dev
-```
-
-### 5. Open in your browser
-Visit [http://localhost:3000](http://localhost:3000) to explore the dashboard.
-
----
-
-## 🧩 Contributing
-
-We welcome contributions from the community.
-
-1. Fork the repo  
-2. Create your feature branch  
+1. **Clone & Install**
    ```bash
-   git checkout -b feature/cool-feature
+   npm install
    ```
-3. Commit changes and push your branch  
+2. **Setup Environment**
+   Configure `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and `DATABASE_URL` in `.env`.
+3. **Database Migration**
    ```bash
-   git push origin feature/cool-feature
+   npx prisma migrate dev
    ```
-4. Open a Pull Request  
-
-Refer to `CONTRIBUTING.md` for more details and coding guidelines.
+4. **Launch**
+   ```bash
+   npm run dev
+   ```
 
 ---
 
 ## 🛡 License
-
-This project is licensed under the **MIT License**.  
-See the [`LICENSE`](LICENSE) file for details.
-
----
-
-## 🙌 Acknowledgements
-
-Inspired by a shared vision to connect alumni worldwide through community, technology, and legacy.
-
----
+This project is licensed under the **MIT License**.
 
 > “You’re not building a tool — you’re crafting an emotion.”
-
-
-# alumni-dashboard (DB + Backend scaffold)
-
-This directory contains production-ready starter files for:
-- supabase/ — migrations, policies, triggers, views, seeds.
-- db/ — backend client, generated types, queries, optional Drizzle schema, helpers and repositories.
-
-Steps to use:
-1. Edit the SQL migration files in supabase/migrations/ to match your final schema.
-2. Enable necessary extensions by running supabase/extensions/0000_extensions.sql.
-3. Push migrations to your Supabase project in order.
-4. Fill in RLS policies in supabase/policies/** before opening database to clients.
-5. Populate db/types/supabase.ts by running: supabase gen types typescript --schema public > db/types/supabase.ts
-6. Securely set SUPABASE_SERVICE_ROLE_KEY in server environment variables (only for server).
-
-# Access
-| Role          | Default Page After Login | Can Access                      | Blocked From                          |
-| ------------- | ------------------------ | ------------------------------- | ------------------------------------- |
-| `super_admin` | ✅ `/admin`               | `/admin`, `/setup-organization` | ❌ `/dashboard`                        |
-| `admin`       | ✅ `/admin`               | `/admin`                        | ❌ `/dashboard`, `/setup-organization` |
-| `alumni`      | ✅ `/dashboard`           | `/dashboard`                    | ❌ `/admin`, `/setup-organization`     |
-| `student`     | ✅ `/dashboard`           | `/dashboard`                    | ❌ `/admin`, `/setup-organization`     |
-

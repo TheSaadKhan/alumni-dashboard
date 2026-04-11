@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,16 @@ export default function PostJobPage() {
   const { user } = useUser();
   const { profile, loading: profileLoading } = useAuthProfile();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Strict Role Access check
+  useEffect(() => {
+    if (!profileLoading && profile) {
+      if (profile.userType !== "alumni" && profile.userType !== "admin" && profile.userType !== "super_admin") {
+        router.push("/dashboard/jobs");
+        toast.error("Access Restricted: Only alumni and admins can post opportunities.");
+      }
+    }
+  }, [profile, profileLoading, router]);
 
   const [formData, setFormData] = useState({
     title: "",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { syncClerkUser } from "@/lib/db/users";
 import { UserStatus } from "@/lib/generated/prisma";
+import { clerkClient } from "@clerk/nextjs/server";
 
 export async function POST(req: Request) {
   try {
@@ -18,7 +19,23 @@ export async function POST(req: Request) {
       imageUrl: imageUrl || "",
     });
 
+
     const details = (user as any).alumniProfile || (user as any).studentProfile || null;
+
+    // Sync to Clerk Public Metadata if missing or changed to reduce future API calls
+    const client = await clerkClient();
+    const clerkUser = await client.users.getUser(clerkId);
+    const meta = clerkUser.publicMetadata;
+    
+    if (meta.userType !== user.userType || meta.organizationId !== user.organizationId) {
+       await client.users.updateUserMetadata(clerkId, {
+         publicMetadata: {
+           userType: user.userType,
+           organizationId: user.organizationId,
+           onboardingCompleted: user.status === UserStatus.active
+         }
+       });
+    }
 
     return NextResponse.json({
       profile: {

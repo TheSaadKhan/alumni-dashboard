@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { UserType, UserStatus, RoleScope } from "@/lib/generated/prisma";
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 
 export async function completeOnboarding(formData: FormData) {
   const { userId } = await auth();
@@ -136,6 +136,17 @@ export async function completeOnboarding(formData: FormData) {
       });
     }
   }
+
+  // Sync role and completion to Clerk Public Metadata
+  const client = await clerkClient();
+  await client.users.updateUserMetadata(userId, {
+    publicMetadata: {
+      userType: userType,
+      organizationId: orgId,
+      onboardingCompleted: true,
+      status: UserStatus.active
+    }
+  });
 
   redirect("/dashboard");
 }
