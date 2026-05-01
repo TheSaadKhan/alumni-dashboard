@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { InviteStatus, UserType } from "@/lib/generated/prisma";
 import { randomBytes } from "crypto";
 
+import { sendInviteEmail } from "@/lib/mailer";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
@@ -197,8 +199,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Role ID required" }, { status: 400 });
     }
 
-    if (!userType || !["alumni", "student"].includes(userType)) {
-      return NextResponse.json({ error: "Valid user type required (alumni or student)" }, { status: 400 });
+    if (!userType || !["alumni", "student", "admin"].includes(userType)) {
+      return NextResponse.json({ error: "Valid user type required (alumni, student, or admin)" }, { status: 400 });
     }
 
     // Validate email format
@@ -265,22 +267,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check for existing pending invite
-    const existingInvite = await prisma.orgInvitation.findFirst({
+    // Check for existing pending invite - if found, revoke it to allow re-inviting
+    await prisma.orgInvitation.updateMany({
       where: {
         email: email.toLowerCase(),
         organizationId,
         status: InviteStatus.pending,
-        expiresAt: { gt: new Date() },
       },
+      data: {
+        status: InviteStatus.revoked,
+      }
     });
-
-    if (existingInvite) {
-      return NextResponse.json(
-        { error: "A pending invitation already exists for this email" },
-        { status: 400 }
-      );
-    }
 
     // Verify role belongs to organization
     const role = await prisma.role.findFirst({
@@ -315,6 +312,11 @@ export async function POST(req: NextRequest) {
         expiresAt,
       },
       include: {
+        organization: {
+          select: {
+            name: true,
+          },
+        },
         role: {
           select: {
             id: true,
@@ -350,23 +352,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // TODO: Send email notification
-    const inviteUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/invite/accept?token=${token}`;
-    
-    // In production, send email using your email service
-    // await sendEmail({
-    //   to: email,
-    //   subject: `Invitation to join ${organization.name}`,
-    //   template: "invitation",
-    //   data: {
-    //     inviterName: user.fullName,
-    //     organizationName: organization.name,
-    //     roleName: role.name,
-    //     customMessage,
-    //     inviteUrl,
-    //     expiresInDays,
-    //   },
-    // });
+    // Send email notification
+    try {
+      await sendInviteEmail(
+        email.toLowerCase(),
+        token,
+        (invitation as any).organization.name
+      );
+    } catch (emailError) {
+      console.error("Failed to send invite email:", emailError);
+      // We don't fail the whole request if email fails, 
+      // as the invite is already in the database
+    }
 
     return NextResponse.json({
       success: true,
@@ -379,7 +376,7 @@ export async function POST(req: NextRequest) {
         invitedBy: invitation.invitedByUser,
         createdAt: invitation.createdAt,
       },
-      inviteUrl, // For testing/development
+      inviteUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/invite/accept?token=${token}`,
     });
   } catch (error: any) {
     console.error("Create invite error:", error);

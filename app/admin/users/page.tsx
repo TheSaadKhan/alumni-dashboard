@@ -84,8 +84,69 @@ export default function AdminUsersPage() {
 
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", role: "alumni", message: "" });
+  const [sendingInvite, setSendingInvite] = useState(false);
 
   const orgId = profile?.organizationId;
+
+  const handleSendInvite = async () => {
+    if (!inviteForm.email) {
+      toast.error("Please enter an email address");
+      return;
+    }
+
+    if (!orgId) {
+      toast.error("Organization context missing");
+      return;
+    }
+
+    try {
+      setSendingInvite(true);
+      console.log("Sending invite with form:", inviteForm, "to org:", orgId);
+      
+      // First, we need to find the actual role ID for the selected slug
+      const rolesRes = await fetch(`/api/organizations/${orgId}/roles?includeSystem=true`);
+      if (!rolesRes.ok) throw new Error("Failed to fetch roles");
+      const rolesData = await rolesRes.json();
+      const targetRole = rolesData.roles?.find((r: any) => r.slug === inviteForm.role);
+      
+      if (!targetRole) {
+        throw new Error(`Role with slug '${inviteForm.role}' not found in this organization. Available slugs: ${rolesData.roles?.map((r: any) => r.slug).join(", ")}`);
+      }
+
+      console.log("Found target role:", targetRole);
+
+      const res = await fetch("/api/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId: orgId,
+          email: inviteForm.email,
+          roleId: targetRole.id,
+          userType: inviteForm.role, 
+          customMessage: inviteForm.message || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      console.log("Invite API response:", res.status, data);
+
+      if (res.ok && data.success) {
+        toast.success("Invitation sent successfully!");
+        setInviteDialogOpen(false);
+        setInviteForm({ email: "", role: "alumni", message: "" });
+        loadData(true);
+      } else {
+        toast.error(data.error || "Failed to send invitation", {
+          description: data.details || "Please check the details and try again."
+        });
+      }
+    } catch (err: any) {
+      console.error("Invite handler error:", err);
+      toast.error(err.message || "An error occurred while sending invitation");
+    } finally {
+      setSendingInvite(false);
+    }
+  };
 
   const loadData = useCallback(async (silent = false) => {
     if (!orgId) return;
@@ -304,7 +365,20 @@ export default function AdminUsersPage() {
           </div>
           <DialogFooter className="pt-4">
             <Button variant="ghost" onClick={() => setInviteDialogOpen(false)} className="rounded-xl font-bold">Cancel</Button>
-            <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 shadow-lg shadow-blue-500/20">Send Invite</Button>
+            <Button 
+              onClick={handleSendInvite}
+              disabled={sendingInvite}
+              className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 shadow-lg shadow-blue-500/20"
+            >
+              {sendingInvite ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Invite"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

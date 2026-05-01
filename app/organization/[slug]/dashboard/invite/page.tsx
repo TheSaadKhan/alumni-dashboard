@@ -94,7 +94,7 @@ export default function InvitePage() {
     setLoading(true);
     try {
       const [rolesRes, invitesRes] = await Promise.all([
-        fetch(`/api/organizations/${organization.id}/roles`),
+        fetch(`/api/organizations/${organization.id}/roles?includeSystem=true`),
         fetch(`/api/invitations?organizationId=${organization.id}`),
       ]);
 

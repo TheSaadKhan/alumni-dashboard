@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -341,24 +342,20 @@ export default async function OrganizationPage(props: Props) {
     notFound();
   }
 
-  // Fetch all data in parallel
-  const [organization, members, events, jobs, stats] = await Promise.all([
-    getOrganizationBySlug(slug),
-    getOrganizationMembers(slug), // This needs org ID, adjust accordingly
-    getOrganizationEvents(slug),
-    getOrganizationJobs(slug),
-    getOrganizationStats(slug),
-  ]);
+  // 1. Fetch the organization first to get its UUID
+  const organization = await getOrganizationBySlug(slug);
 
   if (!organization) {
     notFound();
   }
 
-  // Get actual members with proper org ID
-  const organizationMembers = await getOrganizationMembers(organization.id);
-  const organizationEvents = await getOrganizationEvents(organization.id);
-  const organizationJobs = await getOrganizationJobs(organization.id);
-  const organizationStats = await getOrganizationStats(organization.id);
+  // 2. Now fetch the rest in parallel using the correct organization.id (UUID)
+  const [organizationMembers, organizationEvents, organizationJobs, organizationStats] = await Promise.all([
+    getOrganizationMembers(organization.id),
+    getOrganizationEvents(organization.id),
+    getOrganizationJobs(organization.id),
+    getOrganizationStats(organization.id),
+  ]);
 
   const settings = organization.settings || {};
   const metadata = organization.metadata || {};
@@ -388,12 +385,9 @@ export default async function OrganizationPage(props: Props) {
       {/* ================= BANNER ================= */}
       <div className="relative h-80 w-full overflow-hidden">
         <img
-          src={metadata.coverImageUrl || "/branding/alumniconnect-banner.jpg"}
+          src={metadata.coverImageUrl || "https://images.unsplash.com/photo-1523050335456-c38730b02f2c?q=80&w=2070&auto=format&fit=crop"}
           alt={organization.name}
           className="w-full h-full object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "/branding/alumniconnect-banner.jpg";
-          }}
         />
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
@@ -403,7 +397,7 @@ export default async function OrganizationPage(props: Props) {
                 <div className="relative">
                   <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-white shadow-2xl">
                     <AvatarImage 
-                      src={organization.logoUrl || "/branding/alumniconnect-logo.png"} 
+                      src={organization.logoUrl || "https://images.unsplash.com/photo-1599305090598-fe179d501c27?q=80&w=2070&auto=format&fit=crop"} 
                       alt={organization.name}
                     />
                     <AvatarFallback className="bg-gradient-to-br from-[#6C5CE7] to-[#A66CFF] text-white text-2xl sm:text-3xl">
@@ -884,14 +878,18 @@ export default async function OrganizationPage(props: Props) {
                           </div>
 
                           <div className="flex gap-2 mt-6">
-                            <Button variant="outline" className="flex-1">
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
-                            </Button>
-                            <Button className="flex-1 bg-gradient-to-r from-[#FF7675] to-[#FF7AA2] text-white">
-                              <Calendar className="h-4 w-4 mr-2" />
-                              Register
-                            </Button>
+                            <Link href={`/organization/${organization.slug}/events/${event.slug}`} className="flex-1">
+                              <Button variant="outline" className="w-full">
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </Button>
+                            </Link>
+                            <Link href={`/organization/${organization.slug}/events/${event.slug}`} className="flex-1">
+                              <Button className="w-full bg-gradient-to-r from-[#FF7675] to-[#FF7AA2] text-white">
+                                <Calendar className="h-4 w-4 mr-2" />
+                                Register
+                              </Button>
+                            </Link>
                           </div>
                         </CardContent>
                       </Card>
@@ -965,9 +963,11 @@ export default async function OrganizationPage(props: Props) {
                               </div>
                             </div>
                             
-                            <Button className="bg-gradient-to-r from-[#4DA3FF] to-[#6CB2FF] text-white whitespace-nowrap">
-                              Apply Now
-                            </Button>
+                            <Link href={`/organization/${organization.slug}/dashboard/jobs/${job.id}`}>
+                              <Button className="bg-gradient-to-r from-[#4DA3FF] to-[#6CB2FF] text-white whitespace-nowrap">
+                                Apply Now
+                              </Button>
+                            </Link>
                           </div>
                         </CardContent>
                       </Card>
