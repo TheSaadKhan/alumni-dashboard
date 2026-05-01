@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -16,419 +16,409 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import {
   ArrowLeft,
-  Loader2,
-  Calendar,
-  MapPin,
-  Users,
-  Tag,
+  Calendar as CalendarIcon,
   Clock,
-  Globe,
-  Video,
-  Image as ImageIcon,
-  Link,
+  MapPin,
   DollarSign,
-  FileText,
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
   Zap,
+  Loader2,
+  FileText,
+  Video,
   ShieldCheck,
-  Award,
-  Flame,
-  X,
-  Plus
+  Globe,
+  Info,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthProfile } from "@/context/AuthContext";
-
-type EventFormData = {
-  title: string;
-  description: string;
-  event_type: string;
-  start_date: string;
-  end_date: string;
-  location: string;
-  virtual_link: string;
-  max_attendees: string;
-  registration_deadline: string;
-  status: "draft" | "published";
-  price: string;
-  tags: string[];
-  cover_image: string;
-  featured: boolean;
-  requires_approval: boolean;
-  additional_info: string;
-};
+import { EventType, EventMode } from "@/lib/generated/prisma";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export default function CreateEventPage() {
   const router = useRouter();
-  const { user } = useUser();
   const { profile } = useAuthProfile();
   const [loading, setLoading] = useState(false);
-  const [tagInput, setTagInput] = useState("");
-  const [activeTab, setActiveTab] = useState("basic");
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  const [formData, setFormData] = useState<EventFormData>({
+  const [formData, setFormData] = useState<any>({
     title: "",
     description: "",
-    event_type: "general",
-    start_date: "",
-    end_date: "",
-    location: "",
-    virtual_link: "",
-    max_attendees: "",
-    registration_deadline: "",
-    status: "draft",
+    eventType: "networking" as EventType,
+    mode: "in_person" as EventMode,
+    startDate: undefined as Date | undefined,
+    startTime: "09:00",
+    endDate: undefined as Date | undefined,
+    endTime: "10:00",
+    locationName: "",
+    locationAddress: "",
+    locationCity: "",
+    locationCountry: "US",
+    maxCapacity: "",
+    isPaid: false,
     price: "",
-    tags: [],
-    cover_image: "",
-    featured: false,
-    requires_approval: false,
-    additional_info: "",
+    currencyCode: "USD",
+    bannerUrl: "",
+    isFeatured: false,
+    requiresApproval: false,
   });
 
   const organizationId = (profile as any)?.organizationId;
 
-  // Add tag
-  const addTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
-      setFormData({
-        ...formData,
-        tags: [...formData.tags, tagInput.trim()],
-      });
-      setTagInput("");
-    }
-  };
-
-  // Remove tag
-  const removeTag = (tagToRemove: string) => {
-    setFormData({
-      ...formData,
-      tags: formData.tags.filter((tag) => tag !== tagToRemove),
-    });
-  };
-
-  // Validate form
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-
-    if (!formData.title.trim()) {
-      errors.title = "Event title is required";
-    }
-
-    if (!formData.start_date) {
-      errors.start_date = "Start date is required";
-    }
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!organizationId) {
-      toast.error("Organization node not identified");
+      toast.error("Organization not found.");
       return;
     }
 
-    if (!validateForm()) {
-      toast.error("Required identifiers missing or invalid");
+    if (!formData.startDate) {
+      toast.error("Please select a start date.");
       return;
     }
 
     setLoading(true);
     try {
-      const payload = {
-        organizationId,
-        title: formData.title,
-        description: formData.description || null,
-        event_type: formData.event_type,
-        start_date: new Date(formData.start_date).toISOString(),
-        end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null,
-        location: formData.location || null,
-        virtual_link: formData.virtual_link || null,
-        max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : null,
-        registration_deadline: formData.registration_deadline 
-          ? new Date(formData.registration_deadline).toISOString() 
-          : null,
-        status: formData.status,
-        price: formData.price ? parseFloat(formData.price) : null,
-        tags: formData.tags.length > 0 ? formData.tags : null,
-        cover_image: formData.cover_image || null,
-        featured: formData.featured,
-        requires_approval: formData.requires_approval,
-        additional_info: formData.additional_info || null,
-      };
+      // Combine date and time
+      const startsAt = new Date(formData.startDate);
+      const [sHours, sMins] = formData.startTime.split(":");
+      startsAt.setHours(parseInt(sHours), parseInt(sMins));
+
+      let endsAt = null;
+      if (formData.endDate) {
+        endsAt = new Date(formData.endDate);
+        const [eHours, eMins] = formData.endTime.split(":");
+        endsAt.setHours(parseInt(eHours), parseInt(eMins));
+      }
 
       const res = await fetch("/api/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          organizationId,
+          ...formData,
+          maxCapacity: formData.maxCapacity ? parseInt(formData.maxCapacity) : null,
+          price: formData.price ? parseFloat(formData.price) : null,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt ? endsAt.toISOString() : null,
+        }),
       });
 
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to deploy event node");
-      }
-
-      const event = await res.json();
-      
-      toast.success("Event node deployed successfully");
-      
-      setTimeout(() => {
+      if (res.ok) {
+        toast.success("Event created successfully");
         router.push("/admin/events");
-      }, 1000);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to deploy event asset");
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to create event");
+      }
+    } catch (err) {
+      toast.error("An error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const eventTypes = [
-    { value: "reunion", label: "REUNION", icon: Users, color: "bg-purple-500" },
-    { value: "webinar", label: "WEBINAR", icon: Video, color: "bg-blue-500" },
-    { value: "career", label: "CAREER FAIR", icon: Globe, color: "bg-emerald-500" },
-    { value: "workshop", label: "WORKSHOP", icon: Tag, color: "bg-amber-500" },
-    { value: "general", label: "GENERAL", icon: Calendar, color: "bg-slate-500" },
-  ];
-
   return (
-    <div className="container py-8 max-w-5xl mx-auto px-6 space-y-8 animate-in fade-in duration-700">
-      {/* Event Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="flex items-center gap-4">
-           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900" onClick={() => router.push("/admin/events")}>
-              <ArrowLeft className="h-4 w-4" />
-           </Button>
-           <div>
-              <div className="flex items-center gap-2 mb-1">
-                 <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Event Orchestration</span>
-                 <div className="h-1 w-1 rounded-full bg-slate-300"></div>
-                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Initialize Asset</span>
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Deploy Event Cycle</h1>
-           </div>
-        </div>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6 animate-in fade-in duration-300">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
-           <Button variant="ghost" className="h-11 rounded-xl font-bold text-slate-400 px-6 uppercase text-[10px] tracking-widest" onClick={() => router.push("/admin/events")}>Abort</Button>
-           <Button onClick={handleSubmit} disabled={loading} className="h-11 rounded-xl font-bold px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/10 uppercase text-[10px] tracking-widest">
-              {loading ? <RefreshCw className="h-4 w-4 animate-spin mr-3" /> : <Zap className="h-4 w-4 mr-3" />}
-              Initialize Deployment
-           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-xl bg-slate-50 hover:bg-slate-100"
+            onClick={() => router.push("/admin/events")}
+          >
+            <ArrowLeft className="h-4 w-4 text-slate-600" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">Create Event</h1>
+            <p className="text-xs text-slate-500">Plan and schedule a new community event.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button
+            variant="ghost"
+            className="h-9 rounded-xl text-slate-500 font-semibold text-xs px-4"
+            onClick={() => router.push("/admin/events")}
+          >
+            Cancel
+          </Button>
+          <Button
+            form="create-event-form"
+            disabled={loading}
+            className="h-9 rounded-xl font-bold px-5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-3.5 w-3.5 mr-2 fill-current" />}
+            Publish Event
+          </Button>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-         <TabsList className="bg-slate-100 dark:bg-slate-950/40 p-1.5 rounded-2xl w-fit flex gap-1 mb-8 overflow-x-auto no-scrollbar h-12">
-            {[
-              { id: "basic", label: "Core Identity", icon: Calendar },
-              { id: "details", label: "Temporal Vector", icon: Clock },
-              { id: "settings", label: "Governance", icon: ShieldCheck },
-              { id: "advanced", label: "Asset Meta", icon: Tag }
-            ].map((tab) => (
-              <TabsTrigger 
-                key={tab.id} 
-                value={tab.id} 
-                className="h-full px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400"
-              >
-                 <tab.icon className="h-3.5 w-3.5 mr-2" />
-                 {tab.label}
-              </TabsTrigger>
-            ))}
-         </TabsList>
+      <form id="create-event-form" onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="rounded-2xl border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5" /> Event Details
+              </p>
+            </div>
+            <CardContent className="p-5 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="title" className="text-xs font-semibold text-slate-600 ml-1">Event Title</Label>
+                <Input
+                  id="title"
+                  placeholder="e.g. Annual Alumni Meet 2024"
+                  className="h-10 rounded-xl border-slate-200 text-sm font-medium"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  required
+                />
+              </div>
 
-         <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden p-10">
-            <TabsContent value="basic" className="m-0 space-y-10 animate-in fade-in slide-in-from-bottom-2">
-               <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Event Institutional Alias *</Label>
-                  <Input 
-                    value={formData.title} 
-                    onChange={(e) => setFormData({...formData, title: e.target.value})}
-                    placeholder="ANNUAL GRADUATE HUB 2024"
-                    className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest" 
+              <div className="space-y-1.5">
+                <Label htmlFor="description" className="text-xs font-semibold text-slate-600 ml-1">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Tell your community what this event is about..."
+                  className="min-h-[120px] rounded-xl border-slate-200 p-3 text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600 ml-1">Category</Label>
+                  <Select value={formData.eventType} onValueChange={(v) => setFormData({ ...formData, eventType: v })}>
+                    <SelectTrigger className="h-10 rounded-xl border-slate-200 text-sm font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="networking">Networking</SelectItem>
+                      <SelectItem value="workshop">Workshop</SelectItem>
+                      <SelectItem value="webinar">Webinar</SelectItem>
+                      <SelectItem value="career_fair">Career Fair</SelectItem>
+                      <SelectItem value="social">Social</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600 ml-1">Mode</Label>
+                  <Select value={formData.mode} onValueChange={(v) => setFormData({ ...formData, mode: v })}>
+                    <SelectTrigger className="h-10 rounded-xl border-slate-200 text-sm font-medium">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="in_person">In-Person</SelectItem>
+                      <SelectItem value="online">Virtual</SelectItem>
+                      <SelectItem value="hybrid">Hybrid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <MapPin className="h-3.5 w-3.5" /> Venue & Location
+              </p>
+            </div>
+            <CardContent className="p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600 ml-1">Venue Name</Label>
+                  <Input
+                    placeholder="e.g. Main Auditorium or Zoom Link"
+                    className="h-10 rounded-xl border-slate-200 text-sm font-medium"
+                    value={formData.locationName}
+                    onChange={(e) => setFormData({ ...formData, locationName: e.target.value })}
                   />
-               </div>
-               <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Mission Narrative (Description)</Label>
-                  <Textarea 
-                    value={formData.description} 
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    rows={6}
-                    placeholder="DEFINE THE IMPACT OF THIS EVENT..."
-                    className="rounded-2xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-bold uppercase tracking-widest p-4 resize-none leading-loose" 
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600 ml-1">City</Label>
+                  <Input
+                    placeholder="e.g. New York"
+                    className="h-10 rounded-xl border-slate-200 text-sm font-medium"
+                    value={formData.locationCity}
+                    onChange={(e) => setFormData({ ...formData, locationCity: e.target.value })}
                   />
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-3">
-                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Cycle Classification</Label>
-                     <Select value={formData.event_type} onValueChange={(v) => setFormData({...formData, event_type: v})}>
-                        <SelectTrigger className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-black uppercase tracking-widest">
-                           <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border-none shadow-2xl">
-                           {eventTypes.map(t => <SelectItem key={t.value} value={t.value} className="text-[10px] font-black uppercase tracking-widest">{t.label}</SelectItem>)}
-                        </SelectContent>
-                     </Select>
-                  </div>
-                  <div className="space-y-3">
-                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Deployment State</Label>
-                     <Select value={formData.status} onValueChange={(v: any) => setFormData({...formData, status: v})}>
-                        <SelectTrigger className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-black uppercase tracking-widest">
-                           <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border-none shadow-2xl">
-                           <SelectItem value="draft" className="text-[10px] font-black uppercase tracking-widest">Draft Node</SelectItem>
-                           <SelectItem value="published" className="text-[10px] font-black uppercase tracking-widest">Live Deployment</SelectItem>
-                        </SelectContent>
-                     </Select>
-                  </div>
-               </div>
-            </TabsContent>
+                </div>
+              </div>
 
-            <TabsContent value="details" className="m-0 space-y-10 animate-in fade-in slide-in-from-bottom-2">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-3">
-                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Temporal Start Cycle *</Label>
-                     <Input 
-                        type="datetime-local" 
-                        value={formData.start_date}
-                        onChange={(e) => setFormData({...formData, start_date: e.target.value})}
-                        className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-black uppercase tracking-widest" 
-                     />
-                  </div>
-                  <div className="space-y-3">
-                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Temporal Termination Cycle</Label>
-                     <Input 
-                        type="datetime-local" 
-                        value={formData.end_date}
-                        onChange={(e) => setFormData({...formData, end_date: e.target.value})}
-                        className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-black uppercase tracking-widest" 
-                     />
-                  </div>
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-3">
-                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Geographic Vertex (Location)</Label>
-                     <Input 
-                        value={formData.location}
-                        onChange={(e) => setFormData({...formData, location: e.target.value})}
-                        placeholder="INSTITUTIONAL HUB - MAIN WING"
-                        className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest" 
-                     />
-                  </div>
-                  <div className="space-y-3">
-                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Virtual Relay Link</Label>
-                     <Input 
-                        value={formData.virtual_link}
-                        onChange={(e) => setFormData({...formData, virtual_link: e.target.value})}
-                        placeholder="HTTPS://MEET.ZOOM.US/..."
-                        className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest" 
-                     />
-                  </div>
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-3">
-                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Identity Capacity (Max Attendees)</Label>
-                     <Input 
-                        type="number"
-                        value={formData.max_attendees}
-                        onChange={(e) => setFormData({...formData, max_attendees: e.target.value})}
-                        className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-black uppercase tracking-widest" 
-                     />
-                  </div>
-                  <div className="space-y-3">
-                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Access Yield (Ticket Price)</Label>
-                     <Input 
-                        type="number"
-                        value={formData.price}
-                        onChange={(e) => setFormData({...formData, price: e.target.value})}
-                        placeholder="0.00"
-                        className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-black uppercase tracking-widest" 
-                     />
-                  </div>
-               </div>
-            </TabsContent>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600 ml-1">Address / Link</Label>
+                <Input
+                  placeholder="Full address or meeting URL"
+                  className="h-10 rounded-xl border-slate-200 text-sm font-medium"
+                  value={formData.locationAddress}
+                  onChange={(e) => setFormData({ ...formData, locationAddress: e.target.value })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-            <TabsContent value="settings" className="m-0 space-y-8 animate-in fade-in slide-in-from-bottom-2">
-               {[
-                 { id: "featured", label: "Priority Deployment", desc: "Highlight this asset on the institutional nexus homepage.", icon: Flame },
-                 { id: "requires_approval", label: "Gateway Approval Protocol", desc: "Mandate manual verification for each identity node enrollment.", icon: ShieldCheck }
-               ].map((item) => (
-                 <div key={item.id} className="flex items-center justify-between p-6 rounded-[2rem] bg-slate-50/50 hover:bg-white transition-all group">
-                    <div className="flex items-center gap-4">
-                       <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                          <item.icon className="h-4 w-4 text-slate-300 group-hover:text-blue-600 transition-colors" />
-                       </div>
-                       <div>
-                          <p className="text-sm font-bold text-slate-900 uppercase italic leading-none">{item.label}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 italic">{item.desc}</p>
-                       </div>
-                    </div>
-                    <Switch 
-                       checked={(formData as any)[item.id]} 
-                       onCheckedChange={(c) => setFormData({...formData, [item.id]: c})} 
-                       className="bg-slate-200" 
+        <div className="space-y-6">
+          <Card className="rounded-2xl border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5" /> Schedule
+              </p>
+            </div>
+            <CardContent className="p-5 space-y-5">
+              {/* Start Date & Time */}
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-tight">Starts At</Label>
+                <div className="flex flex-col gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal h-10 rounded-xl border-slate-200 text-sm",
+                          !formData.startDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.startDate ? format(formData.startDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-2xl border-slate-100 shadow-2xl" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.startDate}
+                        onSelect={(date) => setFormData({ ...formData, startDate: date })}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <Input
+                      type="time"
+                      className="pl-9 h-10 rounded-xl border-slate-200 text-sm font-medium"
+                      value={formData.startTime}
+                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                     />
-                 </div>
-               ))}
-            </TabsContent>
-
-            <TabsContent value="advanced" className="m-0 space-y-10 animate-in fade-in slide-in-from-bottom-2">
-               <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Identity Clusters (Tags)</Label>
-                  <div className="flex gap-4">
-                     <Input 
-                        placeholder="ENTER TAG IDENTIFIER..." 
-                        value={tagInput} 
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                        className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-black uppercase tracking-widest" 
-                     />
-                     <Button type="button" onClick={addTag} className="h-12 w-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 shadow-sm"><Plus className="h-5 w-5" /></Button>
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-4">
-                     {formData.tags.map((tag) => (
-                        <Badge key={tag} className="px-5 py-2.5 bg-slate-50 text-slate-500 border-none font-black text-[9px] uppercase tracking-widest rounded-xl italic gap-3">
-                           {tag}
-                           <X className="h-3 w-3 cursor-pointer hover:text-rose-500" onClick={() => removeTag(tag)} />
-                        </Badge>
-                     ))}
-                  </div>
-               </div>
-               <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Asset Visual Proxy (Cover Image URL)</Label>
-                  <Input 
-                    value={formData.cover_image} 
-                    onChange={(e) => setFormData({...formData, cover_image: e.target.value})}
-                    placeholder="HTTPS://EXAMPLE.COM/IMAGE.JPG"
-                    className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest" 
-                  />
-               </div>
-               <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 italic">Additional Technical Payloads</Label>
-                  <Textarea 
-                    value={formData.additional_info} 
-                    onChange={(e) => setFormData({...formData, additional_info: e.target.value})}
-                    rows={4}
-                    placeholder="SUPPLEMENTARY IDENTITY CONTEXT..."
-                    className="rounded-2xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-[10px] font-bold uppercase tracking-widest p-4 resize-none leading-loose" 
-                  />
-               </div>
-            </TabsContent>
-         </Card>
-      </Tabs>
+                </div>
+              </div>
 
-      <footer className="pt-10 border-t border-slate-50 flex items-center justify-center">
-         <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Integrated Event Deployment v1.0.2 • Institutional Nucleus</p>
-      </footer>
+              {/* End Date & Time */}
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-tight">Ends At</Label>
+                <div className="flex flex-col gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal h-10 rounded-xl border-slate-200 text-sm",
+                          !formData.endDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.endDate ? format(formData.endDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-2xl border-slate-100 shadow-2xl" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.endDate}
+                        onSelect={(date) => setFormData({ ...formData, endDate: date })}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <Input
+                      type="time"
+                      className="pl-9 h-10 rounded-xl border-slate-200 text-sm font-medium"
+                      value={formData.endTime}
+                      onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <DollarSign className="h-3.5 w-3.5" /> Admission
+              </p>
+            </div>
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/50 border border-slate-100 transition-all">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-bold text-slate-900">Paid Event</p>
+                  <p className="text-[10px] text-slate-400 font-medium">Ticketing enabled</p>
+                </div>
+                <Switch
+                  checked={formData.isPaid}
+                  onCheckedChange={(c) => setFormData({ ...formData, isPaid: c })}
+                />
+              </div>
+
+              {formData.isPaid && (
+                <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+                  <Label className="text-xs font-semibold text-slate-600 ml-1">Price</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      className="pl-8 h-10 rounded-xl border-slate-200 text-sm font-medium"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600 ml-1">Capacity</Label>
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  <Input
+                    type="number"
+                    placeholder="Unlimited"
+                    className="pl-8 h-10 rounded-xl border-slate-200 text-sm font-medium"
+                    value={formData.maxCapacity}
+                    onChange={(e) => setFormData({ ...formData, maxCapacity: e.target.value })}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="p-5 rounded-2xl bg-slate-900 text-white relative overflow-hidden shadow-sm">
+            <div className="absolute top-0 right-0 h-24 w-24 bg-blue-500/10 blur-2xl rounded-full translate-x-8 -translate-y-8"></div>
+            <div className="relative z-10 space-y-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-blue-400" />
+                <h4 className="text-xs font-bold uppercase tracking-wider">Note</h4>
+              </div>
+              <p className="text-slate-400 text-[10px] leading-relaxed font-medium">
+                Publishing will notify institutional members. Review all details before proceeding.
+              </p>
+            </div>
+          </Card>
+        </div>
+      </form>
     </div>
   );
 }

@@ -119,7 +119,14 @@ export default function AdminLayoutClient({
 
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-1">
-          {adminNavigation.map((item) => {
+          {adminNavigation
+            .filter(item => {
+              const isSuperAdmin = profile?.userType === "super_admin";
+              const restrictedItems = ["Users", "Settings", "Analytics", "Reports"];
+              if (!isSuperAdmin && restrictedItems.includes(item.name)) return false;
+              return true;
+            })
+            .map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link

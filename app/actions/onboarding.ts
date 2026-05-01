@@ -4,15 +4,22 @@ import { prisma } from "@/lib/prisma";
 import { UserType, UserStatus, InviteStatus } from "@/lib/generated/prisma";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 
-export async function completeOnboarding(formData: FormData) {
+export type OnboardingData = {
+  userType: UserType;
+  organizationId: string | null;
+  inviteToken?: string | null;
+  firstName?: string;
+  lastName?: string;
+  graduationYear?: number | string | null;
+  expectedGraduation?: number | string | null;
+};
+
+export async function completeOnboarding(data: OnboardingData): Promise<{ success: boolean; redirectUrl: string; error?: string }> {
+  try {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  const userType = formData.get("userType") as UserType;
-  const firstName = formData.get("firstName") as string;
-  const lastName = formData.get("lastName") as string;
-  const orgSlugOrId = formData.get("organizationId") as string;
-  const inviteToken = formData.get("inviteToken") as string | null;
+  const { userType, organizationId: orgSlugOrId, inviteToken, firstName, lastName } = data;
 
   // Find user
   const user = await prisma.user.findFirst({
@@ -40,6 +47,7 @@ export async function completeOnboarding(formData: FormData) {
     org = invite.organization;
   } else {
     // ── Free-flow: resolve org from slug or ID ──
+    if (!orgSlugOrId) throw new Error("Organization is required.");
     org = await prisma.organization.findFirst({
       where: { OR: [{ id: orgSlugOrId }, { slug: orgSlugOrId }] },
     });
@@ -53,38 +61,40 @@ export async function completeOnboarding(formData: FormData) {
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      firstName,
-      fullName: `${firstName} ${lastName}`,
+      ...(firstName && { firstName }),
+      ...(firstName && lastName && { fullName: `${firstName} ${lastName}` }),
       userType: inviteToken ? (invite.userType as UserType) : userType,
       status: needsApproval ? UserStatus.pending : UserStatus.active,
       organizationId: orgId,
     },
   });
 
-  const effectiveUserType: UserType = inviteToken ? invite.userType : userType;
+  const effectiveUserType: UserType = inviteToken ? (invite.userType as UserType) : userType;
 
   // Profiles
   if (effectiveUserType === UserType.alumni) {
-    const graduationYear = formData.get("graduationYear");
+    const gy = data.graduationYear;
+    const graduationYear = typeof gy === "string" ? parseInt(gy) : gy;
     await prisma.alumniProfile.upsert({
       where: { userId: user.id },
-      update: { graduationYear: graduationYear ? parseInt(graduationYear as string) : null },
+      update: { graduationYear: graduationYear || null },
       create: {
         userId: user.id,
         organizationId: orgId,
-        graduationYear: graduationYear ? parseInt(graduationYear as string) : null,
+        graduationYear: graduationYear || null,
         isVerified: !needsApproval,
       },
     });
   } else if (effectiveUserType === UserType.student) {
-    const expectedGraduation = formData.get("expectedGraduation");
+    const eg = data.expectedGraduation;
+    const expectedGraduation = typeof eg === "string" ? parseInt(eg) : eg;
     await prisma.studentProfile.upsert({
       where: { userId: user.id },
-      update: { expectedGraduation: expectedGraduation ? parseInt(expectedGraduation as string) : null },
+      update: { expectedGraduation: expectedGraduation || null },
       create: {
         userId: user.id,
         organizationId: orgId,
-        expectedGraduation: expectedGraduation ? parseInt(expectedGraduation as string) : null,
+        expectedGraduation: expectedGraduation || null,
         isVerified: false,
       },
     });
@@ -216,5 +226,8 @@ export async function completeOnboarding(formData: FormData) {
     },
   });
 
-  return { success: true, slug: org.slug };
+  return { success: true, redirectUrl: `/organization/${org.slug}/dashboard` };
+} catch (err: any) {
+  return { success: false, error: err.message || "Failed to complete onboarding", redirectUrl: "" };
+}
 }

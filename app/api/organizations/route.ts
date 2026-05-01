@@ -49,9 +49,20 @@ export async function GET(req: NextRequest) {
     }
 
     // If no slug is provided, and user is super_admin, return all organizations
-    if (!slug && user.userType === UserType.super_admin) {
+    // If user is not super_admin but searching by name, allow it for onboarding
+    const nameSearch = searchParams.get("search");
+    if (!slug && (user.userType === UserType.super_admin || nameSearch)) {
+      const where: any = { deletedAt: null };
+      if (nameSearch) {
+        where.OR = [
+          { name: { contains: nameSearch, mode: "insensitive" } },
+          { displayName: { contains: nameSearch, mode: "insensitive" } },
+        ];
+        where.isActive = true; // Only show active orgs for public search
+      }
+
       const allOrgs = await prisma.organization.findMany({
-        where: { deletedAt: null },
+        where,
         include: {
           _count: {
             select: {
@@ -61,7 +72,8 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { name: "asc" },
+        take: 20,
       });
 
       return NextResponse.json({
@@ -73,9 +85,8 @@ export async function GET(req: NextRequest) {
           planTier: o.planTier,
           isActive: o.isActive,
           isVerified: o.isVerified,
+          logoUrl: o.logoUrl,
           memberCount: o._count.users,
-          eventCount: o._count.events,
-          jobCount: o._count.jobPostings,
           createdAt: o.createdAt,
         })),
         userType: user.userType,

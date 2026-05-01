@@ -345,11 +345,16 @@ export async function POST(req: NextRequest) {
     const isOrgAdmin = user.userRoles.some(ur => 
       ur.role.slug === "admin" || ur.role.slug === "super-admin"
     );
+    const isAlumni = user.userType === UserType.alumni;
     const isOrgMember = user.organizationId === organizationId;
 
-    if (!isSuperAdmin && !isOrgAdmin && !isOrgMember) {
+    if (!isSuperAdmin && !isOrgAdmin && (!isAlumni || !isOrgMember)) {
+      const errorMsg = user.userType === UserType.student 
+        ? "Students are not allowed to post jobs. This feature is reserved for alumni and administrators."
+        : "You don't have permission to post jobs in this organization";
+      
       return NextResponse.json(
-        { error: "You don't have permission to post jobs in this organization" },
+        { error: errorMsg },
         { status: 403 }
       );
     }
@@ -398,6 +403,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Verify currency exists to avoid FK violation
+    let finalCurrency = null;
+    if (salaryCurrency) {
+      const currencyExists = await prisma.currency.findUnique({
+        where: { code: salaryCurrency }
+      });
+      if (currencyExists) {
+        finalCurrency = salaryCurrency;
+      }
+    }
+
+    // Verify country exists to avoid FK violation
+    let finalCountry = null;
+    if (locationCountry) {
+      const countryExists = await prisma.country.findUnique({
+        where: { code: locationCountry }
+      });
+      if (countryExists) {
+        finalCountry = locationCountry;
+      }
+    }
+
     // Create job posting
     const job = await prisma.jobPosting.create({
       data: {
@@ -406,21 +433,21 @@ export async function POST(req: NextRequest) {
         title: title.trim(),
         slug,
         description: description.trim(),
-        requirements: requirements || null,
-        responsibilities: responsibilities || null,
-        benefits: benefits || null,
+        requirements: Array.isArray(requirements) ? requirements.join("\n") : (requirements || null),
+        responsibilities: Array.isArray(responsibilities) ? responsibilities.join("\n") : (responsibilities || null),
+        benefits: Array.isArray(benefits) ? benefits.join("\n") : (benefits || null),
         companyName: companyName || null,
         companyLogoUrl: companyLogoUrl || null,
         locationCity: locationCity || null,
-        locationCountry: locationCountry || null,
+        locationCountry: finalCountry,
         isRemote,
         remoteType: remoteType as RemoteType || null,
         jobType: jobType as JobType,
         experienceLevel: experienceLevel as ExperienceLevel,
         educationLevel: educationLevel as any || null,
-        salaryMin: salaryMin ? parseFloat(salaryMin) : null,
-        salaryMax: salaryMax ? parseFloat(salaryMax) : null,
-        salaryCurrency: salaryCurrency,
+        salaryMin: (salaryMin !== null && salaryMin !== undefined && !isNaN(parseFloat(salaryMin))) ? parseFloat(salaryMin) : null,
+        salaryMax: (salaryMax !== null && salaryMax !== undefined && !isNaN(parseFloat(salaryMax))) ? parseFloat(salaryMax) : null,
+        salaryCurrency: finalCurrency,
         salaryPeriod: salaryPeriod as SalaryPeriod,
         showSalary,
         applicationMethod: applicationMethod as any,

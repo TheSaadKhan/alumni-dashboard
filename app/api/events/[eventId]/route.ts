@@ -44,83 +44,162 @@ export async function GET(
     }
 
     // Fetch event with all related data
-    const event = await prisma.event.findUnique({
-      where: { id: eventId, deletedAt: null },
-      include: {
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            logoUrl: true,
-            isVerified: true,
-          },
-        },
-        organizer: {
-          select: {
-            id: true,
-            fullName: true,
-            firstName: true,
-            avatarUrl: true,
-            email: true,
-            userType: true,
-          },
-        },
-        speakers: {
-          select: {
-            id: true,
-            name: true,
-            title: true,
-            company: true,
-            bio: true,
-            avatarUrl: true,
-            topic: true,
-            sortOrder: true,
-          },
-          orderBy: { sortOrder: "asc" },
-        },
-        registrations: {
-          where: {
-            status: { in: ["registered", "approved", "attended"] },
-          },
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
+    const event = await (isUuid 
+      ? prisma.event.findUnique({
+          where: { id: eventId },
           include: {
-            user: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                logoUrl: true,
+                isVerified: true,
+              },
+            },
+            organizer: {
               select: {
                 id: true,
                 fullName: true,
                 firstName: true,
                 avatarUrl: true,
+                email: true,
                 userType: true,
-                alumniProfile: {
-                  select: {
-                    graduationYear: true,
-                    currentCompany: true,
-                    currentTitle: true,
-                  },
-                },
-                studentProfile: {
-                  select: {
-                    expectedGraduation: true,
-                    major: true,
-                  },
-                },
               },
             },
-          },
-          orderBy: { registeredAt: "desc" },
-          take: 50, // Limit attendees for performance
-        },
-        _count: {
-          select: {
+            speakers: {
+              select: {
+                id: true,
+                name: true,
+                title: true,
+                company: true,
+                bio: true,
+                avatarUrl: true,
+                topic: true,
+                sortOrder: true,
+              },
+              orderBy: { sortOrder: "asc" },
+            },
             registrations: {
               where: {
                 status: { in: ["registered", "approved", "attended"] },
               },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    firstName: true,
+                    avatarUrl: true,
+                    userType: true,
+                    alumniProfile: {
+                      select: {
+                        graduationYear: true,
+                        currentCompany: true,
+                        currentTitle: true,
+                      },
+                    },
+                    studentProfile: {
+                      select: {
+                        expectedGraduation: true,
+                        major: true,
+                      },
+                    },
+                  },
+                },
+              },
+              orderBy: { registeredAt: "desc" },
+              take: 50,
+            },
+            _count: {
+              select: {
+                registrations: {
+                  where: {
+                    status: { in: ["registered", "approved", "attended"] },
+                  },
+                },
+              },
             },
           },
-        },
-      },
-    });
+        })
+      : prisma.event.findFirst({
+          where: { slug: eventId, deletedAt: null },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                logoUrl: true,
+                isVerified: true,
+              },
+            },
+            organizer: {
+              select: {
+                id: true,
+                fullName: true,
+                firstName: true,
+                avatarUrl: true,
+                email: true,
+                userType: true,
+              },
+            },
+            speakers: {
+              select: {
+                id: true,
+                name: true,
+                title: true,
+                company: true,
+                bio: true,
+                avatarUrl: true,
+                topic: true,
+                sortOrder: true,
+              },
+              orderBy: { sortOrder: "asc" },
+            },
+            registrations: {
+              where: {
+                status: { in: ["registered", "approved", "attended"] },
+              },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    firstName: true,
+                    avatarUrl: true,
+                    userType: true,
+                    alumniProfile: {
+                      select: {
+                        graduationYear: true,
+                        currentCompany: true,
+                        currentTitle: true,
+                      },
+                    },
+                    studentProfile: {
+                      select: {
+                        expectedGraduation: true,
+                        major: true,
+                      },
+                    },
+                  },
+                },
+              },
+              orderBy: { registeredAt: "desc" },
+              take: 50,
+            },
+            _count: {
+              select: {
+                registrations: {
+                  where: {
+                    status: { in: ["registered", "approved", "attended"] },
+                  },
+                },
+              },
+            },
+          },
+        }));
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
@@ -131,7 +210,7 @@ export async function GET(
       ur.role.slug === "admin" || ur.role.slug === "super-admin"
     );
     const isSuperAdmin = user.userType === UserType.super_admin;
-    const isOrganizer = event.organizer.id === user.id;
+    const isOrganizer = event.organizerId === user.id;
 
     if (!isAdmin && !isSuperAdmin && !isOrganizer && event.organizationId !== user.organizationId) {
       return NextResponse.json(
@@ -144,7 +223,7 @@ export async function GET(
     const userRegistration = await prisma.eventRegistration.findUnique({
       where: {
         eventId_userId: {
-          eventId,
+          eventId: event.id,
           userId: user.id,
         },
       },
@@ -186,13 +265,13 @@ export async function GET(
 
     // Get connection status with organizer (if not self)
     let connectionStatus = null;
-    if (event.organizer.id !== user.id) {
+    if (event.organizerId !== user.id) {
       const connection = await prisma.connection.findFirst({
         where: {
           organizationId: event.organizationId,
           OR: [
-            { requesterId: user.id, recipientId: event.organizer.id },
-            { requesterId: event.organizer.id, recipientId: user.id },
+            { requesterId: user.id, recipientId: event.organizerId },
+            { requesterId: event.organizerId, recipientId: user.id },
           ],
         },
         select: { status: true },
@@ -204,7 +283,7 @@ export async function GET(
     const similarEvents = await prisma.event.findMany({
       where: {
         organizationId: event.organizationId,
-        id: { not: eventId },
+        id: { not: event.id },
         deletedAt: null,
         cancelledAt: null,
         isPublished: true,
@@ -277,8 +356,19 @@ export async function GET(
         extraData: event.extraData,
         
         // Relations
-        organization: event.organization,
-        organizer: event.organizer,
+        organization: {
+          id: event.organization.id,
+          name: event.organization.name,
+          slug: event.organization.slug,
+          logoUrl: event.organization.logoUrl,
+          isVerified: event.organization.isVerified,
+        },
+        organizer: {
+          id: event.organizer.id,
+          name: event.organizer.fullName,
+          email: event.organizer.email,
+          avatarUrl: event.organizer.avatarUrl,
+        },
         speakers: event.speakers,
         
         // User-specific
@@ -318,7 +408,7 @@ export async function GET(
 
     // Increment view count asynchronously (don't await)
     prisma.event.update({
-      where: { id: eventId },
+      where: { id: event.id },
       data: { viewCount: { increment: 1 } },
     }).catch(err => console.error("Failed to increment view count:", err));
 
@@ -360,15 +450,26 @@ export async function PUT(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const existingEvent = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: {
-        id: true,
-        organizationId: true,
-        organizerId: true,
-        title: true,
-      },
-    });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
+    const existingEvent = await (isUuid 
+      ? prisma.event.findUnique({
+          where: { id: eventId },
+          select: {
+            id: true,
+            organizationId: true,
+            organizerId: true,
+            title: true,
+          },
+        })
+      : prisma.event.findFirst({
+          where: { slug: eventId, deletedAt: null },
+          select: {
+            id: true,
+            organizationId: true,
+            organizerId: true,
+            title: true,
+          },
+        }));
 
     if (!existingEvent) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
@@ -449,7 +550,7 @@ export async function PUT(
     if (isPublished !== undefined) updateData.isPublished = isPublished;
 
     const updatedEvent = await prisma.event.update({
-      where: { id: eventId },
+      where: { id: existingEvent.id },
       data: updateData,
     });
 
@@ -460,7 +561,7 @@ export async function PUT(
         actorId: user.id,
         action: "event.updated",
         entityType: "event",
-        entityId: eventId,
+        entityId: existingEvent.id,
         entityLabel: updatedEvent.title,
         afterState: { updatedFields: Object.keys(updateData) },
         severity: "info",
@@ -510,16 +611,28 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const existingEvent = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: {
-        id: true,
-        organizationId: true,
-        organizerId: true,
-        title: true,
-        isPublished: true,
-      },
-    });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
+    const existingEvent = await (isUuid 
+      ? prisma.event.findUnique({
+          where: { id: eventId },
+          select: {
+            id: true,
+            organizationId: true,
+            organizerId: true,
+            title: true,
+            isPublished: true,
+          },
+        })
+      : prisma.event.findFirst({
+          where: { slug: eventId, deletedAt: null },
+          select: {
+            id: true,
+            organizationId: true,
+            organizerId: true,
+            title: true,
+            isPublished: true,
+          },
+        }));
 
     if (!existingEvent) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
@@ -546,7 +659,7 @@ export async function DELETE(
 
     // Soft delete the event
     const cancelledEvent = await prisma.event.update({
-      where: { id: eventId },
+      where: { id: existingEvent.id },
       data: {
         deletedAt: new Date(),
         cancelledAt: new Date(),
@@ -558,7 +671,7 @@ export async function DELETE(
     // Notify all registered attendees
     const registrations = await prisma.eventRegistration.findMany({
       where: {
-        eventId,
+        eventId: existingEvent.id,
         status: { in: ["registered", "approved", "attended"] },
       },
       select: { userId: true },
@@ -573,7 +686,7 @@ export async function DELETE(
           category: "events",
           title: "Event Cancelled",
           body: `"${existingEvent.title}" has been cancelled. ${cancelReason}`,
-          payload: { eventId },
+          payload: { eventId: existingEvent.id },
           actionUrl: "/dashboard/events",
         },
       });
@@ -586,7 +699,7 @@ export async function DELETE(
         actorId: user.id,
         action: "event.cancelled",
         entityType: "event",
-        entityId: eventId,
+        entityId: existingEvent.id,
         entityLabel: existingEvent.title,
         afterState: { cancelled: true, reason: cancelReason },
         severity: "warning",

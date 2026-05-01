@@ -1,314 +1,306 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { 
-  Bell, 
-  Shield, 
-  User, 
-  Mail, 
-  Globe,
-  RefreshCw,
-  ChevronRight,
-  Monitor,
-  Lock,
-  Eye,
-  Settings as SettingsIcon,
-  ShieldCheck,
-  Check
+import {
+  Bell, Lock, Eye, Globe, Shield, Trash2, Download,
+  User, Building2, Mail, Phone, CheckCircle2, Loader2,
+  LogOut, AlertTriangle, Key, Smartphone, ChevronRight,
+  Palette, Layout, Heart, Save, RefreshCw, MapPin, Search
 } from "lucide-react";
 import { useAuthProfile } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { Card, CardContent } from "@/components/ui/card";
+import { Country, City } from "country-state-city";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+function SettingRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between py-6 border-b border-slate-50 last:border-0 gap-8">
+      <div className="flex-1">
+        <p className="text-sm font-bold text-slate-900">{label}</p>
+        {description && <p className="text-xs font-medium text-slate-400 mt-1 leading-relaxed">{description}</p>}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function SectionCard({ title, description, icon: Icon, children }: { title: string; description: string; icon: any; children: React.ReactNode }) {
+  return (
+    <Card className="rounded-[2.5rem] border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+      <div className="px-8 py-6 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between bg-slate-50/30 dark:bg-slate-950/30">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center border border-slate-100 dark:border-slate-800">
+             <Icon className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-900 dark:text-white">{title}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{description}</p>
+          </div>
+        </div>
+      </div>
+      <CardContent className="p-8">
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function SettingsPage() {
   const { profile, organization, loading: profileLoading } = useAuthProfile();
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState<any>({
-    privacy: {
-      profile_visible: true,
-      email_visible: false,
-      graduation_year_visible: true,
-      search_visible: "yes"
-    },
-    notifications: [
-      { notificationType: "email", label: "Matrix Alerts", desc: "Real-time updates to your primary email relay.", icon: Mail, checked: true },
-      { notificationType: "desktop", label: "Interface Echo", desc: "Direct browser push notifications for node alerts.", icon: Monitor, checked: true },
-      { notificationType: "activity", label: "Engagement Pings", desc: "Notify upon connection requests or data mentions.", icon: User, checked: true }
-    ]
+  const [loading, setLoading] = useState(true);
+
+  const [notifications, setNotifications] = useState({
+    emailMessages: true,
+    emailJobs: true,
+    emailEvents: true,
+    emailMentorship: true,
+    pushMessages: true,
+    weeklyDigest: true,
+    mentorRequests: true,
   });
 
-  const slug = organization?.slug || "default";
+  const [privacy, setPrivacy] = useState({
+    profileVisible: true,
+    showEmail: false,
+    showPhone: false,
+    showLocation: true,
+    allowMessages: true,
+    showInSearch: true,
+    allowMentorRequests: true,
+  });
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
+  const [profileData, setProfileData] = useState({
+    fullName: "",
+    phone: "",
+    linkedinUrl: "",
+    bio: "",
+    city: "",
+    countryCode: "IN",
+  });
 
-  const fetchSettings = async () => {
+  const [citySearch, setCitySearch] = useState("");
+  const [filteredCities, setFilteredCities] = useState<any[]>([]);
+
+  const userType = profile?.userType;
+  const isAlumni = userType === "alumni";
+
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/settings");
+      const res = await fetch("/api/settings", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        // Merge with labels and icons for UI
-        const apiNotifs = data.settings.notifications;
-        const uiNotifs = settings.notifications.map((n: any) => {
-          const apiMatch = apiNotifs.find((an: any) => an.notificationType === n.notificationType);
-          return apiMatch ? { ...n, checked: apiMatch.inAppEnabled || apiMatch.emailEnabled } : n;
-        });
-        
-        setSettings({
-          privacy: data.settings.privacy,
-          notifications: uiNotifs
-        });
+        if (data.notifications) setNotifications(prev => ({ ...prev, ...data.notifications }));
+        if (data.privacy) setPrivacy(prev => ({ ...prev, ...data.privacy }));
+        if (data.profile) setProfileData(prev => ({ ...prev, ...data.profile }));
       }
-    } catch (err) {
-      toast.error("Failed to load settings");
-    } finally {
-      setLoading(false);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (profile) {
+      setProfileData({
+        fullName: profile.fullName || "",
+        phone: (profile as any).phone || "",
+        linkedinUrl: (profile as any).alumniProfile?.linkedinUrl || (profile as any).studentProfile?.linkedinUrl || "",
+        bio: (profile as any).alumniProfile?.bio || (profile as any).studentProfile?.bio || "",
+        city: profile.city || "",
+        countryCode: profile.countryCode || "IN",
+      });
+      setCitySearch(profile.city || "");
+      loadSettings();
     }
-  };
+  }, [profile, loadSettings]);
 
-  const handlePrivacyChange = (key: string, value: any) => {
-    setSettings((prev: any) => ({
-      ...prev,
-      privacy: { ...prev.privacy, [key]: value }
-    }));
-  };
+  useEffect(() => {
+    if (citySearch.length > 2 && citySearch !== profileData.city) {
+      const cities = City.getCitiesOfCountry(profileData.countryCode) || [];
+      const filtered = cities
+        .filter(c => c.name.toLowerCase().includes(citySearch.toLowerCase()))
+        .slice(0, 8);
+      setFilteredCities(filtered);
+    } else {
+      setFilteredCities([]);
+    }
+  }, [citySearch, profileData.countryCode, profileData.city]);
 
-  const handleNotificationToggle = (type: string) => {
-    setSettings((prev: any) => ({
-      ...prev,
-      notifications: prev.notifications.map((n: any) => 
-        n.notificationType === type ? { ...n, checked: !n.checked } : n
-      )
-    }));
-  };
-
-  const handleSave = async () => {
+  const handleSaveAll = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          privacy: settings.privacy,
-          notifications: settings.notifications.map((n: any) => ({
-            notificationType: n.notificationType,
-            inAppEnabled: n.checked,
-            emailEnabled: n.checked,
-            pushEnabled: n.checked
-          }))
+      await Promise.all([
+        fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "notifications", data: notifications }),
+        }),
+        fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "privacy", data: privacy }),
+        }),
+        fetch("/api/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(profileData),
         })
-      });
-      if (res.ok) {
-        toast.success("Settings saved successfully");
-      } else {
-        throw new Error("Failed to update");
-      }
-    } catch (err) {
-      toast.error("Save failed");
+      ]);
+      toast.success("Settings updated!");
+    } catch {
+      toast.error("Update failed");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading || profileLoading) {
+  if (profileLoading || loading) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <RefreshCw className="h-6 w-6 animate-spin text-slate-200" />
+      <div className="max-w-4xl mx-auto px-4 py-10 space-y-8 animate-in fade-in duration-300">
+        <Skeleton className="h-8 w-48 rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-[2.5rem]" />
       </div>
     );
   }
 
   return (
-    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-8 animate-in fade-in duration-700">
-      {/* Header Context */}
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-10 animate-in fade-in duration-500 pb-20">
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-           <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Governance</span>
-              <div className="h-1 w-1 rounded-full bg-slate-300"></div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Global Config</span>
-           </div>
-           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Account Preferences</h1>
-           <p className="text-slate-500 font-medium mt-1">Manage your identity, visibility, and system interactions.</p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">Settings</h1>
+          <p className="text-slate-500 font-medium text-sm">Personalize your experience and security.</p>
         </div>
-        <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-400 px-6" onClick={fetchSettings}>
-           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> System Sync
+        <Button 
+          onClick={handleSaveAll} 
+          disabled={saving}
+          className="h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black px-8 shadow-xl shadow-blue-500/20"
+        >
+          {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+          Save Changes
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Navigation Matrix */}
-        <div className="lg:col-span-1 space-y-2">
-          {[
-            { id: "profile", label: "Identity", icon: User, active: true },
-            { id: "notifications", label: "Relay Pulse", icon: Bell },
-            { id: "privacy", label: "Shield Access", icon: Shield },
-            { id: "communication", label: "Network Mail", icon: Mail },
-            { id: "preferences", label: "System Sync", icon: Monitor }
-          ].map((item) => (
-            <Button
-              key={item.id}
-              variant="ghost"
-              className={`w-full justify-between h-12 rounded-2xl transition-all px-4 ${
-                item.active 
-                  ? "bg-white text-blue-600 shadow-sm font-bold" 
-                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                 <item.icon className="h-4 w-4" />
-                 <span className="text-[10px] uppercase font-black tracking-widest">{item.label}</span>
-              </div>
-              {item.active && <ChevronRight className="h-3 w-3" />}
-            </Button>
-          ))}
-        </div>
+      <Tabs defaultValue="profile" className="space-y-8">
+        <TabsList className="bg-slate-50 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 h-auto w-auto">
+          <TabsTrigger value="profile" className="px-6 py-2.5 rounded-xl text-xs font-black data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Profile</TabsTrigger>
+          <TabsTrigger value="notifications" className="px-6 py-2.5 rounded-xl text-xs font-black data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Notifications</TabsTrigger>
+          <TabsTrigger value="privacy" className="px-6 py-2.5 rounded-xl text-xs font-black data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Privacy</TabsTrigger>
+        </TabsList>
 
-        {/* Configuration Core */}
-        <div className="lg:col-span-3 space-y-8">
-          
-          {/* Identity visibility */}
-          <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden group">
-            <CardHeader className="p-8 pb-4 border-b border-slate-50 dark:border-slate-800 bg-white/40 dark:bg-slate-950/20">
-              <div className="flex items-center gap-4">
-                 <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                    <Eye className="h-5 w-5 text-blue-600" />
-                 </div>
-                 <div>
-                    <CardTitle className="text-lg font-bold uppercase tracking-tight italic">Visibility Logic</CardTitle>
-                    <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Update your profile exposure status.</CardDescription>
-                 </div>
+        <TabsContent value="profile" className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
+          <SectionCard title="Personal Info" description="Basic details" icon={User}>
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Full Name</Label>
+                  <Input 
+                    placeholder="Jane Doe" 
+                    className="h-12 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-semibold px-5"
+                    value={profileData.fullName}
+                    onChange={e => setProfileData({...profileData, fullName: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Phone</Label>
+                  <Input 
+                    placeholder="+1 (555) 000-0000" 
+                    className="h-12 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-semibold px-5"
+                    value={profileData.phone}
+                    onChange={e => setProfileData({...profileData, phone: e.target.value})}
+                  />
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="p-8 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 italic">Network Exposure</Label>
-                  <Select 
-                    value={settings.privacy.profile_visible ? "alumni" : "connections"} 
-                    onValueChange={(v) => handlePrivacyChange("profile_visible", v === "alumni")}
-                  >
-                    <SelectTrigger className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-none shadow-2xl">
-                       <SelectItem value="public" className="text-[10px] font-black uppercase tracking-widest">Global Access</SelectItem>
-                       <SelectItem value="alumni" className="text-[10px] font-black uppercase tracking-widest">Verified Alumni Only</SelectItem>
-                       <SelectItem value="connections" className="text-[10px] font-black uppercase tracking-widest">Direct Synergy Only</SelectItem>
-                    </SelectContent>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Country</Label>
+                  <Select value={profileData.countryCode} onValueChange={v => setProfileData({...profileData, countryCode: v, city: ""})}>
+                     <SelectTrigger className="h-12 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-semibold px-5 shadow-none">
+                        <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent className="rounded-2xl border-slate-100 max-h-60">
+                        {Country.getAllCountries().map(c => (
+                          <SelectItem key={c.isoCode} value={c.isoCode}>{c.name}</SelectItem>
+                        ))}
+                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 italic">Matrix Searchability</Label>
-                  <Select 
-                    value={settings.privacy.search_visible || "yes"} 
-                    onValueChange={(v) => handlePrivacyChange("search_visible", v)}
-                  >
-                    <SelectTrigger className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-none shadow-2xl">
-                       <SelectItem value="yes" className="text-[10px] font-black uppercase tracking-widest">Integrated (Index)</SelectItem>
-                       <SelectItem value="no" className="text-[10px] font-black uppercase tracking-widest">Isolated (Untraceable)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2 relative">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">City Search</Label>
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                    <Input 
+                      placeholder="Start typing..." 
+                      className="h-12 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-semibold pl-12"
+                      value={citySearch}
+                      onChange={e => setCitySearch(e.target.value)}
+                    />
+                    {filteredCities.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden z-50">
+                         {filteredCities.map(c => (
+                           <button
+                            key={c.name}
+                            onClick={() => {
+                              setProfileData({...profileData, city: c.name});
+                              setCitySearch(c.name);
+                              setFilteredCities([]);
+                            }}
+                            className="w-full px-5 py-3 text-left text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                           >
+                             {c.name}
+                           </button>
+                         ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-              
-              <div className="space-y-3 pt-4 border-t border-slate-50">
-                 <div className="flex items-center justify-between p-4 rounded-3xl bg-slate-50 dark:bg-slate-800/30">
-                    <div>
-                       <p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight italic">Relay Mail Disclosure</p>
-                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Allow verified entities to view direct email coordinates.</p>
-                    </div>
-                    <Switch 
-                      checked={settings.privacy.email_visible} 
-                      onCheckedChange={(checked) => handlePrivacyChange("email_visible", checked)}
-                      className="data-[state=checked]:bg-blue-600" 
-                    />
-                 </div>
-                 <div className="flex items-center justify-between p-4 rounded-3xl bg-slate-50 dark:bg-slate-800/30">
-                    <div>
-                       <p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight italic">Batch / Class Visibility</p>
-                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Allow members to see your graduation information.</p>
-                    </div>
-                    <Switch 
-                      checked={settings.privacy.graduation_year_visible} 
-                      onCheckedChange={(checked) => handlePrivacyChange("graduation_year_visible", checked)}
-                      className="data-[state=checked]:bg-blue-600" 
-                    />
-                 </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Relay pulse */}
-          <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden group">
-            <CardHeader className="p-8 pb-4 border-b border-slate-50 dark:border-slate-800 bg-white/40 dark:bg-slate-950/20">
-              <div className="flex items-center gap-4">
-                 <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center">
-                    <Bell className="h-5 w-5 text-purple-600" />
-                 </div>
-                 <div>
-                    <CardTitle className="text-lg font-bold uppercase tracking-tight italic">Relay Pulse</CardTitle>
-                    <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Define your alert and notification boundaries.</CardDescription>
-                 </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">LinkedIn URL</Label>
+                <Input 
+                  placeholder="https://linkedin.com/..." 
+                  className="h-12 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-semibold px-5"
+                  value={profileData.linkedinUrl}
+                  onChange={e => setProfileData({...profileData, linkedinUrl: e.target.value})}
+                />
               </div>
-            </CardHeader>
-            <CardContent className="p-8 space-y-4">
-              {settings.notifications.map((item: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between p-4 rounded-3xl hover:bg-slate-50 transition-colors">
-                   <div className="flex items-center gap-4">
-                      <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center">
-                         <item.icon className="h-4 w-4 text-slate-400" />
-                      </div>
-                      <div>
-                         <p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight italic">{item.label}</p>
-                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.desc}</p>
-                      </div>
-                   </div>
-                   <Switch 
-                    checked={item.checked} 
-                    onCheckedChange={() => handleNotificationToggle(item.notificationType)}
-                    className="data-[state=checked]:bg-purple-600" 
-                   />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+            </div>
+          </SectionCard>
+        </TabsContent>
 
-          <footer className="flex justify-end items-center gap-4 pt-4 border-t border-slate-100">
-             <Button variant="ghost" className="h-12 px-8 rounded-xl font-bold text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-900">Restore Default Protocol</Button>
-             <Button 
-               className="h-12 px-10 rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-600/20 text-white font-bold uppercase tracking-widest text-[10px]"
-               onClick={handleSave}
-               disabled={saving}
-             >
-                {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-                Save Configuration
-             </Button>
-          </footer>
-        </div>
-      </div>
+        <TabsContent value="notifications" className="space-y-8">
+           <SectionCard title="Notifications" description="Email alerts" icon={Bell}>
+             <SettingRow label="Direct Messages" description="When someone sends you a message.">
+               <Switch checked={notifications.emailMessages} onCheckedChange={v => setNotifications({...notifications, emailMessages: v})} />
+             </SettingRow>
+             <SettingRow label="Job Alerts" description="New opportunities in your field.">
+               <Switch checked={notifications.emailJobs} onCheckedChange={v => setNotifications({...notifications, emailJobs: v})} />
+             </SettingRow>
+           </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="privacy" className="space-y-8">
+           <SectionCard title="Privacy" description="Control your data" icon={Shield}>
+             <SettingRow label="Profile Visibility" description="Allow others to find you.">
+               <Switch checked={privacy.profileVisible} onCheckedChange={v => setPrivacy({...privacy, profileVisible: v})} />
+             </SettingRow>
+             <SettingRow label="Show Email" description="Display email to verified members.">
+               <Switch checked={privacy.showEmail} onCheckedChange={v => setPrivacy({...privacy, showEmail: v})} />
+             </SettingRow>
+           </SectionCard>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

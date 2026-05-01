@@ -2,253 +2,224 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  Target, 
-  Users, 
-  Calendar, 
-  MessageCircle, 
-  Star, 
-  BookOpen, 
-  GraduationCap, 
-  RefreshCw,
-  Plus,
-  Clock,
-  Check
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Users, MessageCircle, Star, RefreshCw, Clock, Check,
+  GraduationCap, Loader2, Briefcase, Inbox, ArrowUpRight
 } from "lucide-react";
 import { useAuthProfile } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { sessionGet, sessionSet } from "@/lib/cache";
 
 export default function MentorshipPage() {
   const router = useRouter();
   const { profile, organization, loading: profileLoading } = useAuthProfile();
-  const slug = organization?.slug || "default";
   const [mentors, setMentors] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const fetchMentorshipData = useCallback(async () => {
-    if (!profile) return;
+  const orgId = profile?.organizationId;
+  const slug = organization?.slug || "default";
+
+  const fetchMentorshipData = useCallback(async (silent = false) => {
+    if (!orgId) return;
+    if (!silent) {
+      const cached = sessionGet<any>(`mentorship_${orgId}`);
+      if (cached) { setMentors(cached.mentors); setRequests(cached.requests); setLoading(false); }
+      else setLoading(true);
+    }
     try {
-      setLoading(true);
       const [mentorsRes, requestsRes] = await Promise.all([
-        fetch("/api/mentorship?type=mentors"),
-        fetch("/api/mentorship?type=requests")
+        fetch(`/api/mentorship?type=mentors&organizationId=${orgId}`, { cache: "no-store" }),
+        fetch(`/api/mentorship?type=requests&organizationId=${orgId}`, { cache: "no-store" }),
       ]);
-      if (mentorsRes.ok) setMentors((await mentorsRes.json()).mentors || []);
-      if (requestsRes.ok) {
-        const data = await requestsRes.json();
-        const reqData = data.requests || { sent: [], received: [] };
-        const flattened = [
+      if (mentorsRes.ok && requestsRes.ok) {
+        const mData = await mentorsRes.json();
+        const rData = await requestsRes.json();
+        
+        const loadedMentors = mData.mentors || [];
+        const reqData = rData.requests || { sent: [], received: [] };
+        const loadedRequests = [
           ...(reqData.sent || []),
-          ...(reqData.received || []).map((r: any) => ({ 
-            ...r, 
-            mentee: r.student,
-            mentorId: profile.id
-          }))
+          ...(reqData.received || []).map((r: any) => ({
+            ...r,
+            isReceived: true,
+            displayUser: r.student,
+          })),
         ];
-        setRequests(flattened);
+
+        setMentors(loadedMentors);
+        setRequests(loadedRequests);
+        sessionSet(`mentorship_${orgId}`, { mentors: loadedMentors, requests: loadedRequests }, 5 * 60 * 1000);
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to load mentorship data");
     } finally {
       setLoading(false);
     }
-  }, [profile]);
+  }, [orgId]);
 
   useEffect(() => {
-    if (profile) fetchMentorshipData();
-  }, [profile, fetchMentorshipData]);
+    if (orgId) fetchMentorshipData();
+  }, [orgId, fetchMentorshipData]);
 
-  const handleRequestMentor = async (mentorId: string) => {
+  const handleRequestAction = async (requestId: string, status: "accepted" | "rejected") => {
+    setActionLoading(requestId);
     try {
-      const res = await fetch("/api/mentorship", {
-        method: "POST",
+      const res = await fetch(`/api/mentorship/requests/${requestId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mentorId,
-          goals: "Professional development",
-          message: "I would like to request you as my mentor."
-        })
+        body: JSON.stringify({ status }),
       });
       if (res.ok) {
-        toast.success("Request sent successfully!");
-        fetchMentorshipData();
+        toast.success(`Request ${status} successfully`);
+        fetchMentorshipData(true);
+      } else {
+        toast.error("Failed to update request");
       }
-    } catch (err) {
-      toast.error("Failed to send request");
+    } catch {
+      toast.error("An error occurred");
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleBecomeMentor = async () => {
-    if (profile?.userType !== "alumni") {
-      toast.error("Only alumni can become mentors");
-      return;
-    }
-    try {
-      const res = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isMentorAvailable: !profile.alumniProfile?.isMentorAvailable })
-      });
-      if (res.ok) {
-        toast.success(profile.alumniProfile?.isMentorAvailable ? "Mentorship disabled" : "You are now a mentor!");
-        window.location.reload(); 
-      }
-    } catch (err) {
-      toast.error("Failed to update mentor status");
-    }
-  };
-
-  if (profileLoading) {
+  if (profileLoading && !mentors.length) {
     return (
-       <div className="flex h-[60vh] items-center justify-center">
-          <RefreshCw className="h-6 w-6 animate-spin text-slate-200" />
-       </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8 animate-in fade-in duration-300">
+        <Skeleton className="h-9 w-48 rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-64 rounded-[2rem]" />)}
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-10 animate-in fade-in duration-500">
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-           <h1 className="text-3xl font-bold tracking-tight">Mentorship Program</h1>
-           <p className="text-slate-500 mt-1">Connect with experienced alumni or offer guidance to current students.</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Mentorship Program</h1>
+          <p className="text-slate-500 font-medium text-sm">Find guidance or share your expertise with the community.</p>
         </div>
-        <div className="flex items-center gap-3">
-           <Button variant="outline" onClick={fetchMentorshipData}>
-             <RefreshCw className="h-4 w-4 mr-2" /> Refresh
-           </Button>
-           <Button 
-             className={`h-11 rounded-xl font-bold px-6 shadow-lg transition-all ${profile?.alumniProfile?.isMentorAvailable ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-             onClick={handleBecomeMentor}
-           >
-              {profile?.alumniProfile?.isMentorAvailable ? (
-                <><Check className="h-4 w-4 mr-2" /> Mentoring Active</>
-              ) : (
-                <><Plus className="h-4 w-4 mr-2" /> Become a Mentor</>
-              )}
-           </Button>
-        </div>
+        <Button variant="ghost" onClick={() => fetchMentorshipData()} className="h-10 w-10 rounded-xl bg-slate-50 hover:bg-slate-100">
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Available Mentors", value: mentors.length, icon: GraduationCap, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Active Connections", value: requests.filter(r => r.status === 'accepted').length, icon: Target, color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Resources Shared", value: "24", icon: BookOpen, color: "text-purple-600", bg: "bg-purple-50" },
-          { label: "Pending Requests", value: requests.filter(r => r.status === 'pending').length, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
-        ].map((s, i) => (
-          <Card key={i}>
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className={`${s.bg} p-3 rounded-xl`}>
-                <s.icon className={`h-5 w-5 ${s.color}`} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-slate-500 font-medium">{s.label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Tabs defaultValue="mentors">
-        <TabsList className="mb-6">
-          <TabsTrigger value="mentors">Available Mentors</TabsTrigger>
-          <TabsTrigger value="my-connections">My Connections ({requests.length})</TabsTrigger>
+      <Tabs defaultValue="explore" className="space-y-8">
+        <TabsList className="bg-slate-50 p-1 rounded-2xl border border-slate-100 w-auto h-auto">
+          <TabsTrigger value="explore" className="px-6 py-2 rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Explore Mentors</TabsTrigger>
+          <TabsTrigger value="requests" className="px-6 py-2 rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">My Requests</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="mentors">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mentors.map((mentor) => (
-              <Card key={mentor.id} className="hover:shadow-md transition-shadow">
-                 <CardHeader className="text-center">
-                    <Avatar className="h-20 w-20 mx-auto mb-4 border-4 border-slate-50">
-                       <AvatarImage src={mentor.image} />
-                       <AvatarFallback className="text-lg">{mentor.name?.[0]}</AvatarFallback>
+        <TabsContent value="explore" className="space-y-8 animate-in slide-in-from-bottom-2 duration-400">
+          {loading && !mentors.length ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-64 rounded-[2rem]" />)}
+            </div>
+          ) : mentors.length === 0 ? (
+            <div className="py-24 text-center space-y-4">
+              <div className="h-16 w-16 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto">
+                <Users className="h-8 w-8 text-slate-200" />
+              </div>
+              <p className="text-sm font-bold text-slate-900">No mentors available yet</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {mentors.map((mentor) => (
+                <Card key={mentor.id} className="rounded-[2.5rem] border-none shadow-sm bg-white overflow-hidden group hover:shadow-xl transition-all">
+                  <div className="h-12 bg-gradient-to-r from-blue-50 to-indigo-50/50" />
+                  <CardContent className="px-6 pb-6 -mt-8 flex flex-col items-center text-center">
+                    <Avatar className="h-16 w-16 rounded-2xl border-4 border-white shadow-sm">
+                      <AvatarImage src={mentor.user?.avatarUrl} />
+                      <AvatarFallback className="bg-blue-600 text-white font-bold">{mentor.user?.fullName?.[0]}</AvatarFallback>
                     </Avatar>
-                    <CardTitle className="text-lg">{mentor.name}</CardTitle>
-                    <CardDescription className="text-sm font-medium text-slate-500">{mentor.title || "Professional Mentor"}</CardDescription>
-                 </CardHeader>
-                 <CardContent className="text-center space-y-4">
-                    <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
-                       <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                       <span>{mentor.experience || '5+'} years experience</span>
+                    <div className="mt-3 space-y-1">
+                      <h3 className="text-base font-bold text-slate-900">{mentor.user?.fullName}</h3>
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{mentor.currentTitle || "Expert Mentor"}</p>
                     </div>
-                    <div className="flex flex-wrap justify-center gap-1.5">
-                       {(mentor.skills || mentor.topics || []).slice(0, 3).map((skill: string, idx: number) => (
-                          <Badge key={idx} variant="secondary" className="text-[10px] font-semibold">{skill}</Badge>
+                    <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+                       {mentor.expertise?.slice(0, 3).map((e: string) => (
+                         <Badge key={e} variant="outline" className="text-[9px] font-bold border-slate-100 bg-slate-50/50 text-slate-500 rounded-lg">{e}</Badge>
                        ))}
                     </div>
-                 </CardContent>
-                 <CardFooter className="gap-2">
-                    <Button variant="outline" className="flex-1 text-xs h-9" onClick={() => router.push(`/organization/${slug}/dashboard/network/${mentor.id}`)}>View Profile</Button>
-                    <Button className="flex-1 text-xs h-9" onClick={() => handleRequestMentor(mentor.id)}>Connect</Button>
-                 </CardFooter>
-              </Card>
-            ))}
-            {!mentors.length && !loading && (
-               <div className="col-span-full py-20 text-center text-slate-500 border rounded-xl border-dashed">
-                  No mentors found at this time.
-               </div>
-            )}
-          </div>
+                    <p className="mt-4 text-xs text-slate-500 line-clamp-2 font-medium leading-relaxed italic">
+                      \"{mentor.headline || 'I am happy to help students and fellow alumni grow.'}\"
+                    </p>
+                    <div className="mt-6 flex flex-col gap-2 w-full">
+                       <Button onClick={() => router.push(`/organization/${slug}/dashboard/network/${mentor.userId}`)} className="h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs">
+                          Request Mentorship
+                       </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="my-connections">
+        <TabsContent value="requests" className="animate-in slide-in-from-bottom-2 duration-400">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {requests.map((req) => {
-              const other = req.mentorId === profile?.id ? req.mentee : req.mentor;
-              const isAccepted = req.status === 'accepted';
-              return (
-                <Card key={req.id} className="hover:shadow-md transition-shadow">
-                   <CardHeader className="flex flex-row items-center gap-4">
-                      <Avatar className="h-12 w-12">
-                         <AvatarImage src={other?.avatarUrl} />
-                         <AvatarFallback>{other?.fullName?.[0]}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                         <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-bold truncate">{other?.fullName}</h3>
-                            <Badge variant={isAccepted ? 'default' : 'outline'} className="text-[10px]">
-                               {req.status}
-                            </Badge>
-                         </div>
-                         <p className="text-xs text-slate-500">{req.mentorId === profile?.id ? "Mentee" : "Mentor"}</p>
-                      </div>
-                   </CardHeader>
-                   <CardContent>
-                      <div className="bg-slate-50 p-3 rounded-lg border text-xs text-slate-600 line-clamp-2 italic">
-                         "{req.goals}"
-                      </div>
-                   </CardContent>
-                   <CardFooter className="gap-2">
-                      <Button variant="outline" className="flex-1 h-9 text-xs" onClick={() => router.push(`/organization/${slug}/dashboard/messages?userId=${other?.id}`)}>
-                         <MessageCircle className="h-4 w-4 mr-2" /> Message
+            {requests.map((req) => (
+              <Card key={req.id} className="rounded-3xl border-none shadow-sm bg-white p-6 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10 rounded-xl shadow-sm border border-slate-100">
+                      <AvatarImage src={req.displayUser?.avatarUrl} />
+                      <AvatarFallback className="bg-slate-50 text-slate-400 font-bold">{req.displayUser?.fullName?.[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{req.displayUser?.fullName}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{req.isReceived ? "Student Request" : "Mentor"}</p>
+                    </div>
+                  </div>
+                  <Badge className={`rounded-lg px-2 py-0.5 text-[8px] font-bold uppercase ${
+                    req.status === "accepted" ? "bg-emerald-50 text-emerald-600" : 
+                    req.status === "pending" ? "bg-amber-50 text-amber-600" : "bg-rose-50 text-rose-600"
+                  }`}>
+                    {req.status}
+                  </Badge>
+                </div>
+                
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                   <p className="text-xs text-slate-600 font-medium leading-relaxed italic line-clamp-3">
+                     \"{req.message || "No message provided."}\"
+                   </p>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  {req.isReceived && req.status === "pending" ? (
+                    <>
+                      <Button onClick={() => handleRequestAction(req.id, "accepted")} disabled={!!actionLoading} className="flex-1 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs">
+                        Accept
                       </Button>
-                      {isAccepted && (
-                        <Button className="flex-1 h-9 text-xs">Schedule Meeting</Button>
-                      )}
-                   </CardFooter>
-                </Card>
-              );
-            })}
-            {!requests.length && !loading && (
-               <div className="col-span-full py-20 text-center text-slate-500 border rounded-xl border-dashed">
-                  You don't have any active mentorship connections yet.
-               </div>
+                      <Button onClick={() => handleRequestAction(req.id, "rejected")} disabled={!!actionLoading} variant="ghost" className="flex-1 h-10 rounded-xl text-rose-500 hover:bg-rose-50 font-bold text-xs">
+                        Decline
+                      </Button>
+                    </>
+                  ) : (
+                    <Button onClick={() => router.push(`/organization/${slug}/dashboard/messages?userId=${req.displayUser?.id}`)} className="w-full h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs">
+                       <MessageCircle className="h-4 w-4 mr-2" /> Message
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            ))}
+            {requests.length === 0 && (
+              <div className="col-span-full py-24 text-center space-y-4">
+                 <div className="h-16 w-16 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto">
+                   <Clock className="h-8 w-8 text-slate-200" />
+                 </div>
+                 <p className="text-sm font-bold text-slate-400">No active mentorship requests found.</p>
+              </div>
             )}
           </div>
         </TabsContent>

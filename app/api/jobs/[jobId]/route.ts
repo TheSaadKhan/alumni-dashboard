@@ -62,92 +62,92 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Fetch job with all relations
-    const job = await prisma.jobPosting.findUnique({
-      where: { id: jobId, deletedAt: null },
-      include: {
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            logoUrl: true,
-            isVerified: true,
-            website: true,
-          },
+    // Define the include object to ensure consistent typing
+    const jobInclude = {
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          logoUrl: true,
+          isVerified: true,
+          website: true,
         },
-        postedByUser: {
-          select: {
-            id: true,
-            fullName: true,
-            firstName: true,
-            avatarUrl: true,
-            email: true,
-            userType: true,
-            alumniProfile: {
-              select: {
-                currentCompany: true,
-                currentTitle: true,
-                graduationYear: true,
-              },
+      },
+      postedByUser: {
+        select: {
+          id: true,
+          fullName: true,
+          firstName: true,
+          avatarUrl: true,
+          email: true,
+          userType: true,
+          alumniProfile: {
+            select: {
+              currentCompany: true,
+              currentTitle: true,
+              graduationYear: true,
             },
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        applications: {
-          where: {
-            OR: [
-              { applicantId: user.id }, // User's own application
-              // For admins, show all applications (handled separately)
-            ],
-          },
-          include: {
-            applicant: {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-                avatarUrl: true,
-                userType: true,
-                alumniProfile: {
-                  select: {
-                    graduationYear: true,
-                    currentCompany: true,
-                    currentTitle: true,
-                  },
-                },
-                studentProfile: {
-                  select: {
-                    expectedGraduation: true,
-                    major: true,
-                  },
-                },
-              },
-            },
-            reviewer: {
-              select: {
-                id: true,
-                fullName: true,
-                avatarUrl: true,
-              },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-        },
-        _count: {
-          select: {
-            applications: true,
-            bookmarks: true,
           },
         },
       },
-    });
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+      applications: {
+        where: {
+          applicantId: user.id,
+        },
+        include: {
+          applicant: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              avatarUrl: true,
+              userType: true,
+              alumniProfile: {
+                select: {
+                  graduationYear: true,
+                  currentCompany: true,
+                  currentTitle: true,
+                },
+              },
+              studentProfile: {
+                select: {
+                  expectedGraduation: true,
+                  major: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" as const },
+        take: 1,
+      },
+      _count: {
+        select: {
+          applications: true,
+          bookmarks: true,
+        },
+      },
+    };
+
+    // Fetch job with all relations
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+    const job = await (isUuid 
+      ? prisma.jobPosting.findUnique({
+          where: { id: jobId },
+          include: jobInclude,
+        })
+      : prisma.jobPosting.findFirst({
+          where: { slug: jobId, deletedAt: null },
+          include: jobInclude,
+        }));
 
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
@@ -158,7 +158,7 @@ export async function GET(
     const isOrgAdmin = user.userRoles.some(ur => 
       ur.role.slug === "admin" || ur.role.slug === "super-admin"
     );
-    const isJobPoster = job.postedByUser.id === user.id;
+    const isJobPoster = job.postedBy === user.id;
     const isOrgMember = user.organizationId === job.organizationId;
 
     if (!isSuperAdmin && !isOrgMember && !isOrgAdmin && !isJobPoster) {
@@ -172,7 +172,7 @@ export async function GET(
     const userApplication = await prisma.jobApplication.findUnique({
       where: {
         jobPostingId_applicantId: {
-          jobPostingId: jobId,
+          jobPostingId: job.id,
           applicantId: user.id,
         },
       },
@@ -191,7 +191,7 @@ export async function GET(
     const isBookmarked = await prisma.jobBookmark.findUnique({
       where: {
         jobPostingId_userId: {
-          jobPostingId: jobId,
+          jobPostingId: job.id,
           userId: user.id,
         },
       },
@@ -201,7 +201,7 @@ export async function GET(
     const similarJobs = await prisma.jobPosting.findMany({
       where: {
         organizationId: job.organizationId,
-        id: { not: jobId },
+        id: { not: job.id },
         status: JobStatus.active,
         deletedAt: null,
         OR: [
@@ -233,28 +233,29 @@ export async function GET(
 
     // Get application statistics (for admins and job posters)
     let applicationStats = null;
+    let adminApplications: any[] = [];
     if (isOrgAdmin || isJobPoster || isSuperAdmin) {
       const stats = await prisma.$transaction([
         prisma.jobApplication.count({
-          where: { jobPostingId: jobId },
+          where: { jobPostingId: job.id },
         }),
         prisma.jobApplication.count({
-          where: { jobPostingId: jobId, status: ApplicationStatus.submitted },
+          where: { jobPostingId: job.id, status: ApplicationStatus.submitted },
         }),
         prisma.jobApplication.count({
-          where: { jobPostingId: jobId, status: ApplicationStatus.reviewing },
+          where: { jobPostingId: job.id, status: ApplicationStatus.reviewing },
         }),
         prisma.jobApplication.count({
-          where: { jobPostingId: jobId, status: ApplicationStatus.shortlisted },
+          where: { jobPostingId: job.id, status: ApplicationStatus.shortlisted },
         }),
         prisma.jobApplication.count({
-          where: { jobPostingId: jobId, status: ApplicationStatus.interview_scheduled },
+          where: { jobPostingId: job.id, status: ApplicationStatus.interview_scheduled },
         }),
         prisma.jobApplication.count({
-          where: { jobPostingId: jobId, status: ApplicationStatus.hired },
+          where: { jobPostingId: job.id, status: ApplicationStatus.hired },
         }),
         prisma.jobApplication.count({
-          where: { jobPostingId: jobId, status: ApplicationStatus.rejected },
+          where: { jobPostingId: job.id, status: ApplicationStatus.rejected },
         }),
       ]);
 
@@ -267,6 +268,65 @@ export async function GET(
         hired: stats[5],
         rejected: stats[6],
       };
+
+      // Fetch ALL applications for authorized personnel
+      const allApplications = await prisma.jobApplication.findMany({
+        where: { jobPostingId: job.id },
+        include: {
+          applicant: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              avatarUrl: true,
+              userType: true,
+              alumniProfile: {
+                select: {
+                  graduationYear: true,
+                  currentCompany: true,
+                  currentTitle: true,
+                },
+              },
+              studentProfile: {
+                select: {
+                  expectedGraduation: true,
+                  major: true,
+                },
+              },
+            },
+          },
+          reviewer: {
+            select: {
+              id: true,
+              fullName: true,
+              avatarUrl: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      
+      adminApplications = allApplications.map(app => ({
+        id: app.id,
+        status: app.status,
+        coverLetter: app.coverLetter,
+        answers: app.answers,
+        createdAt: app.createdAt,
+        reviewedAt: app.reviewedAt,
+        reviewerNote: app.reviewerNote,
+        applicant: {
+          id: app.applicant.id,
+          name: app.applicant.fullName,
+          email: app.applicant.email,
+          avatar: app.applicant.avatarUrl,
+          userType: app.applicant.userType,
+          graduationYear: app.applicant.alumniProfile?.graduationYear || app.applicant.studentProfile?.expectedGraduation,
+          currentCompany: app.applicant.alumniProfile?.currentCompany,
+          currentTitle: app.applicant.alumniProfile?.currentTitle,
+          major: app.applicant.studentProfile?.major,
+        },
+        reviewer: app.reviewer,
+      }));
     }
 
     // Determine if user can apply
@@ -279,7 +339,7 @@ export async function GET(
 
     // Increment view count (async, don't await)
     prisma.jobPosting.update({
-      where: { id: jobId },
+      where: { id: job.id },
       data: { viewCount: { increment: 1 } },
     }).catch(err => console.error("Failed to increment view count:", err));
 
@@ -341,32 +401,11 @@ export async function GET(
     // Add application stats for authorized users
     if (applicationStats) {
       response.applicationStats = applicationStats;
+      if (adminApplications.length > 0) {
+        response.applications = adminApplications;
+      }
     }
 
-    // Add all applications for admins/job posters
-    if ((isOrgAdmin || isJobPoster || isSuperAdmin) && job.applications.length > 0) {
-      response.applications = job.applications.map(app => ({
-        id: app.id,
-        status: app.status,
-        coverLetter: app.coverLetter,
-        answers: app.answers,
-        createdAt: app.createdAt,
-        reviewedAt: app.reviewedAt,
-        reviewerNote: app.reviewerNote,
-        applicant: {
-          id: app.applicant.id,
-          name: app.applicant.fullName,
-          email: app.applicant.email,
-          avatar: app.applicant.avatarUrl,
-          userType: app.applicant.userType,
-          graduationYear: app.applicant.alumniProfile?.graduationYear || app.applicant.studentProfile?.expectedGraduation,
-          currentCompany: app.applicant.alumniProfile?.currentCompany,
-          currentTitle: app.applicant.alumniProfile?.currentTitle,
-          major: app.applicant.studentProfile?.major,
-        },
-        reviewer: app.reviewer,
-      }));
-    }
 
     return NextResponse.json(response);
   } catch (error: any) {
@@ -415,15 +454,26 @@ export async function PUT(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const existingJob = await prisma.jobPosting.findUnique({
-      where: { id: jobId },
-      select: {
-        id: true,
-        organizationId: true,
-        postedBy: true,
-        title: true,
-      },
-    });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+    const existingJob = await (isUuid 
+      ? prisma.jobPosting.findUnique({
+          where: { id: jobId },
+          select: {
+            id: true,
+            organizationId: true,
+            postedBy: true,
+            title: true,
+          },
+        })
+      : prisma.jobPosting.findFirst({
+          where: { slug: jobId, deletedAt: null },
+          select: {
+            id: true,
+            organizationId: true,
+            postedBy: true,
+            title: true,
+          },
+        }));
 
     if (!existingJob) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
@@ -466,8 +516,28 @@ export async function PUT(
       }
     }
 
+    // Validate currency if it's being updated
+    if (updateData.salaryCurrency) {
+      const currencyExists = await prisma.currency.findUnique({
+        where: { code: updateData.salaryCurrency }
+      });
+      if (!currencyExists) {
+        updateData.salaryCurrency = null;
+      }
+    }
+
+    // Validate country if it's being updated
+    if (updateData.locationCountry) {
+      const countryExists = await prisma.country.findUnique({
+        where: { code: updateData.locationCountry }
+      });
+      if (!countryExists) {
+        updateData.locationCountry = null;
+      }
+    }
+
     const updatedJob = await prisma.jobPosting.update({
-      where: { id: jobId },
+      where: { id: existingJob.id },
       data: updateData,
     });
 
@@ -478,7 +548,7 @@ export async function PUT(
         actorId: user.id,
         action: "job.updated",
         entityType: "job_posting",
-        entityId: jobId,
+        entityId: existingJob.id,
         entityLabel: existingJob.title,
         afterState: { updatedFields: Object.keys(updateData) },
         severity: "info",
@@ -533,16 +603,28 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const existingJob = await prisma.jobPosting.findUnique({
-      where: { id: jobId },
-      select: {
-        id: true,
-        organizationId: true,
-        postedBy: true,
-        title: true,
-        status: true,
-      },
-    });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+    const existingJob = await (isUuid 
+      ? prisma.jobPosting.findUnique({
+          where: { id: jobId },
+          select: {
+            id: true,
+            organizationId: true,
+            postedBy: true,
+            title: true,
+            status: true,
+          },
+        })
+      : prisma.jobPosting.findFirst({
+          where: { slug: jobId, deletedAt: null },
+          select: {
+            id: true,
+            organizationId: true,
+            postedBy: true,
+            title: true,
+            status: true,
+          },
+        }));
 
     if (!existingJob) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
@@ -564,7 +646,7 @@ export async function DELETE(
 
     // Soft delete the job
     const deletedJob = await prisma.jobPosting.update({
-      where: { id: jobId },
+      where: { id: existingJob.id },
       data: {
         deletedAt: new Date(),
         status: JobStatus.closed,
@@ -573,7 +655,7 @@ export async function DELETE(
 
     // Notify all applicants about job closure
     const applicants = await prisma.jobApplication.findMany({
-      where: { jobPostingId: jobId },
+      where: { jobPostingId: existingJob.id },
       select: { applicantId: true },
     });
 
@@ -586,8 +668,8 @@ export async function DELETE(
           category: "jobs",
           title: "Job Posting Closed",
           body: `The job "${existingJob.title}" has been closed.`,
-          payload: { jobId },
-          actionUrl: `/dashboard/jobs/${jobId}`,
+          payload: { jobId: existingJob.id },
+          actionUrl: `/dashboard/jobs/${existingJob.id}`,
         },
       });
     }
@@ -599,7 +681,7 @@ export async function DELETE(
         actorId: user.id,
         action: "job.deleted",
         entityType: "job_posting",
-        entityId: jobId,
+        entityId: existingJob.id,
         entityLabel: existingJob.title,
         afterState: { deleted: true, status: JobStatus.closed },
         severity: "warning",

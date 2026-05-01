@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,21 +23,27 @@ import {
   DollarSign, 
   Zap,
   Loader2,
+  CheckCircle2,
+  FileText,
+  Save,
+  Trash2,
   Plus,
   X,
-  FileText,
-  CheckCircle2,
-  Globe,
   Info
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthProfile } from "@/context/AuthContext";
 import { JobType, ExperienceLevel, SalaryPeriod } from "@/lib/generated/prisma";
 
-export default function CreateJobPage() {
+export default function EditJobPage() {
+  const params = useParams();
   const router = useRouter();
   const { profile } = useAuthProfile();
-  const [loading, setLoading] = useState(false);
+  const jobId = params?.jobId as string;
+  const organizationId = (profile as any)?.organizationId;
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [requirementInput, setRequirementInput] = useState("");
   
   const [formData, setFormData] = useState<any>({
@@ -55,7 +61,39 @@ export default function CreateJobPage() {
     isRemote: false,
   });
 
-  const organizationId = (profile as any)?.organizationId;
+  useEffect(() => {
+    if (jobId && organizationId) {
+      fetchJob();
+    }
+  }, [jobId, organizationId]);
+
+  const fetchJob = async () => {
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      if (!res.ok) throw new Error("Failed to fetch job");
+      const data = await res.json();
+      const job = data.job;
+      
+      setFormData({
+        title: job.title,
+        description: job.description,
+        companyName: job.companyName,
+        locationCity: job.locationCity,
+        jobType: job.jobType,
+        experienceLevel: job.experienceLevel,
+        salaryMin: job.salaryMin?.toString() || "",
+        salaryMax: job.salaryMax?.toString() || "",
+        salaryCurrency: job.salaryCurrency || "USD",
+        salaryPeriod: job.salaryPeriod || "annual",
+        requirements: job.requirements?.split('\n') || [],
+        isRemote: job.isRemote || false,
+      });
+    } catch (err) {
+      toast.error("Failed to load job data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const addRequirement = () => {
     if (requirementInput.trim()) {
@@ -76,18 +114,12 @@ export default function CreateJobPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!organizationId) {
-      toast.error("Organization not found. Please log in again.");
-      return;
-    }
-
-    setLoading(true);
+    setSaving(true);
     try {
-      const res = await fetch("/api/jobs", {
-        method: "POST",
+      const res = await fetch(`/api/jobs/${jobId}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          organizationId,
           ...formData,
           requirements: formData.requirements.join('\n'),
           salaryMin: formData.salaryMin ? parseFloat(formData.salaryMin) : null,
@@ -96,57 +128,65 @@ export default function CreateJobPage() {
       });
 
       if (res.ok) {
-        toast.success("Job posting created successfully");
-        router.push("/admin/jobs");
+        toast.success("Job posting updated successfully");
+        router.push(`/admin/jobs/${jobId}`);
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to create job");
+        toast.error(data.error || "Failed to update job");
       }
     } catch (err) {
       toast.error("An error occurred. Please try again.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+        <p className="text-slate-500 font-medium">Loading environment...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-12 space-y-10 animate-in fade-in duration-500">
-      {/* Dynamic Header */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
             className="h-12 w-12 rounded-xl bg-slate-50 hover:bg-slate-100 border-none transition-all" 
-            onClick={() => router.push("/admin/jobs")}
+            onClick={() => router.push(`/admin/jobs/${jobId}`)}
           >
             <ArrowLeft className="h-5 w-5 text-slate-600" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Create Job Posting</h1>
-            <p className="text-slate-500 font-medium text-sm">Fill in the details to publish a new career opportunity.</p>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Edit Job Posting</h1>
+            <p className="text-slate-500 font-medium text-sm">Update the details for this career opportunity.</p>
           </div>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <Button 
             variant="ghost" 
-            className="h-12 rounded-xl font-bold text-slate-500 px-6 hover:bg-slate-100"
-            onClick={() => router.push("/admin/jobs")}
+            className="h-12 rounded-xl font-bold text-rose-500 hover:bg-rose-50 px-6 transition-all"
           >
-            Cancel
+            <Trash2 className="h-4 w-4 mr-2" /> Archive
           </Button>
           <Button 
-            form="create-job-form"
-            disabled={loading}
+            form="edit-job-form"
+            disabled={saving}
             className="h-12 rounded-xl font-bold px-8 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02]"
           >
-            {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Zap className="h-5 w-5 mr-2 fill-current" />}
-            Publish Posting
+            {saving ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+            Save Changes
           </Button>
         </div>
       </div>
 
-      <form id="create-job-form" onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <form id="edit-job-form" onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         <div className="lg:col-span-2 space-y-8">
           <Card className="p-8 rounded-[2rem] border-none shadow-sm bg-white space-y-8">
             <div className="space-y-6">
@@ -174,7 +214,7 @@ export default function CreateJobPage() {
                   <Label htmlFor="description" className="text-sm font-bold text-slate-700 ml-1">Job Description *</Label>
                   <Textarea 
                     id="description"
-                    placeholder="Tell candidates about the role, expectations, and the impact they'll make..." 
+                    placeholder="Update role expectations..." 
                     className="min-h-[250px] rounded-2xl border-slate-100 bg-slate-50/50 p-6 font-medium text-slate-600 focus:ring-blue-500/10 transition-all leading-relaxed"
                     value={formData.description}
                     onChange={(e) => setFormData({...formData, description: e.target.value})}
@@ -195,7 +235,7 @@ export default function CreateJobPage() {
               <div className="space-y-6">
                 <div className="flex gap-3">
                   <Input 
-                    placeholder="Add a requirement (e.g. 5+ years experience in React)" 
+                    placeholder="Add a requirement..." 
                     className="h-14 rounded-2xl border-slate-100 bg-slate-50/50 px-6 font-medium text-base"
                     value={requirementInput}
                     onChange={(e) => setRequirementInput(e.target.value)}
@@ -227,7 +267,7 @@ export default function CreateJobPage() {
 
         <div className="space-y-8">
           <Card className="p-8 rounded-[2rem] border-none shadow-sm bg-white space-y-6">
-            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Context & Classification</h4>
+            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Classification</h4>
             
             <div className="space-y-6">
               <div className="space-y-2">
@@ -271,7 +311,7 @@ export default function CreateJobPage() {
                 <div className="relative">
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                   <Input 
-                    placeholder="e.g. Acme Corp" 
+                    placeholder="Company name" 
                     className="h-12 rounded-xl border-slate-100 bg-slate-50/50 pl-11 font-bold text-slate-700"
                     value={formData.companyName}
                     onChange={(e) => setFormData({...formData, companyName: e.target.value})}
@@ -284,7 +324,7 @@ export default function CreateJobPage() {
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                   <Input 
-                    placeholder="e.g. San Francisco" 
+                    placeholder="City" 
                     className="h-12 rounded-xl border-slate-100 bg-slate-50/50 pl-11 font-bold text-slate-700"
                     value={formData.locationCity}
                     onChange={(e) => setFormData({...formData, locationCity: e.target.value})}

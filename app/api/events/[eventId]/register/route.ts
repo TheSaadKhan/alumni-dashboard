@@ -45,33 +45,24 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const { answers = {}, paymentMethod, paymentIntentId } = body;
 
-    // Get event details with all necessary data
-    const event = await prisma.event.findUnique({
-      where: { id: eventId, deletedAt: null },
-      select: {
-        id: true,
-        title: true,
-        organizationId: true,
-        organizerId: true,
-        maxCapacity: true,
-        registeredCount: true,
-        waitlistCount: true,
-        requiresApproval: true,
-        isPublished: true,
-        isPaid: true,
-        price: true,
-        currencyCode: true,
-        registrationOpensAt: true,
-        registrationClosesAt: true,
-        startsAt: true,
-        endsAt: true,
-        cancelledAt: true,
-      },
-    });
+    // Resolve event ID (slug or UUID)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
+    const resolvedEvent = await (isUuid 
+      ? prisma.event.findUnique({
+          where: { id: eventId, deletedAt: null },
+          select: { id: true, title: true, organizationId: true, organizerId: true, maxCapacity: true, registeredCount: true, waitlistCount: true, requiresApproval: true, isPublished: true, isPaid: true, price: true, currencyCode: true, registrationOpensAt: true, registrationClosesAt: true, startsAt: true, endsAt: true, cancelledAt: true }
+        })
+      : prisma.event.findFirst({
+          where: { slug: eventId, deletedAt: null },
+          select: { id: true, title: true, organizationId: true, organizerId: true, maxCapacity: true, registeredCount: true, waitlistCount: true, requiresApproval: true, isPublished: true, isPaid: true, price: true, currencyCode: true, registrationOpensAt: true, registrationClosesAt: true, startsAt: true, endsAt: true, cancelledAt: true }
+        }));
 
-    if (!event) {
+    if (!resolvedEvent) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
+
+    const event = resolvedEvent;
+    const actualEventId = event.id;
 
     // Check if event is cancelled
     if (event.cancelledAt) {
@@ -131,7 +122,7 @@ export async function POST(
     const existingRegistration = await prisma.eventRegistration.findUnique({
       where: {
         eventId_userId: {
-          eventId,
+          eventId: actualEventId,
           userId: user.id,
         },
       },
@@ -194,12 +185,12 @@ export async function POST(
       // Update event counts
       if (status === "registered") {
         await tx.event.update({
-          where: { id: eventId },
+          where: { id: actualEventId },
           data: { registeredCount: { increment: 1 } },
         });
       } else if (status === "waitlisted") {
         await tx.event.update({
-          where: { id: eventId },
+          where: { id: actualEventId },
           data: { waitlistCount: { increment: 1 } },
         });
       }
@@ -235,12 +226,12 @@ export async function POST(
         title: notificationTitle,
         body: notificationBody,
         payload: {
-          eventId,
+          eventId: actualEventId,
           eventTitle: event.title,
           status,
           isWaitlisted,
         },
-        actionUrl: `/dashboard/events/${eventId}`,
+        actionUrl: `/dashboard/events/${actualEventId}`,
       },
     });
 
@@ -248,18 +239,18 @@ export async function POST(
     if (status === "registered" || status === "pending") {
       await prisma.notification.create({
         data: {
-          userId: event.organizerId, // This would need to be fetched
+          userId: event.organizerId, 
           organizationId: event.organizationId,
           type: "event_new_registration",
           category: "events",
           title: "New Event Registration",
           body: `${user.fullName} registered for "${event.title}"`,
           payload: {
-            eventId,
+            eventId: actualEventId,
             userId: user.id,
             userName: user.fullName,
           },
-          actionUrl: `/dashboard/events/${eventId}/registrations`,
+          actionUrl: `/dashboard/events/${actualEventId}/registrations`,
         },
       });
     }
@@ -347,28 +338,30 @@ export async function DELETE(
       return NextResponse.json({ error: "User profile not found" }, { status: 404 });
     }
 
-    // Get event details
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: {
-        id: true,
-        title: true,
-        organizationId: true,
-        startsAt: true,
-        registeredCount: true,
-        waitlistCount: true,
-      },
-    });
+    // Resolve event ID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
+    const resolvedEvent = await (isUuid 
+      ? prisma.event.findUnique({
+          where: { id: eventId, deletedAt: null },
+          select: { id: true, title: true, organizationId: true, startsAt: true, registeredCount: true, waitlistCount: true }
+        })
+      : prisma.event.findFirst({
+          where: { slug: eventId, deletedAt: null },
+          select: { id: true, title: true, organizationId: true, startsAt: true, registeredCount: true, waitlistCount: true }
+        }));
 
-    if (!event) {
+    if (!resolvedEvent) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
+
+    const event = resolvedEvent;
+    const actualEventId = event.id;
 
     // Check if user is registered
     const registration = await prisma.eventRegistration.findUnique({
       where: {
         eventId_userId: {
-          eventId,
+          eventId: actualEventId,
           userId: user.id,
         },
       },
@@ -405,12 +398,12 @@ export async function DELETE(
       // Update event counts
       if (registration.status === "registered") {
         await tx.event.update({
-          where: { id: eventId },
+          where: { id: actualEventId },
           data: { registeredCount: { decrement: 1 } },
         });
       } else if (registration.status === "waitlisted") {
         await tx.event.update({
-          where: { id: eventId },
+          where: { id: actualEventId },
           data: { waitlistCount: { decrement: 1 } },
         });
       }
@@ -527,11 +520,29 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // Resolve event ID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
+    const resolvedEvent = await (isUuid 
+      ? prisma.event.findUnique({
+          where: { id: eventId, deletedAt: null },
+          select: { id: true, maxCapacity: true, registeredCount: true, waitlistCount: true, startsAt: true }
+        })
+      : prisma.event.findFirst({
+          where: { slug: eventId, deletedAt: null },
+          select: { id: true, maxCapacity: true, registeredCount: true, waitlistCount: true, startsAt: true }
+        }));
+
+    if (!resolvedEvent) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
+    const actualEventId = resolvedEvent.id;
+
     // Get registration status
     const registration = await prisma.eventRegistration.findUnique({
       where: {
         eventId_userId: {
-          eventId,
+          eventId: actualEventId,
           userId: user.id,
         },
       },
@@ -545,17 +556,6 @@ export async function GET(
       },
     });
 
-    // Get event capacity info
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: {
-        maxCapacity: true,
-        registeredCount: true,
-        waitlistCount: true,
-        startsAt: true,
-      },
-    });
-
     return NextResponse.json({
       success: true,
       isRegistered: !!registration,
@@ -566,17 +566,17 @@ export async function GET(
         checkedInAt: registration.checkedInAt,
         paymentStatus: registration.paymentStatus,
       } : null,
-      eventCapacity: event ? {
-        maxCapacity: event.maxCapacity,
-        registeredCount: event.registeredCount,
-        waitlistCount: event.waitlistCount,
-        availableSpots: event.maxCapacity 
-          ? Math.max(0, event.maxCapacity - event.registeredCount)
+      eventCapacity: {
+        maxCapacity: resolvedEvent.maxCapacity,
+        registeredCount: resolvedEvent.registeredCount,
+        waitlistCount: resolvedEvent.waitlistCount,
+        availableSpots: resolvedEvent.maxCapacity 
+          ? Math.max(0, resolvedEvent.maxCapacity - resolvedEvent.registeredCount)
           : null,
-        isFull: event.maxCapacity 
-          ? event.registeredCount >= event.maxCapacity
+        isFull: resolvedEvent.maxCapacity 
+          ? resolvedEvent.registeredCount >= resolvedEvent.maxCapacity
           : false,
-      } : null,
+      },
     });
   } catch (error: any) {
     console.error("Check registration error:", error);

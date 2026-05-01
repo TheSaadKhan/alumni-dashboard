@@ -60,7 +60,15 @@ export type CreateOrgInput = {
    ✅ UPDATED MAIN ACTION WITH PROPER HIERARCHY
 -------------------------------------------- */
 
-export async function createOrganizationAction(input: CreateOrgInput) {
+export async function createOrganizationAction(input: CreateOrgInput): Promise<{
+  success: boolean;
+  organizationId: string;
+  slug: string;
+  name: string;
+  isRequest: boolean;
+  error?: string;
+}> {
+  try {
   const { userId } = await auth();
   if (!userId) throw new Error("Not authenticated.");
 
@@ -83,7 +91,7 @@ export async function createOrganizationAction(input: CreateOrgInput) {
   if (!user) throw new Error("User profile not found.");
 
   // If a student/alumni is trying to create an org, it's always a request unless they are super_admin
-  const isActuallyRequest = user.userType !== UserType.super_admin || input.isRequest;
+  const isActuallyRequest = !!(user.userType !== UserType.super_admin || input.isRequest);
 
   // Create org slug
   const baseSlug = slugify(input.name);
@@ -211,6 +219,17 @@ export async function createOrganizationAction(input: CreateOrgInput) {
     name: result.org.name,
     isRequest: isActuallyRequest
   };
+
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Failed to create organization",
+      organizationId: "",
+      slug: "",
+      name: "",
+      isRequest: false
+    };
+  }
 }
 
 export type UpdateOrgInput = Partial<CreateOrgInput> & {

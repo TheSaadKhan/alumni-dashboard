@@ -158,6 +158,28 @@
 }
 
 /* ===============================
+   SHIMMER SKELETON ANIMATION
+================================ */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ===============================
+   PERFORMANCE UTILITIES
+================================ */
+.will-animate {
+  will-change: transform, opacity;
+}
+
+/* Fast page transitions */
+.animate-in {
+  animation-fill-mode: both;
+}
+
+
+/* ===============================
    GRADIENT STAT CARDS
 ================================ */
 .gradient-primary {

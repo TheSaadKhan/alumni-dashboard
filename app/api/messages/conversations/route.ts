@@ -186,7 +186,7 @@ export async function GET(req: NextRequest) {
         avatar: thread.threadType === "group" 
           ? null 
           : (otherMembers[0]?.user.avatarUrl || null),
-        participants: otherMembers.map(m => ({
+        otherParticipants: otherMembers.map(m => ({
           id: m.user.id,
           name: m.user.fullName,
           avatar: m.user.avatarUrl,

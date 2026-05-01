@@ -73,27 +73,24 @@ export async function POST(
       );
     }
 
-    // Get job details
-    const job = await prisma.jobPosting.findUnique({
-      where: { id: jobId, deletedAt: null },
-      select: {
-        id: true,
-        title: true,
-        organizationId: true,
-        status: true,
-        expiresAt: true,
-        applicationMethod: true,
-        customQuestions: true,
-        postedBy: true,
-      },
-    });
+    // Resolve job ID (slug or UUID)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+    const resolvedJob = await (isUuid 
+      ? prisma.jobPosting.findUnique({
+          where: { id: jobId, deletedAt: null },
+          select: { id: true, title: true, organizationId: true, status: true, expiresAt: true, applicationMethod: true, customQuestions: true, postedBy: true }
+        })
+      : prisma.jobPosting.findFirst({
+          where: { slug: jobId, deletedAt: null },
+          select: { id: true, title: true, organizationId: true, status: true, expiresAt: true, applicationMethod: true, customQuestions: true, postedBy: true }
+        }));
 
-    if (!job) {
-      return NextResponse.json(
-        { error: "Job not found" },
-        { status: 404 }
-      );
+    if (!resolvedJob) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
+
+    const job = resolvedJob;
+    const actualJobId = job.id;
 
     // Check if user belongs to the same organization
     if (user.organizationId !== job.organizationId) {
@@ -130,7 +127,7 @@ export async function POST(
     const existingApplication = await prisma.jobApplication.findUnique({
       where: {
         jobPostingId_applicantId: {
-          jobPostingId: jobId,
+          jobPostingId: actualJobId,
           applicantId: user.id,
         },
       },
@@ -170,7 +167,7 @@ export async function POST(
 
     // Prepare application data
     const applicationData: any = {
-      jobPostingId: jobId,
+      jobPostingId: actualJobId,
       applicantId: user.id,
       organizationId: job.organizationId,
       status: ApplicationStatus.submitted,
@@ -180,7 +177,20 @@ export async function POST(
     // Add optional fields
     if (coverLetter) applicationData.coverLetter = coverLetter;
     if (expectedSalary) applicationData.expectedSalary = parseFloat(expectedSalary);
-    if (salaryCurrency) applicationData.salaryCurrency = salaryCurrency;
+    // Validate currency if provided to avoid FK violation
+    if (salaryCurrency) {
+      const currencyExists = await prisma.currency.findUnique({
+        where: { code: salaryCurrency }
+      });
+      if (!currencyExists) {
+        // Try fallback to INR since we localized
+        const inrExists = await prisma.currency.findUnique({ where: { code: "INR" } });
+        applicationData.salaryCurrency = inrExists ? "INR" : null;
+      } else {
+        applicationData.salaryCurrency = salaryCurrency;
+      }
+    }
+    
     if (availableFrom) applicationData.availableFrom = new Date(availableFrom);
     
     // Use provided resume URL or fallback to profile resume
@@ -211,7 +221,7 @@ export async function POST(
 
       // Update job application count
       await tx.jobPosting.update({
-        where: { id: jobId },
+        where: { id: actualJobId },
         data: { applicationCount: { increment: 1 } },
       });
 
@@ -225,13 +235,13 @@ export async function POST(
           title: "New Job Application",
           body: `${user.fullName} applied for "${job.title}"`,
           payload: {
-            jobId,
+            jobId: actualJobId,
             jobTitle: job.title,
             applicantId: user.id,
             applicantName: user.fullName,
             applicationId: app.id,
           },
-          actionUrl: `/dashboard/jobs/${jobId}/applications`,
+          actionUrl: `/dashboard/jobs/${actualJobId}/applications`,
         },
       });
 
@@ -313,10 +323,26 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // Resolve job ID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+    const resolvedJob = await (isUuid 
+      ? prisma.jobPosting.findUnique({
+          where: { id: jobId, deletedAt: null },
+          select: { id: true, title: true, status: true, expiresAt: true }
+        })
+      : prisma.jobPosting.findFirst({
+          where: { slug: jobId, deletedAt: null },
+          select: { id: true, title: true, status: true, expiresAt: true }
+        }));
+
+    if (!resolvedJob) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+
     const application = await prisma.jobApplication.findUnique({
       where: {
         jobPostingId_applicantId: {
-          jobPostingId: jobId,
+          jobPostingId: resolvedJob.id,
           applicantId: user.id,
         },
       },
@@ -333,15 +359,7 @@ export async function GET(
       },
     });
 
-    const job = await prisma.jobPosting.findUnique({
-      where: { id: jobId },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        expiresAt: true,
-      },
-    });
+    const job = resolvedJob;
 
     return NextResponse.json({
       success: true,
@@ -404,11 +422,27 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // Resolve job ID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+    const resolvedJob = await (isUuid 
+      ? prisma.jobPosting.findUnique({
+          where: { id: jobId, deletedAt: null },
+          select: { id: true, organizationId: true, postedBy: true, title: true }
+        })
+      : prisma.jobPosting.findFirst({
+          where: { slug: jobId, deletedAt: null },
+          select: { id: true, organizationId: true, postedBy: true, title: true }
+        }));
+
+    if (!resolvedJob) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+
     // Get the application
     const application = await prisma.jobApplication.findUnique({
       where: {
         jobPostingId_applicantId: {
-          jobPostingId: jobId,
+          jobPostingId: resolvedJob.id,
           applicantId: user.id,
         },
       },
@@ -457,7 +491,7 @@ export async function DELETE(
 
     // Update job application count
     await prisma.jobPosting.update({
-      where: { id: jobId },
+      where: { id: application.jobPosting.id },
       data: { applicationCount: { decrement: 1 } },
     });
 
@@ -471,13 +505,13 @@ export async function DELETE(
         title: "Application Withdrawn",
         body: `${user.fullName} withdrew their application for "${application.jobPosting.title}"`,
         payload: {
-          jobId,
+          jobId: application.jobPosting.id,
           jobTitle: application.jobPosting.title,
           applicantId: user.id,
           applicantName: user.fullName,
           reason,
         },
-        actionUrl: `/dashboard/jobs/${jobId}/applications`,
+        actionUrl: `/dashboard/jobs/${application.jobPosting.id}/applications`,
       },
     });
 

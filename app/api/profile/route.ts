@@ -417,6 +417,17 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    // Verify country exists to avoid FK violation
+    let finalCountryCode = countryCode;
+    if (countryCode) {
+      const countryExists = await prisma.country.findUnique({
+        where: { code: countryCode }
+      });
+      if (!countryExists) {
+        finalCountryCode = null;
+      }
+    }
+
     // Update user basic info
     const updateUserData: any = {};
     if (firstName !== undefined) updateUserData.firstName = firstName;
@@ -443,7 +454,7 @@ export async function PUT(req: NextRequest) {
       if (headline !== undefined) alumniUpdateData.headline = headline;
       if (bio !== undefined) alumniUpdateData.bio = bio;
       if (city !== undefined) alumniUpdateData.city = city;
-      if (countryCode !== undefined) alumniUpdateData.countryCode = countryCode;
+      if (countryCode !== undefined) alumniUpdateData.countryCode = finalCountryCode;
       if (degree !== undefined) alumniUpdateData.degree = degree;
       if (major !== undefined) alumniUpdateData.major = major;
       if (minor !== undefined) alumniUpdateData.minor = minor;
@@ -481,7 +492,7 @@ export async function PUT(req: NextRequest) {
       if (headline !== undefined) studentUpdateData.headline = headline;
       if (bio !== undefined) studentUpdateData.bio = bio;
       if (city !== undefined) studentUpdateData.city = city;
-      if (countryCode !== undefined) studentUpdateData.countryCode = countryCode;
+      if (countryCode !== undefined) studentUpdateData.countryCode = finalCountryCode;
       if (major !== undefined) studentUpdateData.major = major;
       if (minor !== undefined) studentUpdateData.minor = minor;
       if (enrollmentYear !== undefined) studentUpdateData.enrollmentYear = enrollmentYear;

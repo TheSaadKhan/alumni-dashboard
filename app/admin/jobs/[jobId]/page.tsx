@@ -1,305 +1,375 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { 
-  Button 
-} from "@/components/ui/button";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle,
-  CardFooter
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Avatar, 
-  AvatarFallback, 
-  AvatarImage 
-} from "@/components/ui/avatar";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from "@/components/ui/tabs";
-import { 
-  ArrowLeft, 
-  Briefcase, 
-  Building2, 
-  MapPin, 
-  DollarSign, 
-  Calendar, 
-  Users, 
-  Mail, 
-  Download, 
-  BarChart3, 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ArrowLeft,
+  Briefcase,
+  Building2,
+  MapPin,
+  DollarSign,
+  Calendar,
+  Users,
+  Mail,
+  Download,
   Edit,
   ChevronRight,
-  Activity,
   Zap,
   Clock,
-  ExternalLink,
-  ShieldCheck,
-  TrendingUp,
-  FileText,
   Trash2,
-  RefreshCw
+  Eye,
+  CheckCircle2,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Share2,
+  Globe
 } from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function JobDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const jobId = params?.jobId as string;
 
-  // Mock job data
-  const job = {
-    id: params.jobId,
-    title: "Senior Software Engineer",
-    company: "TechCorp",
-    type: "full-time",
-    status: "published",
-    location: "San Francisco, CA",
-    salary: "$120,000 - $150,000",
-    description: "We are looking for an experienced Software Engineer to join our core platform team. You will be responsible for designing, developing, and maintaining scalable software solutions.",
-    requirements: ["5+ years experience", "React/Node.js", "AWS", "TypeScript"],
-    posted: "2024-01-15",
-    expires: "2024-02-15",
-    applications: 24,
-    views: 156,
-    poster: {
-      name: "Sarah Chen",
-      email: "sarah.chen@techcorp.com",
-      role: "Engineering Manager",
-      batch: "2015"
+  const [loading, setLoading] = useState(true);
+  const [job, setJob] = useState<any>(null);
+
+  useEffect(() => {
+    if (jobId) fetchJob();
+  }, [jobId]);
+
+  const fetchJob = async () => {
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      if (!res.ok) throw new Error("Failed to fetch job");
+      const data = await res.json();
+      setJob(data.job);
+    } catch (err) {
+      toast.error("Failed to load job details");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const applications = [
-    { id: 1, name: "Mike Rodriguez", email: "mike@example.com", applied: "2024-01-20", status: "review", match: 85 },
-    { id: 2, name: "Emily Davis", email: "emily@example.com", applied: "2024-01-19", status: "interview", match: 92 },
-    { id: 3, name: "David Wilson", email: "david@example.com", applied: "2024-01-18", status: "rejected", match: 45 },
-    { id: 4, name: "Alex Johnson", email: "alex@example.com", applied: "2024-01-17", status: "review", match: 78 },
-    { id: 5, name: "Maria Garcia", email: "maria@example.com", applied: "2024-01-16", status: "accepted", match: 95 }
-  ];
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-8 animate-in fade-in duration-300">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-xl" />
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-28 rounded-lg" />
+            <Skeleton className="h-8 w-72 rounded-xl" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {Array(4).fill(0).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4">
+              <Skeleton className="h-12 w-12 rounded-2xl" />
+              <div className="space-y-1.5">
+                <Skeleton className="h-6 w-16 rounded-lg" />
+                <Skeleton className="h-3 w-20 rounded-lg" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-64 w-full rounded-3xl" />
+            <Skeleton className="h-48 w-full rounded-3xl" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-52 w-full rounded-3xl" />
+            <Skeleton className="h-36 w-full rounded-3xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const statistics = {
-    applicationRate: 15.4,
-    viewToApply: 3.2,
-    avgMatchScore: 79,
-    topSkills: ["React", "Node.js", "TypeScript", "AWS"]
-  };
+  if (!job) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+        <div className="p-6 bg-slate-100 rounded-full">
+          <Briefcase className="h-12 w-12 text-slate-400" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Job Not Found</h2>
+          <p className="text-slate-500 mt-2 max-w-sm">The job posting you're looking for doesn't exist or has been removed.</p>
+        </div>
+        <Button onClick={() => router.back()} variant="outline" className="rounded-xl px-8 h-12">
+          <ArrowLeft className="h-4 w-4 mr-2" /> Go Back
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-10 animate-in fade-in duration-700">
-      {/* Job Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="flex items-center gap-4">
-           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900" onClick={() => router.push("/admin/jobs")}>
-              <ArrowLeft className="h-4 w-4" />
-           </Button>
-           <div>
-              <div className="flex items-center gap-2 mb-1">
-                 <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Market Orchestration</span>
-                 <div className="h-1 w-1 rounded-full bg-slate-300"></div>
-                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Asset Verification</span>
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white uppercase italic tracking-tighter">{job.title}</h1>
-           </div>
+    <div className="max-w-6xl mx-auto px-6 py-12 space-y-10 animate-in fade-in duration-500">
+      {/* Dynamic Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+        <div className="flex items-start gap-5">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-12 w-12 rounded-xl bg-slate-50 hover:bg-slate-100 border-none transition-all" 
+            onClick={() => router.push("/admin/jobs")}
+          >
+            <ArrowLeft className="h-5 w-5 text-slate-600" />
+          </Button>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="bg-blue-600 text-white border-none rounded-full px-4 py-1 text-[10px] font-bold uppercase tracking-wider">
+                {job.jobType?.replace('_', ' ')}
+              </Badge>
+              <Badge variant="outline" className="rounded-full px-4 py-1 text-[10px] font-bold uppercase tracking-wider border-slate-200 text-slate-500">
+                {job.status}
+              </Badge>
+            </div>
+            <h1 className="text-4xl font-bold text-slate-900 tracking-tight">{job.title}</h1>
+            <div className="flex items-center gap-4 text-slate-500 text-sm font-medium">
+              <span className="flex items-center gap-1.5"><Building2 className="h-4 w-4" /> {job.companyName}</span>
+              <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" /> {job.locationCity}</span>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-           <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-400 px-6 uppercase text-[10px] tracking-widest">
-              <Edit className="h-4 w-4 mr-3" /> Recalibrate
-           </Button>
-           <Button className="h-11 rounded-xl font-bold px-8 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/10 uppercase text-[10px] tracking-widest">
-              <Briefcase className="h-4 w-4 mr-3" /> Manage Node
-           </Button>
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <Button 
+            variant="outline" 
+            className="h-12 flex-1 lg:flex-none rounded-xl font-bold px-6 border-slate-200 hover:bg-slate-50 transition-all"
+            onClick={() => router.push(`/admin/jobs/edit/${job.id}`)}
+          >
+            <Edit className="h-4 w-4 mr-2" /> Edit
+          </Button>
+          <Button 
+            className="h-12 flex-1 lg:flex-none rounded-xl font-bold px-8 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02]"
+          >
+            <Share2 className="h-4 w-4 mr-2" /> Share
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-        <div className="lg:col-span-3 space-y-10">
-           <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="bg-slate-100 dark:bg-slate-950/40 p-1.5 rounded-2xl w-fit flex gap-1 mb-8 overflow-x-auto no-scrollbar">
-                 <TabsTrigger value="overview" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Node Overview</TabsTrigger>
-                 <TabsTrigger value="applications" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Identity Registry ({applications.length})</TabsTrigger>
-                 <TabsTrigger value="analytics" className="h-9 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-400">Market Performance</TabsTrigger>
-              </TabsList>
+      {/* Analytics Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { label: "Applicants", value: job.applicationCount || 0, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
+          { label: "Views", value: job.viewCount || 0, icon: Eye, color: "text-indigo-600", bg: "bg-indigo-50" },
+          { label: "Time Active", value: `${Math.floor((Date.now() - new Date(job.createdAt).getTime()) / (1000 * 60 * 60 * 24))} Days`, icon: Clock, color: "text-emerald-600", bg: "bg-emerald-50" },
+          { label: "Relevance", value: "88%", icon: Zap, color: "text-amber-600", bg: "bg-amber-50" },
+        ].map((stat, i) => (
+          <Card key={i} className="p-6 rounded-3xl border-none shadow-sm bg-white hover:shadow-md transition-shadow flex items-center gap-5">
+            <div className={`h-14 w-14 rounded-2xl ${stat.bg} flex items-center justify-center`}>
+              <stat.icon className={`h-6 w-6 ${stat.color}`} />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{stat.label}</p>
+              <h4 className="text-2xl font-bold text-slate-900 tracking-tight">{stat.value}</h4>
+            </div>
+          </Card>
+        ))}
+      </div>
 
-              <TabsContent value="overview" className="m-0 space-y-10 animate-in fade-in slide-in-from-bottom-2">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-10">
-                       <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-8">Asset Specification</h3>
-                       <div className="space-y-6">
-                          <div className="flex flex-wrap gap-2 mb-4">
-                             <Badge variant="outline" className="bg-blue-50 text-blue-600 border-none rounded-lg text-[9px] font-black uppercase tracking-widest px-3 py-1 italic">{job.type}</Badge>
-                             <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-none rounded-lg text-[9px] font-black uppercase tracking-widest px-3 py-1 italic">{job.status}</Badge>
-                          </div>
-                          <div className="flex items-center gap-3 mb-4">
-                             <Building2 className="h-4 w-4 text-slate-300" />
-                             <p className="text-sm font-bold text-slate-900 uppercase italic">{job.company}</p>
-                          </div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-loose">{job.description}</p>
-                          <div className="grid grid-cols-1 gap-6 pt-6 border-t border-slate-50">
-                             <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center">
-                                   <MapPin className="h-5 w-5 text-slate-300" />
-                                </div>
-                                <div className="text-left">
-                                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Geographic Vertex</p>
-                                   <p className="text-sm font-bold text-slate-900 uppercase italic">{job.location}</p>
-                                </div>
-                             </div>
-                             <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center">
-                                   <DollarSign className="h-5 w-5 text-slate-300" />
-                                </div>
-                                <div className="text-left">
-                                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Yield Projection</p>
-                                   <p className="text-sm font-bold text-slate-900 uppercase italic">{job.salary}</p>
-                                </div>
-                             </div>
-                          </div>
-                       </div>
-                    </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="lg:col-span-2 space-y-10">
+          <Tabs defaultValue="details" className="w-full">
+            <TabsList className="bg-slate-100 p-1 rounded-2xl w-fit flex gap-1 mb-8">
+              <TabsTrigger value="details" className="px-8 rounded-xl text-sm font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Details</TabsTrigger>
+              <TabsTrigger value="candidates" className="px-8 rounded-xl text-sm font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Candidates</TabsTrigger>
+              <TabsTrigger value="insights" className="px-8 rounded-xl text-sm font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Insights</TabsTrigger>
+            </TabsList>
 
-                    <Card className="border-none shadow-sm rounded-[3rem] bg-indigo-600 p-10 text-white relative overflow-hidden">
-                       <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-1000 rotate-12">
-                          <Activity className="h-48 w-48" />
-                       </div>
-                       <h3 className="text-xl font-bold italic uppercase tracking-tighter mb-8 relative z-10">Market Pulse</h3>
-                       <div className="space-y-8 relative z-10">
-                          <div className="grid grid-cols-2 gap-8">
-                             <div>
-                                <p className="text-4xl font-bold tracking-tighter mb-1">{job.applications}</p>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100/60 mb-1">Total Identities</p>
-                                <p className="text-[9px] text-indigo-100/30 font-bold uppercase tracking-widest italic">Received Nodes</p>
-                             </div>
-                             <div>
-                                <p className="text-4xl font-bold tracking-tighter mb-1">{job.views}</p>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100/60 mb-1">Identity Views</p>
-                                <p className="text-[9px] text-indigo-100/30 font-bold uppercase tracking-widest italic">Interaction Pulse</p>
-                             </div>
-                          </div>
-                          <div className="pt-6 border-t border-white/10">
-                             <div className="flex justify-between items-center mb-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100/60">Recruitment Yield</p>
-                                <p className="text-sm font-bold italic">{statistics.applicationRate}%</p>
-                             </div>
-                             <Progress value={statistics.applicationRate} className="h-2 bg-white/20" />
-                          </div>
-                       </div>
-                    </Card>
-                 </div>
-              </TabsContent>
+            <TabsContent value="details" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <Card className="p-10 rounded-[2.5rem] border-none shadow-sm bg-white space-y-10">
+                <div className="flex flex-col md:flex-row justify-between items-start gap-8 pb-8 border-b border-slate-50">
+                  <div className="flex items-center gap-6">
+                    <div className="h-20 w-20 rounded-3xl bg-slate-50 flex items-center justify-center p-3 border border-slate-100 shadow-inner">
+                      {job.companyLogoUrl ? (
+                        <img src={job.companyLogoUrl} alt={job.companyName} className="max-h-full max-w-full object-contain" />
+                      ) : (
+                        <Building2 className="h-10 w-10 text-slate-300" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-slate-900">{job.companyName}</h3>
+                      <p className="text-slate-500 font-medium flex items-center gap-2 mt-1">
+                        <Globe className="h-4 w-4" /> Company Profile
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-left md:text-right space-y-1">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Target Compensation</p>
+                    <p className="text-3xl font-extrabold text-blue-600 tracking-tight">
+                      {job.salaryCurrency} {job.salaryMin?.toLocaleString()} - {job.salaryMax?.toLocaleString()}
+                    </p>
+                    <p className="text-sm font-bold text-slate-400 italic">per {job.salaryPeriod}</p>
+                  </div>
+                </div>
 
-              <TabsContent value="applications" className="m-0 animate-in fade-in slide-in-from-bottom-2">
-                 <Card className="border-none shadow-sm rounded-[3rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden">
-                    <Table>
-                       <TableHeader className="bg-slate-50/50">
-                          <TableRow className="border-none hover:bg-transparent">
-                             <TableHead className="px-10 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Candidate Identity</TableHead>
-                             <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Match Logic</TableHead>
-                             <TableHead className="py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-center">Protocol State</TableHead>
-                             <TableHead className="px-10 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic text-right">Telemetry</TableHead>
-                          </TableRow>
-                       </TableHeader>
-                       <TableBody>
-                          {applications.map((a) => (
-                             <TableRow key={a.id} className="border-b border-slate-50/50 hover:bg-white/40 transition-all group">
-                                <TableCell className="px-10 py-6">
-                                   <div className="flex items-center gap-4">
-                                      <Avatar className="h-10 w-10 rounded-xl border-2 border-white shadow-sm">
-                                         <AvatarImage src={`/avatars/${a.name.toLowerCase().replace(' ', '-')}.jpg`} />
-                                         <AvatarFallback className="bg-slate-900 text-white font-black text-[10px] italic">{a.name[0]}</AvatarFallback>
-                                      </Avatar>
-                                      <div>
-                                         <p className="text-sm font-bold text-slate-900 uppercase italic leading-none">{a.name}</p>
-                                         <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1.5 italic">{a.email}</p>
-                                      </div>
-                                   </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                   <div className="flex flex-col items-center gap-2">
-                                      <Progress value={a.match} className="h-1.5 w-16 bg-slate-100" />
-                                      <span className="text-[10px] font-black text-blue-600 italic">{a.match}% Hub Match</span>
-                                   </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                   <Badge className="bg-blue-50 text-blue-600 border-none rounded-lg text-[9px] font-black uppercase tracking-widest px-3 py-1 italic">{a.status}</Badge>
-                                </TableCell>
-                                <TableCell className="px-10 text-right">
-                                   <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-blue-50 text-slate-100 hover:text-slate-400 transition-colors"><Mail className="h-4 w-4" /></Button>
-                                </TableCell>
-                             </TableRow>
-                          ))}
-                       </TableBody>
-                    </Table>
-                 </Card>
-              </TabsContent>
-           </Tabs>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-blue-600" /> Job Description
+                    </h4>
+                    <div className="text-slate-600 leading-relaxed text-base font-medium whitespace-pre-wrap">
+                      {job.description}
+                    </div>
+                  </div>
+
+                  <div className="space-y-10">
+                    <div className="space-y-4">
+                      <h4 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600" /> Key Requirements
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {job.requirements?.split('\n').map((req: string, i: number) => (
+                          <Badge key={i} variant="secondary" className="bg-slate-50 text-slate-600 border-slate-100 rounded-xl px-4 py-1.5 text-xs font-bold">
+                            {req}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="p-8 rounded-3xl bg-blue-50/50 border border-blue-100/50 space-y-6">
+                      <h4 className="text-sm font-bold text-blue-900 flex items-center gap-2 uppercase tracking-wider">
+                        <Calendar className="h-4 w-4" /> Timeline
+                      </h4>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Posted</p>
+                          <p className="text-sm font-bold text-blue-900 mt-1">{format(new Date(job.createdAt), 'MMMM dd, yyyy')}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Deadline</p>
+                          <p className="text-sm font-bold text-blue-900 mt-1">
+                            {job.expiresAt ? format(new Date(job.expiresAt), 'MMMM dd, yyyy') : 'No Expiry'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="candidates" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <Card className="rounded-[2.5rem] border-none shadow-sm bg-white overflow-hidden">
+                <div className="p-8 border-b border-slate-50 flex justify-between items-center">
+                  <h3 className="text-lg font-bold text-slate-900">Recent Applications</h3>
+                  <Button variant="ghost" className="text-blue-600 font-bold">View Pipeline</Button>
+                </div>
+                <Table>
+                  <TableHeader className="bg-slate-50/50">
+                    <TableRow className="border-none">
+                      <TableHead className="px-8 py-5 text-xs font-bold uppercase tracking-wider text-slate-400">Candidate</TableHead>
+                      <TableHead className="text-center text-xs font-bold uppercase tracking-wider text-slate-400">Status</TableHead>
+                      <TableHead className="text-center text-xs font-bold uppercase tracking-wider text-slate-400">Profile Match</TableHead>
+                      <TableHead className="px-8 py-5 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {job.applications?.length > 0 ? (
+                      job.applications.map((app: any) => (
+                        <TableRow key={app.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all">
+                          <TableCell className="px-8 py-5">
+                            <div className="flex items-center gap-4">
+                              <Avatar className="h-10 w-10 rounded-xl border border-white shadow-sm">
+                                <AvatarImage src={app.applicant?.avatar} />
+                                <AvatarFallback className="bg-blue-600 text-white font-bold">{app.applicant?.name?.[0]}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-sm font-bold text-slate-900">{app.applicant?.name}</p>
+                                <p className="text-[11px] font-medium text-slate-400">{app.applicant?.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge className="bg-blue-50 text-blue-600 border-none rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-widest">
+                              {app.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-full">
+                              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+                              <span className="text-[11px] font-bold text-emerald-700">92% Match</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-8 text-right">
+                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-blue-50 text-slate-400 hover:text-blue-600">
+                              <ChevronRight className="h-5 w-5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-48 text-center text-slate-400 font-medium italic">
+                          No applications received yet.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
 
-        {/* Action Sidebar */}
         <div className="space-y-8">
-           <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 backdrop-blur-xl p-8">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 italic mb-8">Asset Control Protocol</h4>
-              <div className="space-y-2">
-                 {[
-                   { label: "Dispatch Relay", icon: Mail, sub: "Identity Message" },
-                   { label: "Registry Export", icon: Download, sub: "CSV Dataset" },
-                   { label: "Audit Match", icon: TrendingUp, sub: "Logic Recalibration" },
-                   { label: "Asset Settings", icon: Briefcase, sub: "Core Configuration" }
-                 ].map((action, i) => (
-                    <button 
-                       key={i} 
-                       className="w-full flex items-center justify-between p-5 rounded-2xl hover:bg-slate-50 transition-all group"
-                    >
-                       <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-slate-300 group-hover:text-blue-600 transition-colors">
-                             <action.icon className="h-4 w-4" />
-                          </div>
-                          <div className="text-left">
-                             <p className="text-[11px] font-bold text-slate-900 uppercase italic leading-none">{action.label}</p>
-                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">{action.sub}</p>
-                          </div>
-                       </div>
-                       <ChevronRight className="h-3.5 w-3.5 text-slate-100 group-hover:text-slate-400 transition-transform" />
-                    </button>
-                 ))}
-              </div>
-           </Card>
+          <Card className="p-8 rounded-[2.5rem] border-none shadow-sm bg-white space-y-8">
+            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Quick Actions</h4>
+            <div className="space-y-2">
+              {[
+                { label: "Export Data", icon: Download, sub: "Generate CSV Report", color: "blue" },
+                { label: "Contact Admin", icon: Mail, sub: "Message Job Poster", color: "indigo" },
+                { label: "Live Preview", icon: ExternalLink, sub: "View Public Page", color: "amber" },
+              ].map((action, i) => (
+                <button 
+                  key={i} 
+                  className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
+                      <action.icon className="h-4 w-4" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold text-slate-900 leading-none">{action.label}</p>
+                      <p className="text-[10px] font-medium text-slate-400 mt-1">{action.sub}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Card>
 
-           <Card className="border-none shadow-sm rounded-[2.5rem] bg-slate-900 p-8 text-white relative overflow-hidden group">
-              <div className="absolute top-0 right-0 h-32 w-32 bg-rose-500/20 blur-3xl rounded-full translate-x-12 -translate-y-12"></div>
-              <div className="relative z-10 flex flex-col gap-6">
-                 <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-md">
-                    <Trash2 className="h-6 w-6 text-rose-400" />
-                 </div>
-                 <div>
-                    <h4 className="text-xl font-bold uppercase italic tracking-tighter">Danger Zone</h4>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-2 leading-loose">Asset termination is permanent. All candidate identity nodes will be disconnected. Proceed with extreme caution.</p>
-                 </div>
-                 <Button variant="ghost" className="w-full h-12 rounded-2xl border border-white/10 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white transition-all">
-                    Terminiate Asset Node
-                 </Button>
+          <Card className="p-10 rounded-[2.5rem] border-none bg-slate-900 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 h-40 w-40 bg-rose-500/10 blur-[80px] rounded-full translate-x-12 -translate-y-12"></div>
+            <div className="relative z-10 space-y-6">
+              <div className="h-14 w-14 rounded-2xl bg-white/10 flex items-center justify-center backdrop-blur-xl">
+                <Trash2 className="h-7 w-7 text-rose-400" />
               </div>
-           </Card>
+              <div>
+                <h4 className="text-xl font-bold">Archive Posting</h4>
+                <p className="text-slate-400 text-sm mt-2 leading-relaxed">
+                  Removing this job will hide it from the public network. All current data will be preserved in history.
+                </p>
+              </div>
+              <Button variant="ghost" className="w-full h-12 rounded-xl border border-white/10 text-xs font-bold hover:bg-rose-500 hover:text-white transition-all">
+                Delete Job Posting
+              </Button>
+            </div>
+          </Card>
         </div>
       </div>
-
-      <footer className="pt-10 border-t border-slate-50 flex items-center justify-center">
-         <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.4em]">Integrated Market Governor v1.1.2 • Career Nexus Analysis</p>
-      </footer>
     </div>
   );
 }
+

@@ -206,6 +206,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
+    console.log("POST /api/events - Request Body:", JSON.stringify(body, null, 2));
+    console.log("POST /api/events - Clerk ID:", clerkId);
+
     const {
       organizationId,
       title,
@@ -236,30 +239,41 @@ export async function POST(req: NextRequest) {
 
     // Validation
     if (!organizationId) {
+      console.log("Validation failed: Organization ID required");
       return NextResponse.json({ error: "Organization ID required" }, { status: 400 });
     }
 
     if (!title || !title.trim()) {
+      console.log("Validation failed: Event title required");
       return NextResponse.json({ error: "Event title required" }, { status: 400 });
     }
 
-    if (!startsAt) {
-      return NextResponse.json({ error: "Start date/time required" }, { status: 400 });
+    const startDate = new Date(startsAt);
+    if (isNaN(startDate.getTime())) {
+      console.log("Validation failed: Invalid start date format", startsAt);
+      return NextResponse.json({ error: "Invalid start date format" }, { status: 400 });
+    }
+    const endDate = endsAt ? new Date(endsAt) : new Date(startDate.getTime() + 3600000);
+    if (endsAt && isNaN(endDate.getTime())) {
+      console.log("Validation failed: Invalid end date format", endsAt);
+      return NextResponse.json({ error: "Invalid end date format" }, { status: 400 });
     }
 
-    const startDate = new Date(startsAt);
-    const endDate = endsAt ? new Date(endsAt) : new Date(startDate.getTime() + 3600000);
-
     if (endDate <= startDate) {
+      console.log("Validation failed: End time must be after start time");
       return NextResponse.json(
         { error: "End time must be after start time" },
         { status: 400 }
       );
     }
 
-    if (startDate < new Date()) {
+    // Allow 5 minutes grace period for "past" events to account for clock skew/latency
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    if (startDate < fiveMinutesAgo) {
+      const msg = `Event cannot be scheduled in the past (Start: ${startDate.toISOString()}, Server Time: ${new Date().toISOString()})`;
+      console.log("Validation failed:", msg);
       return NextResponse.json(
-        { error: "Event cannot be scheduled in the past" },
+        { error: msg },
         { status: 400 }
       );
     }
@@ -319,6 +333,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Verify currency exists to avoid FK violation
+    let finalCurrency = null;
+    if (currencyCode) {
+      const currencyExists = await prisma.currency.findUnique({
+        where: { code: currencyCode }
+      });
+      if (currencyExists) {
+        finalCurrency = currencyCode;
+      }
+    }
+
+    // Verify country exists to avoid FK violation
+    let finalCountry = null;
+    if (locationCountry) {
+      const countryExists = await prisma.country.findUnique({
+        where: { code: locationCountry }
+      });
+      if (countryExists) {
+        finalCountry = locationCountry;
+      }
+    }
+
+    // Verify timezone exists to avoid FK violation
+    let finalTimezone = null;
+    if (timezone) {
+      const timezoneExists = await prisma.timezone.findUnique({
+        where: { name: timezone }
+      });
+      if (timezoneExists) {
+        finalTimezone = timezone;
+      }
+    }
+
     const event = await prisma.event.create({
       data: {
         organizationId,
@@ -331,22 +378,22 @@ export async function POST(req: NextRequest) {
         locationName: locationName || null,
         locationAddress: locationAddress || null,
         locationCity: locationCity || null,
-        locationCountry: locationCountry || null,
+        locationCountry: finalCountry,
         meetingLink: meetingLink || null,
         meetingPassword: meetingPassword || null,
         startsAt: startDate,
         endsAt: endDate,
-        timezone: timezone || null,
-        maxCapacity: maxCapacity ? parseInt(maxCapacity) : null,
+        timezone: finalTimezone,
+        maxCapacity: (maxCapacity !== null && maxCapacity !== undefined && maxCapacity !== "" && !isNaN(parseInt(maxCapacity))) ? parseInt(maxCapacity) : null,
         isPaid,
-        price: isPaid ? parseFloat(price) : null,
-        currencyCode: isPaid ? currencyCode : null,
+        price: isPaid ? (price ? parseFloat(price) : 0) : null,
+        currencyCode: finalCurrency,
         bannerUrl: bannerUrl || null,
         thumbnailUrl: thumbnailUrl || null,
         isFeatured,
         requiresApproval,
-        registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
-        registrationClosesAt: registrationClosesAt ? new Date(registrationClosesAt) : null,
+        registrationOpensAt: (registrationOpensAt && !isNaN(new Date(registrationOpensAt).getTime())) ? new Date(registrationOpensAt) : null,
+        registrationClosesAt: (registrationClosesAt && !isNaN(new Date(registrationClosesAt).getTime())) ? new Date(registrationClosesAt) : null,
         isPublished,
       },
     });
@@ -493,6 +540,36 @@ export async function PUT(req: NextRequest) {
     if (updateData.registrationOpensAt !== undefined) payload.registrationOpensAt = updateData.registrationOpensAt ? new Date(updateData.registrationOpensAt) : null;
     if (updateData.registrationClosesAt !== undefined) payload.registrationClosesAt = updateData.registrationClosesAt ? new Date(updateData.registrationClosesAt) : null;
     if (updateData.isPublished !== undefined) payload.isPublished = updateData.isPublished;
+
+    // Verify currency exists to avoid FK violation
+    if (payload.currencyCode) {
+      const currencyExists = await prisma.currency.findUnique({
+        where: { code: payload.currencyCode }
+      });
+      if (!currencyExists) {
+        payload.currencyCode = null;
+      }
+    }
+
+    // Verify country exists to avoid FK violation
+    if (payload.locationCountry) {
+      const countryExists = await prisma.country.findUnique({
+        where: { code: payload.locationCountry }
+      });
+      if (!countryExists) {
+        payload.locationCountry = null;
+      }
+    }
+
+    // Verify timezone exists to avoid FK violation
+    if (payload.timezone) {
+      const timezoneExists = await prisma.timezone.findUnique({
+        where: { name: payload.timezone }
+      });
+      if (!timezoneExists) {
+        payload.timezone = null;
+      }
+    }
 
     const updatedEvent = await prisma.event.update({
       where: { id: eventId },
