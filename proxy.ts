@@ -84,6 +84,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   let hasProfile = true;
   let isProfileComplete = true;
   let hasOrganization = true;
+  let organizationSlug: string | null = null;
 
   try {
     const profileHeaders = new Headers(req.headers);
@@ -106,6 +107,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
       hasProfile = data.hasProfile;
       isProfileComplete = data.isProfileComplete;
       hasOrganization = data.hasOrganization;
+      organizationSlug = data.organization?.slug || null;
     } else {
       console.error(
         "Middleware: profile-status returned non-JSON:",
@@ -120,12 +122,13 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   /**
    * ✅ 3. ROOT `/` AUTO-REDIRECT (NO LOOPS)
    */
-  // ✅ ROOT `/` AUTO-REDIRECT BY ROLE (CLEAN & SAFE)
   if (pathname === "/") {
     if (userType === "super_admin" || userType === "admin") {
       url.pathname = "/admin";
+    } else if (hasOrganization && organizationSlug) {
+      url.pathname = `/organization/${organizationSlug}/dashboard`;
     } else {
-      url.pathname = "/dashboard";
+      url.pathname = "/onboarding";
     }
 
     return NextResponse.redirect(url);
@@ -139,6 +142,8 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     const target =
       userType === "super_admin" || userType === "admin"
         ? "/admin"
+        : hasOrganization && organizationSlug
+        ? `/organization/${organizationSlug}/dashboard`
         : "/dashboard";
 
     if (pathname !== target) {
@@ -161,39 +166,47 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   // ✅ 6. PROFILE ENFORCEMENT
-  // Exempt all /auth/* sub-pages, /onboarding, and /organization/setup from profile enforcement
   const isCompletionFlow =
     pathname.startsWith("/auth/") ||
     pathname === "/onboarding" ||
     pathname.startsWith("/organization/setup");
 
-  // Only redirect if they have NO profile at all.
-  // We allow incomplete profiles to pass if they've finished the onboarding steps (onboardingCompleted set in app)
-  // The app components handle sub-redirection. Middleware just handles hard stops.
   if (!hasProfile && !isCompletionFlow) {
     url.pathname = "/auth/complete-profile";
     return NextResponse.redirect(url);
   }
-
-  // Removed the hard !isProfileComplete check because it was fighting with the 'pending' status logic.
-  // The application router inside /auth/complete-profile is smart enough to handle the state.
 
   /**
    * ✅ 7. ADMIN PANEL LOCK
    */
   if (pathname.startsWith("/admin")) {
     if (userType !== "admin" && userType !== "super_admin") {
-      url.pathname = "/dashboard";
+      url.pathname = hasOrganization && organizationSlug 
+        ? `/organization/${organizationSlug}/dashboard` 
+        : "/dashboard";
       return NextResponse.redirect(url);
     }
   }
 
   /**
-   * ✅ 8. DASHBOARD LOCK
+   * ✅ 8. DASHBOARD REDIRECT (NON-SLUGGED)
    */
-  if (pathname.startsWith("/dashboard")) {
+  if (pathname === "/dashboard") {
     if (userType === "admin" || userType === "super_admin") {
       url.pathname = "/admin";
+    } else if (hasOrganization && organizationSlug) {
+      url.pathname = `/organization/${organizationSlug}/dashboard`;
+    } else {
+      url.pathname = "/onboarding";
+    }
+    return NextResponse.redirect(url);
+  }
+
+  // ✅ 9. DASHBOARD SUB-ROUTES REDIRECT
+  if (pathname.startsWith("/dashboard/")) {
+    const subRoute = pathname.replace("/dashboard/", "");
+    if (hasOrganization && organizationSlug) {
+      url.pathname = `/organization/${organizationSlug}/dashboard/${subRoute}`;
       return NextResponse.redirect(url);
     }
   }
@@ -209,3 +222,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
+

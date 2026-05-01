@@ -304,18 +304,8 @@ export async function GET(request: Request) {
           totalOrgPosts,
           pendingInvitations,
           totalMentorships,
-          engagementRate,
         ] = await Promise.all([
-          // Total organization members
-          prisma.user.count({
-            where: {
-              organizationId: orgId,
-              status: "active",
-              deletedAt: null,
-            },
-          }),
-          
-          // Active members (last 30 days)
+          prisma.user.count({ where: { organizationId: orgId, status: "active", deletedAt: null } }),
           prisma.user.count({
             where: {
               organizationId: orgId,
@@ -324,62 +314,22 @@ export async function GET(request: Request) {
               lastSeenAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
             },
           }),
-          
-          // Total events
-          prisma.event.count({
-            where: {
-              organizationId: orgId,
-              deletedAt: null,
-            },
-          }),
-          
-          // Active jobs
+          prisma.event.count({ where: { organizationId: orgId, deletedAt: null } }),
           prisma.jobPosting.count({
-            where: {
-              organizationId: orgId,
-              status: JobStatus.active,
-              deletedAt: null,
-              expiresAt: { gt: now },
-            },
+            where: { organizationId: orgId, status: JobStatus.active, deletedAt: null, expiresAt: { gt: now } },
           }),
-          
-          // Total posts
-          prisma.post.count({
-            where: {
-              organizationId: orgId,
-              deletedAt: null,
-            },
-          }),
-          
-          // Pending invitations
+          prisma.post.count({ where: { organizationId: orgId, deletedAt: null } }),
           prisma.orgInvitation.count({
-            where: {
-              organizationId: orgId,
-              status: InviteStatus.pending,
-              expiresAt: { gt: now },
-            },
+            where: { organizationId: orgId, status: InviteStatus.pending, expiresAt: { gt: now } },
           }),
-          
-          // Active mentorships
           prisma.mentorshipRequest.count({
-            where: {
-              organizationId: orgId,
-              status: "accepted",
-              expiresAt: { gt: now },
-            },
+            where: { organizationId: orgId, status: "accepted", expiresAt: { gt: now } },
           }),
-          
-          // Engagement rate calculation
-          prisma.$queryRaw`SELECT 
-            ROUND(
-              (COUNT(DISTINCT CASE WHEN last_seen_at > NOW() - INTERVAL '30 days' THEN id END)::float / 
-              NULLIF(COUNT(DISTINCT CASE WHEN status = 'active' THEN id END), 0) * 100
-            )::numeric, 1
-          ) as rate
-          FROM users 
-          WHERE organization_id = ${orgId} AND deleted_at IS NULL`
-            .then((result: any) => Number(result[0]?.rate || 0)),
         ]);
+
+        const engagementRate = totalOrgMembers > 0 
+          ? Math.round((activeOrgMembers / totalOrgMembers) * 100 * 10) / 10 
+          : 0;
 
         organizationStats = {
           totalMembers: totalOrgMembers,

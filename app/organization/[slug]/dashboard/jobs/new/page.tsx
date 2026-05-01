@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,23 +12,24 @@ import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Loader2, Save, Send, ShieldCheck, Briefcase, MapPin, DollarSign, Clock, Sparkles, RefreshCw } from "lucide-react";
 import { useAuthProfile } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { useUser } from "@clerk/nextjs";
 
 export default function PostJobPage() {
   const router = useRouter();
-  const { user } = useUser();
-  const { profile, loading: profileLoading } = useAuthProfile();
+  const params = useParams();
+  const { profile, organization, loading: profileLoading } = useAuthProfile();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const slug = organization?.slug || "default";
 
   // Strict Role Access check
   useEffect(() => {
     if (!profileLoading && profile) {
       if (profile.userType !== "alumni" && profile.userType !== "admin" && profile.userType !== "super_admin") {
-        router.push("/dashboard/jobs");
+        router.push(`/organization/${slug}/dashboard/jobs`);
         toast.error("Access Restricted: Only alumni and admins can post opportunities.");
       }
     }
-  }, [profile, profileLoading, router]);
+  }, [profile, profileLoading, router, slug]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -100,7 +101,7 @@ export default function PostJobPage() {
       }
 
       toast.success("Career opportunity broadcasted");
-      router.push("/dashboard/jobs");
+      router.push(`/organization/${slug}/dashboard/jobs`);
     } catch (error: any) {
       toast.error(error.message || "Failed to transmit market data");
     } finally {
@@ -118,7 +119,7 @@ export default function PostJobPage() {
 
   if (!profile?.organizationId) {
     return (
-      <div className="container py-24 text-center space-y-8 max-w-sm mx-auto animate-in fade-in duration-700">
+      <div className="container py-24 text-center space-y-8 max-sm mx-auto animate-in fade-in duration-700">
          <ShieldCheck className="h-12 w-12 text-slate-100 mx-auto" />
          <div className="space-y-2">
             <h1 className="text-xl font-bold italic uppercase tracking-tighter">Identity Restricted</h1>

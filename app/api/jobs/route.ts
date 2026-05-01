@@ -188,14 +188,27 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    const userBookmarks = await prisma.jobBookmark.findMany({
+      where: {
+        userId: user.id,
+        jobPostingId: { in: jobs.map(j => j.id) },
+      },
+      select: {
+        jobPostingId: true,
+      },
+    });
+
     const applicationMap = new Map(
       userApplications.map(app => [app.jobPostingId, app])
     );
+
+    const bookmarkSet = new Set(userBookmarks.map(b => b.jobPostingId));
 
     const enhancedJobs = jobs.map(job => ({
       ...job,
       userApplication: applicationMap.get(job.id) || null,
       hasApplied: applicationMap.has(job.id),
+      isBookmarked: bookmarkSet.has(job.id),
       isExpiringSoon: job.expiresAt 
         ? new Date(job.expiresAt).getTime() - new Date().getTime() < 7 * 24 * 60 * 60 * 1000
         : false,

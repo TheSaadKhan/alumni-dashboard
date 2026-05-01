@@ -41,17 +41,39 @@ export async function POST(req: Request) {
       },
     });
 
-    // TODO: Send email notification to admin
-    // await sendAdminNotification({
-    //   type: "contact_form",
-    //   data: { name, email, subject, message },
-    // });
+    // Send email notification to admin
+    try {
+      const transporter = (await import("nodemailer")).default.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT),
+        secure: false,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
 
-    // TODO: Send auto-reply to user
-    // await sendAutoReply({
-    //   to: email,
-    //   name,
-    // });
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to: process.env.SMTP_FROM, // Send to admin
+        subject: `[Contact Form] ${subject || "New Message"}`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #4f46e5;">New Contact Message</h2>
+            <p><strong>From:</strong> ${name} (${email})</p>
+            <p><strong>Subject:</strong> ${subject || "N/A"}</p>
+            <div style="background: #f4f7fa; padding: 15px; border-radius: 8px; margin-top: 10px;">
+              ${message.replace(/\n/g, "<br>")}
+            </div>
+            <p style="font-size: 12px; color: #999; margin-top: 20px;">
+              Submitted on ${new Date().toLocaleString()}
+            </p>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      console.error("Failed to send admin notification:", emailErr);
+    }
 
     // Create audit log
     if (clerkId) {

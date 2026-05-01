@@ -1,73 +1,74 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { UserType, UserStatus, RoleScope } from "@/lib/generated/prisma";
+import { UserType, UserStatus, InviteStatus } from "@/lib/generated/prisma";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 
 export async function completeOnboarding(formData: FormData) {
   const { userId } = await auth();
-  if (!userId) {
-    throw new Error("Unauthorized");
-  }
+  if (!userId) throw new Error("Unauthorized");
 
   const userType = formData.get("userType") as UserType;
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
   const orgSlugOrId = formData.get("organizationId") as string;
-  
-  // Find organization
-  let orgId = orgSlugOrId;
-  const org = await prisma.organization.findFirst({
-    where: {
-      OR: [
-        { id: orgSlugOrId },
-        { slug: orgSlugOrId }
-      ]
-    }
-  });
-
-  if (!org) {
-    throw new Error("Organization not found.");
-  }
-  
-  orgId = org.id;
+  const inviteToken = formData.get("inviteToken") as string | null;
 
   // Find user
   const user = await prisma.user.findFirst({
-    where: {
-      metadata: {
-        path: ["clerkId"],
-        equals: userId,
-      },
-    },
+    where: { metadata: { path: ["clerkId"], equals: userId } },
   });
+  if (!user) throw new Error("User record not found.");
 
-  if (!user) {
-    throw new Error("User record not found.");
+  let org: any = null;
+  let invite: any = null;
+
+  // ── Invite flow: resolve org and role from the invite token ──
+  if (inviteToken) {
+    invite = await prisma.orgInvitation.findUnique({
+      where: { token: inviteToken },
+      include: {
+        organization: true,
+        role: true,
+      },
+    });
+
+    if (!invite || invite.status !== InviteStatus.pending || invite.expiresAt < new Date()) {
+      throw new Error("Invitation is invalid or has expired.");
+    }
+
+    org = invite.organization;
+  } else {
+    // ── Free-flow: resolve org from slug or ID ──
+    org = await prisma.organization.findFirst({
+      where: { OR: [{ id: orgSlugOrId }, { slug: orgSlugOrId }] },
+    });
+    if (!org) throw new Error("Organization not found.");
   }
 
-  const needsApproval = userType === UserType.student || !org.isVerified;
+  const orgId = org.id;
+  const needsApproval = !inviteToken && (userType === UserType.student || !org.isVerified);
 
-  // Update user
+  // Update user record
   await prisma.user.update({
     where: { id: user.id },
     data: {
       firstName,
       fullName: `${firstName} ${lastName}`,
-      userType: userType,
+      userType: inviteToken ? (invite.userType as UserType) : userType,
       status: needsApproval ? UserStatus.pending : UserStatus.active,
       organizationId: orgId,
     },
   });
 
+  const effectiveUserType: UserType = inviteToken ? invite.userType : userType;
+
   // Profiles
-  if (userType === UserType.alumni) {
+  if (effectiveUserType === UserType.alumni) {
     const graduationYear = formData.get("graduationYear");
     await prisma.alumniProfile.upsert({
       where: { userId: user.id },
-      update: {
-          graduationYear: graduationYear ? parseInt(graduationYear as string) : null,
-      },
+      update: { graduationYear: graduationYear ? parseInt(graduationYear as string) : null },
       create: {
         userId: user.id,
         organizationId: orgId,
@@ -75,13 +76,11 @@ export async function completeOnboarding(formData: FormData) {
         isVerified: !needsApproval,
       },
     });
-  } else if (userType === UserType.student) {
+  } else if (effectiveUserType === UserType.student) {
     const expectedGraduation = formData.get("expectedGraduation");
     await prisma.studentProfile.upsert({
       where: { userId: user.id },
-      update: {
-          expectedGraduation: expectedGraduation ? parseInt(expectedGraduation as string) : null,
-      },
+      update: { expectedGraduation: expectedGraduation ? parseInt(expectedGraduation as string) : null },
       create: {
         userId: user.id,
         organizationId: orgId,
@@ -91,48 +90,130 @@ export async function completeOnboarding(formData: FormData) {
     });
   }
 
-  if (needsApproval) {
-    await prisma.verificationRequest.create({
-        data: {
-            organizationId: orgId,
-            userId: user.id,
-            targetType: "join_request",
-            status: "pending",
-            notes: `${userType} join request.`,
-        }
-    });
-  } else {
-    const defaultRole = await prisma.role.findFirst({
+  // ── Invite flow: assign the role from the invite and mark as accepted ──
+  if (inviteToken && invite?.roleId) {
+    await prisma.userRole.upsert({
       where: {
+        userId_roleId_organizationId: {
+          userId: user.id,
+          roleId: invite.roleId,
+          organizationId: orgId,
+        },
+      },
+      update: {},
+      create: {
+        userId: user.id,
+        roleId: invite.roleId,
         organizationId: orgId,
-        isDefault: true,
-        slug: userType.toLowerCase() === 'alumni' ? 'alumni' : 'member'
-      }
+        grantedBy: invite.invitedBy || "system",
+        grantedReason: "Accepted organization invitation",
+      },
     });
 
-    if (defaultRole) {
-      await prisma.userRole.upsert({
-        where: { userId_roleId_organizationId: { userId: user.id, roleId: defaultRole.id, organizationId: orgId } },
-        update: {},
-        create: {
-          userId: user.id,
-          roleId: defaultRole.id,
+    // Mark invite as accepted
+    await prisma.orgInvitation.update({
+      where: { id: invite.id },
+      data: { status: InviteStatus.accepted, acceptedAt: new Date() },
+    });
+
+    // Welcome notification
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        organizationId: orgId,
+        type: "welcome",
+        category: "system",
+        title: `Welcome to ${org.name}!`,
+        body: `You've successfully joined ${org.name} as a ${invite.role?.name || "Member"}.`,
+        payload: { organizationId: orgId, role: invite.role?.name || "Member" },
+        actionUrl: `/organization/${org.slug}/dashboard`,
+      },
+    });
+
+    // Notify inviter
+    if (invite.invitedBy) {
+      await prisma.notification.create({
+        data: {
+          userId: invite.invitedBy,
           organizationId: orgId,
-          grantedBy: user.id,
-        }
+          type: "invitation_accepted",
+          category: "social",
+          title: "Invitation Accepted",
+          body: `${user.fullName} has accepted your invitation to join ${org.name}.`,
+          payload: { userId: user.id, userName: user.fullName, invitationId: invite.id },
+          actionUrl: `/organization/${org.slug}/dashboard`,
+        },
       });
+    }
+  } else if (!inviteToken) {
+    // ── Free-flow: assign default role or create verification request ──
+    if (needsApproval) {
+      await prisma.verificationRequest.create({
+        data: {
+          organizationId: orgId,
+          userId: user.id,
+          targetType: "join_request",
+          status: "pending",
+          notes: `${effectiveUserType} join request.`,
+        },
+      });
+    } else {
+      const defaultRole = await prisma.role.findFirst({
+        where: {
+          organizationId: orgId,
+          isDefault: true,
+          slug: effectiveUserType.toLowerCase() === "alumni" ? "alumni" : "member",
+        },
+      });
+
+      if (defaultRole) {
+        await prisma.userRole.upsert({
+          where: {
+            userId_roleId_organizationId: {
+              userId: user.id,
+              roleId: defaultRole.id,
+              organizationId: orgId,
+            },
+          },
+          update: {},
+          create: {
+            userId: user.id,
+            roleId: defaultRole.id,
+            organizationId: orgId,
+            grantedBy: user.id,
+          },
+        });
+      }
     }
   }
 
-  // Clerk Metadata
+  // Audit log
+  await prisma.auditLog.create({
+    data: {
+      organizationId: orgId,
+      actorId: user.id,
+      action: "onboarding.completed",
+      entityType: "user",
+      entityId: user.id,
+      entityLabel: user.email,
+      afterState: {
+        userType: effectiveUserType,
+        invitedFlow: !!inviteToken,
+        organizationId: orgId,
+      },
+      severity: "info",
+    },
+  });
+
+  // Clerk metadata
   const client = await clerkClient();
   await client.users.updateUserMetadata(userId, {
     publicMetadata: {
-      userType: userType,
+      userType: effectiveUserType,
       organizationId: orgId,
       onboardingCompleted: true,
-      status: needsApproval ? "pending" : "active"
-    }
+      status: needsApproval ? "pending" : "active",
+    },
   });
 
   return { success: true, slug: org.slug };

@@ -23,15 +23,21 @@ import {
   Shield, 
   User, 
   Mail, 
-  Monitor,
-  Eye,
+  Globe,
   RefreshCw,
   ChevronRight,
+  Monitor,
+  Lock,
+  Eye,
+  Settings as SettingsIcon,
+  ShieldCheck,
   Check
 } from "lucide-react";
+import { useAuthProfile } from "@/context/AuthContext";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
+  const { profile, organization, loading: profileLoading } = useAuthProfile();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<any>({
@@ -42,11 +48,13 @@ export default function SettingsPage() {
       search_visible: "yes"
     },
     notifications: [
-      { notificationType: "email", label: "Email Notifications", desc: "Receive updates via your primary email.", icon: Mail, checked: true },
-      { notificationType: "desktop", label: "Desktop Alerts", desc: "Show push notifications on your computer.", icon: Monitor, checked: true },
-      { notificationType: "activity", label: "Activity Pings", desc: "Notify when someone likes or comments on your post.", icon: User, checked: true }
+      { notificationType: "email", label: "Matrix Alerts", desc: "Real-time updates to your primary email relay.", icon: Mail, checked: true },
+      { notificationType: "desktop", label: "Interface Echo", desc: "Direct browser push notifications for node alerts.", icon: Monitor, checked: true },
+      { notificationType: "activity", label: "Engagement Pings", desc: "Notify upon connection requests or data mentions.", icon: User, checked: true }
     ]
   });
+
+  const slug = organization?.slug || "default";
 
   useEffect(() => {
     fetchSettings();
@@ -121,7 +129,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <RefreshCw className="h-6 w-6 animate-spin text-slate-200" />
@@ -130,140 +138,175 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container py-8 max-w-5xl mx-auto px-4 space-y-8">
+    <div className="container py-8 max-w-7xl mx-auto px-6 space-y-8 animate-in fade-in duration-700">
+      {/* Header Context */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-           <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
-           <p className="text-slate-500 mt-1">Manage your account preferences and notification settings.</p>
+           <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em]">Governance</span>
+              <div className="h-1 w-1 rounded-full bg-slate-300"></div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Global Config</span>
+           </div>
+           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Account Preferences</h1>
+           <p className="text-slate-500 font-medium mt-1">Manage your identity, visibility, and system interactions.</p>
         </div>
-        <Button variant="outline" onClick={fetchSettings}>
-           <RefreshCw className="h-4 w-4 mr-2" /> Sync Account
+        <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-400 px-6" onClick={fetchSettings}>
+           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> System Sync
         </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-1 space-y-1">
+        {/* Navigation Matrix */}
+        <div className="lg:col-span-1 space-y-2">
           {[
-            { id: "profile", label: "Profile Information", icon: User, active: true },
-            { id: "notifications", label: "Notifications", icon: Bell },
-            { id: "privacy", label: "Privacy & Visibility", icon: Shield },
-            { id: "communication", label: "Messages", icon: Mail },
-            { id: "preferences", label: "Appearance", icon: Monitor }
+            { id: "profile", label: "Identity", icon: User, active: true },
+            { id: "notifications", label: "Relay Pulse", icon: Bell },
+            { id: "privacy", label: "Shield Access", icon: Shield },
+            { id: "communication", label: "Network Mail", icon: Mail },
+            { id: "preferences", label: "System Sync", icon: Monitor }
           ].map((item) => (
             <Button
               key={item.id}
-              variant={item.active ? "secondary" : "ghost"}
-              className="w-full justify-start gap-3 h-11"
+              variant="ghost"
+              className={`w-full justify-between h-12 rounded-2xl transition-all px-4 ${
+                item.active 
+                  ? "bg-white text-blue-600 shadow-sm font-bold" 
+                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+              }`}
             >
-              <item.icon className={`h-4 w-4 ${item.active ? 'text-indigo-600' : 'text-slate-400'}`} />
-              <span className="text-sm font-medium">{item.label}</span>
+              <div className="flex items-center gap-3">
+                 <item.icon className="h-4 w-4" />
+                 <span className="text-[10px] uppercase font-black tracking-widest">{item.label}</span>
+              </div>
+              {item.active && <ChevronRight className="h-3 w-3" />}
             </Button>
           ))}
         </div>
 
+        {/* Configuration Core */}
         <div className="lg:col-span-3 space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Visibility Settings</CardTitle>
-              <CardDescription>Control how your profile is seen by other members.</CardDescription>
+          
+          {/* Identity visibility */}
+          <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden group">
+            <CardHeader className="p-8 pb-4 border-b border-slate-50 dark:border-slate-800 bg-white/40 dark:bg-slate-950/20">
+              <div className="flex items-center gap-4">
+                 <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                    <Eye className="h-5 w-5 text-blue-600" />
+                 </div>
+                 <div>
+                    <CardTitle className="text-lg font-bold uppercase tracking-tight italic">Visibility Logic</CardTitle>
+                    <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Update your profile exposure status.</CardDescription>
+                 </div>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="p-8 space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase">Profile Visibility</Label>
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 italic">Network Exposure</Label>
                   <Select 
                     value={settings.privacy.profile_visible ? "alumni" : "connections"} 
                     onValueChange={(v) => handlePrivacyChange("profile_visible", v === "alumni")}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                       <SelectItem value="public">Anyone can view</SelectItem>
-                       <SelectItem value="alumni">Only verified members</SelectItem>
-                       <SelectItem value="connections">Only direct connections</SelectItem>
+                    <SelectContent className="rounded-xl border-none shadow-2xl">
+                       <SelectItem value="public" className="text-[10px] font-black uppercase tracking-widest">Global Access</SelectItem>
+                       <SelectItem value="alumni" className="text-[10px] font-black uppercase tracking-widest">Verified Alumni Only</SelectItem>
+                       <SelectItem value="connections" className="text-[10px] font-black uppercase tracking-widest">Direct Synergy Only</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase">Searchability</Label>
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 italic">Matrix Searchability</Label>
                   <Select 
                     value={settings.privacy.search_visible || "yes"} 
                     onValueChange={(v) => handlePrivacyChange("search_visible", v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-12 rounded-xl border-none bg-slate-50 shadow-sm focus:ring-2 focus:ring-blue-500/20 text-xs font-bold uppercase tracking-widest">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                       <SelectItem value="yes">Appear in search results</SelectItem>
-                       <SelectItem value="no">Hide from search results</SelectItem>
+                    <SelectContent className="rounded-xl border-none shadow-2xl">
+                       <SelectItem value="yes" className="text-[10px] font-black uppercase tracking-widest">Integrated (Index)</SelectItem>
+                       <SelectItem value="no" className="text-[10px] font-black uppercase tracking-widest">Isolated (Untraceable)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               
-              <div className="space-y-4 pt-4 border-t">
-                 <div className="flex items-center justify-between">
+              <div className="space-y-3 pt-4 border-t border-slate-50">
+                 <div className="flex items-center justify-between p-4 rounded-3xl bg-slate-50 dark:bg-slate-800/30">
                     <div>
-                       <p className="text-sm font-semibold">Show Email Address</p>
-                       <p className="text-xs text-slate-500">Allow members to see your email address on your profile.</p>
+                       <p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight italic">Relay Mail Disclosure</p>
+                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Allow verified entities to view direct email coordinates.</p>
                     </div>
                     <Switch 
                       checked={settings.privacy.email_visible} 
-                      onCheckedChange={(checked) => handlePrivacyChange("email_visible", checked)} 
+                      onCheckedChange={(checked) => handlePrivacyChange("email_visible", checked)}
+                      className="data-[state=checked]:bg-blue-600" 
                     />
                  </div>
-                 <div className="flex items-center justify-between">
+                 <div className="flex items-center justify-between p-4 rounded-3xl bg-slate-50 dark:bg-slate-800/30">
                     <div>
-                       <p className="text-sm font-semibold">Show Batch / Class</p>
-                       <p className="text-xs text-slate-500">Allow other members to see your graduation information.</p>
+                       <p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight italic">Batch / Class Visibility</p>
+                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Allow members to see your graduation information.</p>
                     </div>
                     <Switch 
                       checked={settings.privacy.graduation_year_visible} 
-                      onCheckedChange={(checked) => handlePrivacyChange("graduation_year_visible", checked)} 
+                      onCheckedChange={(checked) => handlePrivacyChange("graduation_year_visible", checked)}
+                      className="data-[state=checked]:bg-blue-600" 
                     />
                  </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>Choose how you want to be notified of new activity.</CardDescription>
+          {/* Relay pulse */}
+          <Card className="border-none shadow-sm rounded-[2.5rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl overflow-hidden group">
+            <CardHeader className="p-8 pb-4 border-b border-slate-50 dark:border-slate-800 bg-white/40 dark:bg-slate-950/20">
+              <div className="flex items-center gap-4">
+                 <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center">
+                    <Bell className="h-5 w-5 text-purple-600" />
+                 </div>
+                 <div>
+                    <CardTitle className="text-lg font-bold uppercase tracking-tight italic">Relay Pulse</CardTitle>
+                    <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Define your alert and notification boundaries.</CardDescription>
+                 </div>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-8 space-y-4">
               {settings.notifications.map((item: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                <div key={idx} className="flex items-center justify-between p-4 rounded-3xl hover:bg-slate-50 transition-colors">
                    <div className="flex items-center gap-4">
-                      <div className="h-9 w-9 rounded-md bg-slate-100 flex items-center justify-center">
-                         <item.icon className="h-4 w-4 text-slate-500" />
+                      <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center">
+                         <item.icon className="h-4 w-4 text-slate-400" />
                       </div>
                       <div>
-                         <p className="text-sm font-semibold">{item.label}</p>
-                         <p className="text-xs text-slate-500">{item.desc}</p>
+                         <p className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight italic">{item.label}</p>
+                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.desc}</p>
                       </div>
                    </div>
                    <Switch 
                     checked={item.checked} 
-                    onCheckedChange={() => handleNotificationToggle(item.notificationType)} 
+                    onCheckedChange={() => handleNotificationToggle(item.notificationType)}
+                    className="data-[state=checked]:bg-purple-600" 
                    />
                 </div>
               ))}
             </CardContent>
           </Card>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
-             <Button variant="ghost" disabled={saving}>Cancel</Button>
+          <footer className="flex justify-end items-center gap-4 pt-4 border-t border-slate-100">
+             <Button variant="ghost" className="h-12 px-8 rounded-xl font-bold text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-900">Restore Default Protocol</Button>
              <Button 
-              className="bg-indigo-600 hover:bg-indigo-700 font-bold px-8" 
-              onClick={handleSave} 
-              disabled={saving}
+               className="h-12 px-10 rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-600/20 text-white font-bold uppercase tracking-widest text-[10px]"
+               onClick={handleSave}
+               disabled={saving}
              >
                 {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-                Save Changes
+                Save Configuration
              </Button>
-          </div>
+          </footer>
         </div>
       </div>
     </div>

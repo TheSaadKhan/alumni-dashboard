@@ -22,7 +22,8 @@ import {
   GraduationCap, 
   RefreshCw,
   Plus,
-  Clock
+  Clock,
+  Check
 } from "lucide-react";
 import { useAuthProfile } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -31,7 +32,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function MentorshipPage() {
   const router = useRouter();
-  const { profile, loading: profileLoading } = useAuthProfile();
+  const { profile, organization, loading: profileLoading } = useAuthProfile();
+  const slug = organization?.slug || "default";
   const [mentors, setMentors] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,6 +91,26 @@ export default function MentorshipPage() {
     }
   };
 
+  const handleBecomeMentor = async () => {
+    if (profile?.userType !== "alumni") {
+      toast.error("Only alumni can become mentors");
+      return;
+    }
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isMentorAvailable: !profile.alumniProfile?.isMentorAvailable })
+      });
+      if (res.ok) {
+        toast.success(profile.alumniProfile?.isMentorAvailable ? "Mentorship disabled" : "You are now a mentor!");
+        window.location.reload(); 
+      }
+    } catch (err) {
+      toast.error("Failed to update mentor status");
+    }
+  };
+
   if (profileLoading) {
     return (
        <div className="flex h-[60vh] items-center justify-center">
@@ -108,8 +130,15 @@ export default function MentorshipPage() {
            <Button variant="outline" onClick={fetchMentorshipData}>
              <RefreshCw className="h-4 w-4 mr-2" /> Refresh
            </Button>
-           <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <Plus className="h-4 w-4 mr-2" /> Become a Mentor
+           <Button 
+             className={`h-11 rounded-xl font-bold px-6 shadow-lg transition-all ${profile?.alumniProfile?.isMentorAvailable ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+             onClick={handleBecomeMentor}
+           >
+              {profile?.alumniProfile?.isMentorAvailable ? (
+                <><Check className="h-4 w-4 mr-2" /> Mentoring Active</>
+              ) : (
+                <><Plus className="h-4 w-4 mr-2" /> Become a Mentor</>
+              )}
            </Button>
         </div>
       </div>
@@ -165,7 +194,7 @@ export default function MentorshipPage() {
                     </div>
                  </CardContent>
                  <CardFooter className="gap-2">
-                    <Button variant="outline" className="flex-1 text-xs h-9" onClick={() => router.push(`/dashboard/network/${mentor.id}`)}>View Profile</Button>
+                    <Button variant="outline" className="flex-1 text-xs h-9" onClick={() => router.push(`/organization/${slug}/dashboard/network/${mentor.id}`)}>View Profile</Button>
                     <Button className="flex-1 text-xs h-9" onClick={() => handleRequestMentor(mentor.id)}>Connect</Button>
                  </CardFooter>
               </Card>
@@ -206,7 +235,7 @@ export default function MentorshipPage() {
                       </div>
                    </CardContent>
                    <CardFooter className="gap-2">
-                      <Button variant="outline" className="flex-1 h-9 text-xs" onClick={() => router.push(`/dashboard/messages?userId=${other?.id}`)}>
+                      <Button variant="outline" className="flex-1 h-9 text-xs" onClick={() => router.push(`/organization/${slug}/dashboard/messages?userId=${other?.id}`)}>
                          <MessageCircle className="h-4 w-4 mr-2" /> Message
                       </Button>
                       {isAccepted && (

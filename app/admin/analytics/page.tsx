@@ -121,7 +121,7 @@ export default function AdminAnalyticsPage() {
                     { label: "Growth Rate", value: `${stats?.users?.growthRate || 0}%`, icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
                     { label: "Engagement", value: `${stats?.users?.engagementRate || 0}%`, icon: Zap, color: "text-emerald-600", bg: "bg-emerald-50" },
                     { label: "Avg. Connections", value: stats?.connections?.avgConnectionsPerUser?.toFixed(1) || "0", icon: Users, color: "text-purple-600", bg: "bg-purple-50" },
-                    { label: "Total Donations", value: `$${(stats?.financial?.totalDonations || 0).toLocaleString()}`, icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50" },
+                    { label: "Total Donations", value: `$${(stats?.financial?.totalAmount || 0).toLocaleString()}`, icon: DollarSign, color: "text-rose-600", bg: "bg-rose-50" },
                 ].map((s, i) => (
                    <Card key={i}>
                      <CardContent className="p-6 flex items-center gap-4">

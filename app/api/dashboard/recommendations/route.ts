@@ -29,6 +29,9 @@ export async function GET(request: Request) {
       include: {
         alumniProfile: true,
         studentProfile: true,
+        organization: {
+          select: { slug: true }
+        }
       },
     });
 
@@ -38,6 +41,8 @@ export async function GET(request: Request) {
         message: "User profile not found" 
       });
     }
+
+    const orgSlug = user.organization?.slug || "default";
 
     // Fetch user's skills
     const userProfileSkills = await prisma.profileSkill.findMany({
@@ -148,7 +153,7 @@ export async function GET(request: Request) {
         salary: job.salaryMin ? `$${job.salaryMin.toLocaleString()}${job.salaryMax ? ` - $${job.salaryMax.toLocaleString()}` : '+'} ${job.salaryCurrency || 'USD'}` : null,
         jobType: job.jobType?.replace("_", " ") || "Full Time",
         logo: job.companyLogoUrl || "/api/placeholder/40/40",
-        href: `/dashboard/jobs/${job.slug || job.id}`,
+        href: `/organization/${orgSlug}/dashboard/jobs/${job.slug || job.id}`,
         isUrgent: job.isUrgent,
         isFeatured: job.isFeatured,
         hasApplied: hasApplied.has(job.id),
@@ -231,7 +236,7 @@ export async function GET(request: Request) {
         capacity: event.maxCapacity ? `${event.registeredCount || 0}/${event.maxCapacity}` : null,
         isRegistered: isRegistered.has(event.id),
         logo: event.bannerUrl || "/api/placeholder/40/40",
-        href: `/dashboard/events/${event.slug || event.id}`,
+        href: `/organization/${orgSlug}/dashboard/events/${event.slug || event.id}`,
         matchScore: calculateEventMatchScore(event, userLocation, userSkills),
       })));
     }
@@ -285,7 +290,7 @@ export async function GET(request: Request) {
         skills: mentorSkillsMap.get(mentor.user.id) || [],
         topics: mentor.mentorshipTopics || [],
         avatar: mentor.user.avatarUrl || "/api/placeholder/40/40",
-        href: `/dashboard/profile/${mentor.user.id}`,
+        href: `/organization/${orgSlug}/dashboard/network/${mentor.user.id}`,
         matchScore: calculateMentorMatchScore(mentor, userSkills, userIndustry),
       })));
     }
@@ -339,7 +344,7 @@ export async function GET(request: Request) {
         industry: alumni.industry,
         skills: alumniSkillsMap.get(alumni.user.id) || [],
         avatar: alumni.user.avatarUrl || "/api/placeholder/40/40",
-        href: `/dashboard/profile/${alumni.user.id}`,
+        href: `/organization/${orgSlug}/dashboard/network/${alumni.user.id}`,
         matchScore: calculateAlumniMatchScore(alumni, user.alumniProfile),
       })));
     }

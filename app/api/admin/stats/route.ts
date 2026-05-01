@@ -119,8 +119,8 @@ export async function GET(req: Request) {
       
       // Donation stats (if you have a donations model)
       // If not, these will be 0
-      totalDonations,
-      donationsThisMonth,
+      totalDonationAmount,
+      donationsCountThisMonth,
       
       // Growth calculations
       lastMonthNewUsers,
@@ -357,8 +357,18 @@ export async function GET(req: Request) {
 
       // Donations (if you have a Donation model)
       // If not, these will be 0
-      Promise.resolve(0),
-      Promise.resolve(0),
+      // Real Donation Stats
+      prisma.donation.aggregate({
+        where: { organizationId, status: "paid" },
+        _sum: { amount: true },
+      }),
+      prisma.donation.count({
+        where: {
+          organizationId,
+          status: "paid",
+          createdAt: { gte: startOfMonth },
+        },
+      }),
 
       // Users from last month for growth calculation
       prisma.user.count({
@@ -516,10 +526,10 @@ export async function GET(req: Request) {
 
         // Financial metrics (placeholder for now)
         financial: {
-          totalDonations,
-          donationsThisMonth,
-          averageDonation: totalDonations > 0
-            ? totalDonations / totalDonations // This would need proper donation tracking
+          totalAmount: Number(totalDonationAmount._sum.amount || 0),
+          countThisMonth: donationsCountThisMonth,
+          averageDonation: donationsCountThisMonth > 0
+            ? Number(totalDonationAmount._sum.amount || 0) / donationsCountThisMonth
             : 0,
         },
 

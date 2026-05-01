@@ -15,6 +15,16 @@ export async function GET(
   try {
     const { userId: clerkId } = await auth();
     const { alumniId } = await context.params;
+    
+    // Validate UUID format to prevent Prisma errors
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(alumniId)) {
+      return NextResponse.json(
+        { error: "Invalid profile ID format" },
+        { status: 400 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const includePrivate = searchParams.get("includePrivate") === "true";
 

@@ -1,76 +1,81 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MoreVertical, Paperclip, Send, Smile } from "lucide-react";
+import { ArrowLeft, MoreVertical, Paperclip, Send, Smile, RefreshCw } from "lucide-react";
+import { useAuthProfile } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 export default function MessagesPage() {
   const params = useParams();
   const router = useRouter();
+  const { profile, organization, loading: profileLoading } = useAuthProfile();
   const [newMessage, setNewMessage] = useState("");
+  const [conversation, setConversation] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
-  // Mock conversation data
-  const conversation = {
-    id: params.conversationId,
-    participant: {
-      id: "2",
-      name: "Sarah Chen",
-      role: "Engineering Manager at TechCorp",
-      batch: "2015",
-      image: "/avatars/sarah-chen.jpg",
-      online: true
-    },
-    messages: [
-      {
-        id: "1",
-        sender: "2",
-        content: "Hi Alex! I saw your profile and noticed you're working with React and Node.js.",
-        timestamp: "2024-01-15T10:30:00Z",
-        read: true
-      },
-      {
-        id: "2",
-        sender: "1",
-        content: "Hello Sarah! Yes, I've been working with the MERN stack for about 3 years now.",
-        timestamp: "2024-01-15T10:32:00Z",
-        read: true
-      },
-      {
-        id: "3",
-        sender: "2",
-        content: "That's great! We're looking for senior developers at TechCorp. Would you be interested in exploring opportunities?",
-        timestamp: "2024-01-15T10:35:00Z",
-        read: true
-      },
-      {
-        id: "4",
-        sender: "1",
-        content: "I'd love to learn more about the role. Could you share the job description?",
-        timestamp: "2024-01-15T10:40:00Z",
-        read: true
-      },
-      {
-        id: "5",
-        sender: "2",
-        content: "Absolutely! I'll send it over. What's the best email to reach you at?",
-        timestamp: "2024-01-15T10:42:00Z",
-        read: false
+  const conversationId = params.conversationId as string;
+  const slug = organization?.slug || "default";
+
+  useEffect(() => {
+    if (conversationId) {
+      fetchConversation();
+    }
+  }, [conversationId]);
+
+  const fetchConversation = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/messages/${conversationId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.messages || []);
+        // In a real app, we might need a separate endpoint for conversation metadata
+        // or it might be included in the messages response.
+        if (data.messages?.length > 0) {
+           // Extract other participant from first message or thread metadata
+           // For now, let's assume the API returns thread info too
+           setConversation(data.thread || {
+             id: conversationId,
+             participant: data.otherParticipant || { name: "User", role: "Member", online: false }
+           });
+        }
       }
-    ]
+    } catch (err) {
+      toast.error("Failed to synchronize conversation node");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || sending) return;
 
-    // In real app, send message via API
-    console.log("Sending message:", newMessage);
-    setNewMessage("");
+    try {
+      setSending(true);
+      const res = await fetch("/api/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threadId: conversationId, content: newMessage })
+      });
+      if (res.ok) {
+        const { message } = await res.json();
+        setMessages(prev => [...prev, message]);
+        setNewMessage("");
+      }
+    } catch (err) {
+      toast.error("Failed to transmit message node");
+    } finally {
+      setSending(false);
+    }
   };
 
   const formatTime = (timestamp: string) => {
@@ -80,6 +85,16 @@ export default function MessagesPage() {
     });
   };
 
+  if (loading || profileLoading) {
+    return (
+       <div className="flex h-full items-center justify-center py-20">
+          <RefreshCw className="h-6 w-6 animate-spin text-slate-200" />
+       </div>
+    );
+  }
+
+  if (!conversation) return null;
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -87,13 +102,13 @@ export default function MessagesPage() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard/messages")}>
+              <Button variant="ghost" size="icon" onClick={() => router.push(`/organization/${slug}/dashboard/messages`)}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <Avatar className="h-10 w-10">
                 <AvatarImage src={conversation.participant.image} />
                 <AvatarFallback>
-                  {conversation.participant.name.split(' ').map(n => n[0]).join('')}
+                  {conversation.participant.name.split(' ').map((n: string) => n[0]).join('')}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -123,32 +138,35 @@ export default function MessagesPage() {
       <Card className="flex-1 border-t-0 rounded-t-none border-b-0 rounded-b-none overflow-hidden">
         <CardContent className="p-4 h-full overflow-y-auto">
           <div className="space-y-4">
-            {conversation.messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.sender === "1" ? "justify-end" : "justify-start"}`}
-              >
+            {messages.map((message) => {
+              const isMe = message.senderId === profile?.id;
+              return (
                 <div
-                  className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                    message.sender === "1"
-                      ? "bg-indigo-600 text-white rounded-br-none"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-none"
-                  }`}
+                  key={message.id}
+                  className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                 >
-                  <p className="text-sm">{message.content}</p>
-                  <div className={`text-xs mt-1 ${
-                    message.sender === "1" ? "text-indigo-200" : "text-gray-500"
-                  }`}>
-                    {formatTime(message.timestamp)}
-                    {message.sender === "1" && (
-                      <span className="ml-2">
-                        {message.read ? "Read" : "Delivered"}
-                      </span>
-                    )}
+                  <div
+                    className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                      isMe
+                        ? "bg-indigo-600 text-white rounded-br-none"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-none"
+                    }`}
+                  >
+                    <p className="text-sm">{message.content}</p>
+                    <div className={`text-xs mt-1 ${
+                      isMe ? "text-indigo-200" : "text-gray-500"
+                    }`}>
+                      {formatTime(message.createdAt)}
+                      {isMe && (
+                        <span className="ml-2">
+                          {message.read ? "Read" : "Delivered"}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -168,9 +186,10 @@ export default function MessagesPage() {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               className="flex-1"
+              disabled={sending}
             />
-            <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-              <Send className="h-4 w-4" />
+            <Button type="submit" size="icon" disabled={!newMessage.trim() || sending}>
+              {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </form>
         </CardContent>

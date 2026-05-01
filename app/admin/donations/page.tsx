@@ -96,8 +96,8 @@ export default function AdminDonationsPage() {
   }, [orgId, loadData]);
 
   const filteredDonations = donations.filter((donation) => {
-    const donorName = donation.profiles?.full_name || (donation.anonymous ? "Anonymous" : "Unknown");
-    const donorEmail = donation.profiles?.email || "";
+    const donorName = donation.user?.fullName || (donation.isAnonymous ? "Anonymous" : "Unknown");
+    const donorEmail = donation.user?.email || "";
     return donorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
            donorEmail.toLowerCase().includes(searchTerm.toLowerCase());
   });
@@ -208,12 +208,12 @@ export default function AdminDonationsPage() {
                          <TableCell className="px-8 py-5">
                             <div className="flex items-center gap-4">
                                <Avatar className="h-10 w-10 rounded-xl border-2 border-white shadow-sm">
-                                  <AvatarImage src={donation.profiles?.avatar_url} />
-                                  <AvatarFallback className="bg-slate-900 text-white font-black text-[10px] italic">{(donation.profiles?.full_name || "D")[0]}</AvatarFallback>
+                                  <AvatarImage src={donation.user?.avatarUrl} />
+                                  <AvatarFallback className="bg-slate-900 text-white font-black text-[10px] italic">{(donation.user?.fullName || "D")[0]}</AvatarFallback>
                                </Avatar>
                                <div>
-                                  <p className="text-sm font-bold text-slate-900 uppercase italic leading-none truncate max-w-[180px]">{donation.profiles?.full_name || (donation.anonymous ? "Restricted Identity" : "Identity Masked")}</p>
-                                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1.5">{donation.anonymous ? "Privacy Enabled" : donation.profiles?.email}</p>
+                                  <p className="text-sm font-bold text-slate-900 uppercase italic leading-none truncate max-w-[180px]">{donation.user?.fullName || (donation.isAnonymous ? "Restricted Identity" : "Identity Masked")}</p>
+                                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1.5">{donation.isAnonymous ? "Privacy Enabled" : donation.user?.email}</p>
                                </div>
                             </div>
                          </TableCell>
@@ -223,7 +223,7 @@ export default function AdminDonationsPage() {
                          <TableCell className="text-center">
                             <div className="flex flex-col items-center gap-1">
                                <CreditCard className="h-4 w-4 text-slate-300" />
-                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{donation.payment_method?.toUpperCase() || "DIGITAL DIRECT"}</span>
+                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{donation.paymentMethod?.toUpperCase() || "DIGITAL DIRECT"}</span>
                             </div>
                          </TableCell>
                          <TableCell className="text-center">
@@ -234,7 +234,7 @@ export default function AdminDonationsPage() {
                          </TableCell>
                          <TableCell className="px-8 text-right underline decoration-slate-100 decoration-2 underline-offset-4">
                             <p className="text-[10px] font-bold text-slate-400 uppercase italic">
-                               {donation.created_at ? format(new Date(donation.created_at), 'MMM dd, yyyy') : "Archived"}
+                               {donation.createdAt ? format(new Date(donation.createdAt), 'MMM dd, yyyy') : "Archived"}
                             </p>
                          </TableCell>
                        </TableRow>

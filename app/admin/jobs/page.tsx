@@ -99,13 +99,13 @@ export default function AdminJobsPage() {
 
   const filteredJobs = jobs.filter((job) => {
     return job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           job.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
+           job.companyName?.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const stats = {
     total: jobs.length,
     active: jobs.filter((j) => j.status === "published").length,
-    applications: jobs.reduce((sum, j) => sum + (j.job_applications?.length || 0), 0),
+    applications: jobs.reduce((sum, j) => sum + (j._count?.applications || 0), 0),
   };
 
   if (loading && jobs.length === 0) {
@@ -194,14 +194,14 @@ export default function AdminJobsPage() {
                 <TableCell>
                   <div>
                     <p className="font-semibold text-sm">{job.title}</p>
-                    <p className="text-xs text-slate-500">{job.job_applications?.length || 0} applications</p>
+                    <p className="text-xs text-slate-500">{job._count?.applications || 0} applications</p>
                   </div>
                 </TableCell>
-                <TableCell className="text-sm">{job.company_name || "Confidential"}</TableCell>
+                <TableCell className="text-sm">{job.companyName || "Confidential"}</TableCell>
                 <TableCell className="text-sm">
                   <div className="flex items-center gap-1.5 text-slate-500">
                     <MapPin className="h-3.5 w-3.5" />
-                    {job.location}
+                    {job.locationCity || job.locationCountry || "TBD"}
                   </div>
                 </TableCell>
                 <TableCell>

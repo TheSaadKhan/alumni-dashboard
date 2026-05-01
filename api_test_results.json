@@ -1,0 +1,254 @@
+[
+  {
+    "method": "GET",
+    "endpoint": "/api/admin/stats",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/auth/sync",
+    "status": 405,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/auth/verify-email",
+    "status": 400,
+    "error": ""
+  },
+  {
+    "method": "POST",
+    "endpoint": "/api/clerk-webhook",
+    "status": 400,
+    "error": ""
+  },
+  {
+    "method": "POST",
+    "endpoint": "/api/contact",
+    "status": 200,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/dashboard/events",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/dashboard/news",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/dashboard/recommendations",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/dashboard/stats",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/dashboard/summary",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/dashboard/updates",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/donations",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/events",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/events/test-event-id",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "POST",
+    "endpoint": "/api/events/test-event-id/register",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/internal/profile-status",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/invitations",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "POST",
+    "endpoint": "/api/invitations/accept",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "POST",
+    "endpoint": "/api/invitations/create",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/invitations/info",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/invitations/preview?token=invalid-token",
+    "status": 404,
+    "error": ""
+  },
+  {
+    "method": "POST",
+    "endpoint": "/api/invitations/reject",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/invitations/test-id",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "POST",
+    "endpoint": "/api/invitations/test-id/resend",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/jobs",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "POST",
+    "endpoint": "/api/jobs/bookmark",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/jobs/test-job-id",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "POST",
+    "endpoint": "/api/jobs/test-job-id/apply",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/mentorship",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/messages/conversations",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "POST",
+    "endpoint": "/api/messages/send",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/messages/test-conv-id",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/network",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/organizations",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/organizations/test-org-id/members",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/organizations/test-org-id/roles",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/profile",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/profiles/test-alumni-id",
+    "status": 400,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/settings",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/users",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "GET",
+    "endpoint": "/api/users/test-user-id",
+    "status": 401,
+    "error": ""
+  },
+  {
+    "method": "PATCH",
+    "endpoint": "/api/users/test-user-id/status",
+    "status": 401,
+    "error": ""
+  }
+]

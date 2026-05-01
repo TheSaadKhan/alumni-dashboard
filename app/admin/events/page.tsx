@@ -112,8 +112,8 @@ export default function AdminEventsPage() {
         {[
           { label: "Total Events", value: events.length, icon: Calendar, color: "text-blue-600", bg: "bg-blue-50" },
           { label: "Active Events", value: events.filter(e => e.status === 'published').length, icon: Zap, color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Upcoming Soon", value: events.filter(e => new Date(e.start_date) > new Date()).length, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
-          { label: "Total Attendees", value: events.reduce((acc, curr) => acc + (curr.current_attendees || 0), 0), icon: Users, color: "text-purple-600", bg: "bg-purple-50" },
+          { label: "Upcoming Soon", value: events.filter(e => new Date(e.startsAt) > new Date()).length, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
+          { label: "Total Attendees", value: events.reduce((acc, curr) => acc + (curr.registeredCount || 0), 0), icon: Users, color: "text-purple-600", bg: "bg-purple-50" },
         ].map((s, i) => (
           <Card key={i}>
             <CardContent className="p-6 flex items-center gap-4">
@@ -161,7 +161,7 @@ export default function AdminEventsPage() {
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded bg-slate-100 flex items-center justify-center">
-                       {event.featured ? <Flame className="h-5 w-5 text-amber-500" /> : <Calendar className="h-5 w-5 text-indigo-500" />}
+                       {event.isFeatured ? <Flame className="h-5 w-5 text-amber-500" /> : <Calendar className="h-5 w-5 text-indigo-500" />}
                     </div>
                     <div>
                       <p className="font-semibold text-sm line-clamp-1">{event.title}</p>
@@ -173,22 +173,22 @@ export default function AdminEventsPage() {
                 </TableCell>
                 <TableCell>
                   <div className="text-xs">
-                    <p className="font-medium">{format(new Date(event.start_date), 'MMM dd, yyyy')}</p>
-                    <p className="text-slate-500">{format(new Date(event.start_date), 'p')}</p>
+                    <p className="font-medium">{format(new Date(event.startsAt), 'MMM dd, yyyy')}</p>
+                    <p className="text-slate-500">{format(new Date(event.startsAt), 'p')}</p>
                   </div>
                 </TableCell>
                 <TableCell className="text-xs">
                   <div className="flex items-center gap-1.5 text-slate-500">
-                    {event.virtual_link ? <Video className="h-3.5 w-3.5 text-blue-500" /> : <MapPin className="h-3.5 w-3.5" />}
-                    {event.virtual_link ? 'Online' : (event.location || 'TBD')}
+                    {event.meetingLink ? <Video className="h-3.5 w-3.5 text-blue-500" /> : <MapPin className="h-3.5 w-3.5" />}
+                    {event.meetingLink ? 'Online' : (event.locationName || 'TBD')}
                   </div>
                 </TableCell>
                 <TableCell>
                   <div className="w-24">
                     <div className="flex justify-between text-[10px] mb-1">
-                      <span>{event.current_attendees || 0} joined</span>
+                      <span>{event.registeredCount || 0} joined</span>
                     </div>
-                    <Progress value={Math.min(100, ((event.current_attendees || 0) / (event.max_attendees || 1)) * 100)} className="h-1" />
+                    <Progress value={Math.min(100, ((event.registeredCount || 0) / (event.maxCapacity || 1)) * 100)} className="h-1" />
                   </div>
                 </TableCell>
                 <TableCell className="text-right">

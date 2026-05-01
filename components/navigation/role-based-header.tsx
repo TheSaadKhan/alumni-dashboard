@@ -163,10 +163,10 @@ export function RoleBasedHeader({ onMenuToggle }: { onMenuToggle?: () => void })
            </DropdownMenuTrigger>
            <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => router.push("/dashboard/profile")}>
+              <DropdownMenuItem onClick={() => router.push(`/organization/${profile?.organization?.slug || 'default'}/dashboard/profile`)}>
                  <User className="mr-2 h-4 w-4" /> Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
+              <DropdownMenuItem onClick={() => router.push(`/organization/${profile?.organization?.slug || 'default'}/dashboard/settings`)}>
                  <Settings className="mr-2 h-4 w-4" /> Settings
               </DropdownMenuItem>
               {isAdmin && (
@@ -179,6 +179,7 @@ export function RoleBasedHeader({ onMenuToggle }: { onMenuToggle?: () => void })
                  <LogOut className="mr-2 h-4 w-4" /> Log out
               </DropdownMenuItem>
            </DropdownMenuContent>
+
         </DropdownMenu>
       </div>
     </header>

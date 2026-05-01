@@ -67,15 +67,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthProfile } from "@/context/AuthContext";
 import { format } from "date-fns";
 
-type UserType = {
+type AdminUser = {
   id: string;
   name: string;
   email: string;
-  imageUrl?: string;
+  avatarUrl?: string;
   userType: string;
   status: string;
   roles: Array<{ name: string; slug: string }>;
   joinedAt?: string;
+  createdAt?: string;
   major?: string;
   graduationYear?: number;
   expectedGraduation?: number;
@@ -91,7 +92,6 @@ type InviteType = {
 type RoleType = {
   id: string;
   name: string;
-  display_name: string;
 };
 
 export default function AdminUsersPage() {
@@ -99,7 +99,7 @@ export default function AdminUsersPage() {
   const { profile } = useAuthProfile();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [users, setUsers] = useState<UserType[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [invites, setInvites] = useState<InviteType[]>([]);
   const [roles, setRoles] = useState<RoleType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,15 +125,23 @@ export default function AdminUsersPage() {
       });
       if (orgId) queryParams.set("organizationId", orgId);
 
-      const [usersRes, rolesRes, invitesRes] = await Promise.all([
-        fetch(`/api/users?${queryParams.toString()}`),
-        fetch(`/api/organizations/${orgId}/roles`),
-        fetch(`/api/invitations?organizationId=${orgId}`),
-      ]);
+      const requests = [fetch(`/api/users?${queryParams.toString()}`)];
+      
+      if (orgId) {
+        requests.push(fetch(`/api/invitations/create?organizationId=${orgId}`));
+        requests.push(fetch(`/api/invitations?organizationId=${orgId}`));
+      }
 
-      const usersData = await usersRes.json();
-      const rolesData = await rolesRes.json();
-      const invitesData = await invitesRes.json();
+      const responses = await Promise.all(requests);
+      const usersData = await responses[0].json();
+      
+      let rolesData = { roles: [] };
+      let invitesData = { invites: [] };
+
+      if (orgId && responses.length === 3) {
+        rolesData = await responses[1].json();
+        invitesData = await responses[2].json();
+      }
 
       setUsers(usersData.users || []);
       setRoles(rolesData.roles || []);
@@ -204,9 +212,12 @@ export default function AdminUsersPage() {
         setInviteDialogOpen(false);
         setInviteForm({ email: "", roleId: "", message: "" });
         loadData();
+      } else {
+        const errorData = await res.json();
+        toast.error(errorData.error || "Failed to send invitation");
       }
     } catch {
-      toast.error("Failed to send invitation");
+      toast.error("Failed to send invitation. Network error.");
     }
   };
 
@@ -276,7 +287,7 @@ export default function AdminUsersPage() {
                        <TableCell className="py-4">
                          <div className="flex items-center gap-3">
                            <Avatar className="h-10 w-10 border-2 border-white dark:border-slate-800">
-                              <AvatarImage src={user.imageUrl} />
+                              <AvatarImage src={user.avatarUrl} />
                               <AvatarFallback className="bg-indigo-100 text-indigo-700 font-bold">{user.name[0]}</AvatarFallback>
                            </Avatar>
                            <div>
@@ -293,7 +304,7 @@ export default function AdminUsersPage() {
                        </TableCell>
                        <TableCell>
                           <p className="text-xs font-medium">{user.major || 'Global Member'}</p>
-                          <p className="text-[10px] text-slate-400">{user.graduationYear || user.expectedGraduation ? `Class of ${user.graduationYear || user.expectedGraduation}` : 'Joined ' + (user.joinedAt ? format(new Date(user.joinedAt), 'MMM yyyy') : 'Recently')}</p>
+                          <p className="text-[10px] text-slate-400">{user.graduationYear || user.expectedGraduation ? `Class of ${user.graduationYear || user.expectedGraduation}` : 'Joined ' + (user.createdAt ? format(new Date(user.createdAt), 'MMM yyyy') : 'Recently')}</p>
                        </TableCell>
                        <TableCell className="text-right">
                           <DropdownMenu>
@@ -344,7 +355,7 @@ export default function AdminUsersPage() {
                         </div>
                         <div className="flex items-center gap-4">
                            <Avatar className="h-14 w-14 ring-4 ring-white shadow-lg">
-                              <AvatarImage src={user.imageUrl} />
+                              <AvatarImage src={user.avatarUrl} />
                               <AvatarFallback className="bg-amber-100 text-amber-700 text-xl font-bold">{user.name[0]}</AvatarFallback>
                            </Avatar>
                            <div>
@@ -448,7 +459,7 @@ export default function AdminUsersPage() {
                         <SelectValue placeholder="Select a role" />
                      </SelectTrigger>
                      <SelectContent className="rounded-2xl">
-                        {roles.map(r => <SelectItem key={r.id} value={r.id}>{r.display_name}</SelectItem>)}
+                        {roles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                      </SelectContent>
                   </Select>
                </div>

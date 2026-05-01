@@ -13,11 +13,35 @@ export default function DonatePage() {
   const [customAmount, setCustomAmount] = useState("");
   const [frequency, setFrequency] = useState("one-time");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle donation submission
     const donationAmount = customAmount || amount;
-    console.log({ amount: donationAmount, frequency });
+    
+    try {
+      const res = await fetch("/api/donations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: donationAmount,
+          frequency,
+          message: "Support donation",
+          isAnonymous: false
+        })
+      });
+      
+      if (res.ok) {
+        import("sonner").then(({ toast }) => {
+          toast.success("Thank you for your donation!");
+        });
+        setCustomAmount("");
+      } else {
+        throw new Error("Failed to process donation");
+      }
+    } catch (err) {
+      import("sonner").then(({ toast }) => {
+        toast.error("Failed to process donation. Please try again.");
+      });
+    }
   };
 
   return (

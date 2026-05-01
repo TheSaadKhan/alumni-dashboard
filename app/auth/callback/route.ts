@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
                 organizationId: invitation.organizationId,
                 invitationId: invitation.id,
               },
-              actionUrl: '/dashboard/profile/edit',
+              actionUrl: invitation.organization.slug ? `/organization/${invitation.organization.slug}/dashboard/profile/edit` : '/dashboard/profile/edit',
             },
           })
         }
