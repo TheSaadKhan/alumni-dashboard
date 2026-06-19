@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { InviteStatus, UserType } from "@/lib/generated/prisma";
 import { randomBytes } from "crypto";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 type SendInvitePayload = {
   organizationId?: string; // Made optional - will derive from user's context
@@ -14,6 +17,60 @@ type SendInvitePayload = {
   customMessage?: string;
   expiresInDays?: number;
 };
+
+/* -------------------------------------------
+   HELPER: Send invite email via Resend
+-------------------------------------------- */
+
+async function sendInviteEmail({
+  to,
+  organizationName,
+  userType,
+  customMessage,
+  inviteUrl,
+  expiresInDays,
+}: {
+  to: string;
+  organizationName: string;
+  userType: UserType;
+  customMessage?: string | null;
+  inviteUrl: string;
+  expiresInDays: number;
+}) {
+  const fromAddress = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+
+  const { data, error } = await resend.emails.send({
+    from: fromAddress,
+    to,
+    subject: `You're invited to join ${organizationName}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
+        <h1 style="font-size: 20px;">You've been invited to join ${organizationName}</h1>
+        <p>${customMessage || `You've been invited as a ${userType}.`}</p>
+        <p>
+          <a href="${inviteUrl}" style="display:inline-block;padding:10px 20px;background:#000;color:#fff;text-decoration:none;border-radius:6px;">
+            Accept Invitation
+          </a>
+        </p>
+        <p style="color:#666;font-size:13px;">
+          This invitation expires in ${expiresInDays} day${expiresInDays === 1 ? "" : "s"}.
+          If you didn't expect this invite, you can safely ignore this email.
+        </p>
+        <p style="color:#999;font-size:12px;">
+          If the button doesn't work, copy and paste this URL into your browser:<br/>
+          ${inviteUrl}
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Resend error sending invite email:", error);
+    throw new Error("Failed to send invitation email");
+  }
+
+  return data;
+}
 
 export async function sendInviteAction(payload: SendInvitePayload) {
   const { userId: clerkId } = await auth();
@@ -53,7 +110,7 @@ export async function sendInviteAction(payload: SendInvitePayload) {
 
   // Determine organization ID - either from payload or from user's current org
   const organizationId = providedOrgId || currentUser.organizationId;
-  
+
   if (!organizationId) {
     throw new Error("Organization ID not specified and user has no associated organization");
   }
@@ -154,21 +211,25 @@ export async function sendInviteAction(payload: SendInvitePayload) {
     },
   });
 
-  // TODO: Send invite email using your provider (SendGrid, Postmark, SES, etc.)
   const inviteUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/invite/accept?token=${token}`;
   const organizationName = invite.organization.name;
-  
-  // Example email sending (implement with your email provider)
-  // await sendEmail({
-  //   to: email,
-  //   subject: `Invitation to join ${organizationName}`,
-  //   html: `
-  //     <h1>You've been invited to join ${organizationName}</h1>
-  //     <p>${customMessage || `You've been invited as a ${userType}.`}</p>
-  //     <a href="${inviteUrl}">Accept Invitation</a>
-  //     <p>This invitation expires in ${expiresInDays} days.</p>
-  //   `,
-  // });
+
+  // Send the invite email via Resend.
+  // If email sending fails, we roll back the invitation so the user
+  // isn't left with a "ghost" invite they never received.
+  try {
+    await sendInviteEmail({
+      to: email,
+      organizationName,
+      userType,
+      customMessage,
+      inviteUrl,
+      expiresInDays,
+    });
+  } catch (err) {
+    await prisma.orgInvitation.delete({ where: { id: invite.id } });
+    throw err;
+  }
 
   console.log("Invite created:", {
     inviteId: invite.id,
@@ -457,8 +518,31 @@ export async function resendInviteAction(payload: ResendInvitePayload) {
     },
   });
 
-  // TODO: Resend email with new token
   const inviteUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/invite/accept?token=${newToken}`;
+
+  // Resend the email with the new token
+  await sendInviteEmail({
+    to: invitation.email,
+    organizationName: invitation.organization.name,
+    userType: invitation.userType,
+    customMessage: invitation.message,
+    inviteUrl,
+    expiresInDays: 7,
+  });
+
+  // Audit log for the resend
+  await prisma.auditLog.create({
+    data: {
+      organizationId: invitation.organizationId,
+      actorId: currentUser.id,
+      action: "invitation.resent",
+      entityType: "org_invitation",
+      entityId: inviteId,
+      entityLabel: invitation.email,
+      afterState: { expiresAt },
+      severity: "info",
+    },
+  });
 
   return {
     success: true,
@@ -568,7 +652,7 @@ export async function getOrganizationInvitesAction(organizationId?: string) {
   }
 
   const targetOrgId = organizationId || currentUser.organizationId;
-  
+
   if (!targetOrgId) {
     throw new Error("No organization specified");
   }
