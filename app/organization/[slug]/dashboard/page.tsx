@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { NewsAnnouncements } from "@/components/dashboard/news-announcements";
+import { AlumniUpdates } from "@/components/dashboard/alumni-updates";
 
 // ─── Skeleton for initial page load ─────────────────────────────────────────
 function DashboardSkeleton() {
@@ -78,7 +80,25 @@ export default function DashboardPage() {
     const cachedRecs = sessionGet<any[]>("dash_recs");
     if (cachedStats) { setStats(cachedStats); setLoadingStats(false); }
     if (cachedRecs) { setRecommendations(cachedRecs); setLoadingRecs(false); }
-    if (cachedStats && cachedRecs) return; // fully cached
+    if (cachedStats && cachedRecs) {
+      // Refresh in background
+      Promise.all([
+        fetch("/api/dashboard/stats", { cache: "no-store" }),
+        fetch("/api/dashboard/recommendations", { cache: "no-store" }),
+      ]).then(async ([statsRes, recsRes]) => {
+        if (statsRes.ok) {
+          const d = await statsRes.json();
+          setStats(d);
+          sessionSet("dash_stats", d, 2 * 60 * 1000);
+        }
+        if (recsRes.ok) {
+          const d = await recsRes.json();
+          setRecommendations(d.recommendations || []);
+          sessionSet("dash_recs", d.recommendations || [], 2 * 60 * 1000);
+        }
+      }).catch(() => {});
+      return;
+    }
 
     try {
       if (!cachedStats) setLoadingStats(true);
@@ -110,7 +130,9 @@ export default function DashboardPage() {
   }, [profile, fetchDashboardData]);
 
   useEffect(() => {
-    if (!loading && !profile?.onboardingCompleted) router.push("/onboarding");
+    if (!loading && profile && !profile.onboardingCompleted) {
+      router.replace("/auth/complete-profile/member");
+    }
   }, [loading, profile, router]);
 
   if (loading || !profile) return <DashboardSkeleton />;
@@ -127,7 +149,7 @@ export default function DashboardPage() {
   ];
 
   const quickLinks = [
-    { title: "Invite Member", icon: UserPlus, href: `/organization/${slug}/dashboard/network/invite`, color: "text-blue-600", bg: "bg-blue-50" },
+    { title: "Invite Member", icon: UserPlus, href: `/organization/${slug}/dashboard/invites`, color: "text-blue-600", bg: "bg-blue-50" },
     { title: "Post Job", icon: Briefcase, href: `/organization/${slug}/dashboard/jobs/new`, color: "text-emerald-600", bg: "bg-emerald-50" },
     { title: "Create Event", icon: Calendar, href: `/organization/${slug}/dashboard/events/create`, color: "text-indigo-600", bg: "bg-indigo-50" },
   ];
@@ -375,6 +397,12 @@ export default function DashboardPage() {
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             Connected · {organization?.name || slug}
           </div>
+        </div>
+
+        {/* News & Activity feed */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <NewsAnnouncements orgId={organization?.id} role={profile.userType ?? undefined} />
+          <AlumniUpdates orgId={organization?.id} slug={slug} role={profile.userType ?? undefined} />
         </div>
       </div>
     </div>

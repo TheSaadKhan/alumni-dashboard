@@ -6,7 +6,6 @@ import type { NextRequest } from "next/server";
  * ✅ Public routes
  */
 const isPublicRoute = createRouteMatcher([
-  "/",
   "/about",
   "/contact",
   "/pricing",
@@ -120,15 +119,17 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   /**
-   * ✅ 3. ROOT `/` AUTO-REDIRECT (NO LOOPS)
+   * ✅ 3. ROOT `/` — no marketing home; route to app entry
    */
   if (pathname === "/") {
     if (userType === "super_admin" || userType === "admin") {
-      url.pathname = "/admin";
-    } else if (hasOrganization && organizationSlug) {
+      url.pathname = hasOrganization ? "/admin" : "/organization/setup";
+    } else if (hasOrganization && organizationSlug && isProfileComplete) {
       url.pathname = `/organization/${organizationSlug}/dashboard`;
+    } else if (!hasProfile || !isProfileComplete || !hasOrganization) {
+      url.pathname = "/auth/complete-profile";
     } else {
-      url.pathname = "/onboarding";
+      url.pathname = `/organization/${organizationSlug}/dashboard`;
     }
 
     return NextResponse.redirect(url);
@@ -139,12 +140,13 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
    * ✅ 4. LOGGED IN → BLOCK SIGN-IN & SIGN-UP
    */
   if (isAuthPage(req)) {
-    const target =
-      userType === "super_admin" || userType === "admin"
-        ? "/admin"
-        : hasOrganization && organizationSlug
-        ? `/organization/${organizationSlug}/dashboard`
-        : "/dashboard";
+    let target = "/auth/complete-profile";
+
+    if (userType === "super_admin" || userType === "admin") {
+      target = hasOrganization ? "/admin" : "/organization/setup";
+    } else if (hasOrganization && organizationSlug && isProfileComplete) {
+      target = `/organization/${organizationSlug}/dashboard`;
+    }
 
     if (pathname !== target) {
       url.pathname = target;

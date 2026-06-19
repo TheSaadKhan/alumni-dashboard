@@ -24,12 +24,20 @@ export async function POST(req: Request) {
     // Sync to Clerk Public Metadata if missing or changed
     const client = await clerkClient();
     const clerkUser = await client.users.getUser(clerkId);
-    const meta = clerkUser.publicMetadata;
+    const meta = clerkUser.publicMetadata as Record<string, unknown>;
     
-    // We consider onboarding completed if they have an organization assigned, or if already marked as active/pending
-    const onboardingCompleted = !!user.organizationId || user.status === UserStatus.active || user.status === UserStatus.pending;
+    const hasProfileDetails = !!(user as any).alumniProfile || !!(user as any).studentProfile;
+    const metaCompleted = meta.onboardingCompleted === true;
+    const onboardingCompleted =
+      metaCompleted ||
+      (!!user.organizationId && hasProfileDetails && user.status === UserStatus.active);
 
-    if (meta.userType !== user.userType || meta.organizationId !== user.organizationId || meta.status !== user.status) {
+    if (
+      meta.userType !== user.userType ||
+      meta.organizationId !== user.organizationId ||
+      meta.status !== user.status ||
+      meta.onboardingCompleted !== onboardingCompleted
+    ) {
        await client.users.updateUserMetadata(clerkId, {
          publicMetadata: {
            userType: user.userType,

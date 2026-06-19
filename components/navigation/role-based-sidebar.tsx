@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Settings,
   Shield,
+  Heart,
   LogOut,
   ChevronLeft,
   X,
@@ -44,6 +45,7 @@ export function RoleBasedSidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarP
       { name: "Jobs", href: `${base}/jobs`, icon: Briefcase },
       { name: "Events", href: `${base}/events`, icon: Calendar },
       { name: "Messages", href: `${base}/messages`, icon: MessageSquare },
+      { name: "Impact", href: `${base}/impact`, icon: Heart },
     ];
 
     if (userRole === "alumni") {
@@ -79,7 +81,7 @@ export function RoleBasedSidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarP
         <div className="flex flex-col h-full">
           {/* Logo Section */}
           <div className="h-20 flex items-center px-6 border-b border-slate-100">
-            <Link href="/" className="flex-1 block">
+            <Link href={`/organization/${slug}/dashboard`} className="flex-1 block">
               <img 
                 src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/Assets/bannerLogo.png`} 
                 alt="Logo" 

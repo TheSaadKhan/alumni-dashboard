@@ -42,10 +42,15 @@ function MemberCompleteProfileContent() {
   const { profile, organization, loading, refreshProfile } = useAuthProfile();
 
   const inviteToken = searchParams.get("invite_token");
+  const needsOrganization = !inviteToken && !organization?.id;
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [role, setRole] = useState<UserRole>("alumni");
+  const [orgSearch, setOrgSearch] = useState("");
+  const [orgResults, setOrgResults] = useState<Array<{ id: string; name: string; slug: string; logoUrl?: string | null }>>([]);
+  const [orgSearching, setOrgSearching] = useState(false);
+  const [selectedOrgName, setSelectedOrgName] = useState("");
   
   const [form, setForm] = useState({
     firstName: "",
@@ -77,6 +82,42 @@ function MemberCompleteProfileContent() {
     }
   }, [user]);
 
+  // Pre-fill organization from invite or existing context
+  useEffect(() => {
+    if (organization?.id && !form.organizationId) {
+      setForm(prev => ({ ...prev, organizationId: organization.id }));
+      setSelectedOrgName(organization.name);
+    }
+  }, [organization]);
+
+  // Organization search
+  useEffect(() => {
+    if (!needsOrganization || orgSearch.length < 2) {
+      setOrgResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setOrgSearching(true);
+      try {
+        const res = await fetch(`/api/organizations?search=${encodeURIComponent(orgSearch)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setOrgResults(data.organizations || []);
+        } else {
+          toast.error("Could not search organizations. Please try again.");
+        }
+      } catch {
+        setOrgResults([]);
+        toast.error("Network error while searching organizations.");
+      } finally {
+        setOrgSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [orgSearch, needsOrganization]);
+
   // City Search logic
   useEffect(() => {
     if (citySearch.length > 2) {
@@ -91,34 +132,77 @@ function MemberCompleteProfileContent() {
   }, [citySearch, form.countryCode]);
 
   const handleComplete = async () => {
+    const orgId = form.organizationId || organization?.id || null;
+
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      toast.error("First and last name are required.");
+      setStep(1);
+      return;
+    }
+
+    if (!inviteToken && !orgId) {
+      toast.error("Please select your organization to continue.");
+      if (needsOrganization) setStep(orgStep);
+      return;
+    }
+
     setSaving(true);
     try {
-      const { organizationId, currentCompany, graduationYear, ...rest } = form;
-      await updateProfileAction({
-        ...rest,
-        graduationYear: parseInt(graduationYear),
-        company: currentCompany,
-      });
-      
       const onboardingPayload: OnboardingData = {
         userType: role as any,
-        organizationId: form.organizationId || organization?.id || null,
+        organizationId: orgId,
         inviteToken: inviteToken || null,
-        firstName: form.firstName,
-        lastName: form.lastName,
-        graduationYear: form.graduationYear,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        graduationYear: role === "alumni" ? form.graduationYear : null,
+        expectedGraduation: role === "student" ? form.graduationYear : null,
+        headline: form.headline || null,
+        bio: form.bio || null,
+        degree: form.degree || null,
+        major: form.major || null,
+        city: form.city || null,
+        countryCode: form.countryCode || null,
+        currentCompany: form.currentCompany || null,
+        currentTitle: form.currentTitle || null,
       };
+
+      toast.loading("Creating your account...", { id: "onboarding" });
+
       const res = await completeOnboarding(onboardingPayload);
 
-      if (res.success) {
-        toast.success("Profile completed!");
-        await refreshProfile();
-        router.push(res.redirectUrl || "/");
-      } else {
-        toast.error(res.error || "Failed to complete onboarding");
+      if (!res.success) {
+        toast.error(res.error || "Failed to complete onboarding", { id: "onboarding" });
+        return;
       }
+
+      const profileResult = await updateProfileAction({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        headline: form.headline,
+        bio: form.bio,
+        degree: form.degree,
+        major: form.major,
+        city: form.city,
+        countryCode: form.countryCode,
+        stateCode: form.stateCode,
+        ...(role === "student"
+          ? { expectedGraduation: parseInt(form.graduationYear) }
+          : { graduationYear: parseInt(form.graduationYear) }),
+        company: form.currentCompany,
+        currentTitle: form.currentTitle,
+      });
+
+      if (profileResult && "success" in profileResult && !profileResult.success) {
+        toast.warning("Profile saved, but some details could not be updated.", { id: "onboarding" });
+      } else {
+        toast.success("Profile completed successfully!", { id: "onboarding" });
+      }
+
+      await refreshProfile();
+      router.push(res.redirectUrl || "/auth/complete-profile");
     } catch (err: any) {
-      toast.error("An error occurred. Please try again.");
+      console.error("Onboarding error:", err);
+      toast.error(err?.message || "Something went wrong. Please try again.", { id: "onboarding" });
     } finally {
       setSaving(false);
     }
@@ -137,10 +221,32 @@ function MemberCompleteProfileContent() {
 
   const steps = [
     { title: "Basics", icon: User },
+    ...(needsOrganization ? [{ title: "Organization", icon: Building2 }] : []),
     { title: "Location", icon: MapPin },
     { title: "Education", icon: GraduationCap },
     { title: "Work", icon: Briefcase },
   ];
+
+  const locationStep = needsOrganization ? 3 : 2;
+  const educationStep = needsOrganization ? 4 : 3;
+  const workStep = needsOrganization ? 5 : 4;
+  const orgStep = needsOrganization ? 2 : -1;
+
+  const canContinue = () => {
+    if (step === 1) return form.firstName.trim() && form.lastName.trim();
+    if (step === orgStep) return !!form.organizationId;
+    return true;
+  };
+
+  const handleNext = () => {
+    if (!canContinue()) {
+      if (step === 1) toast.error("Enter your first and last name to continue.");
+      else if (step === orgStep) toast.error("Select an organization to continue.");
+      else toast.error("Please fill in the required fields.");
+      return;
+    }
+    setStep(s => s + 1);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4">
@@ -220,7 +326,61 @@ function MemberCompleteProfileContent() {
                 </div>
               )}
 
-              {step === 2 && (
+              {step === orgStep && (
+                <div className="space-y-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-600">Find Your Organization</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Search by school or organization name..."
+                        className="h-10 rounded-md bg-slate-50 border-slate-200 pl-9"
+                        value={orgSearch}
+                        onChange={e => setOrgSearch(e.target.value)}
+                      />
+                    </div>
+                    {orgSearching && (
+                      <p className="text-xs text-slate-400 flex items-center gap-2">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Searching...
+                      </p>
+                    )}
+                    {selectedOrgName && form.organizationId && (
+                      <div className="flex items-center gap-2 p-3 rounded-md bg-emerald-50 border border-emerald-100 text-sm text-emerald-800">
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        <span className="font-medium">{selectedOrgName}</span>
+                      </div>
+                    )}
+                    {orgResults.length > 0 && (
+                      <div className="border border-slate-200 rounded-md overflow-hidden max-h-48 overflow-y-auto">
+                        {orgResults.map(org => (
+                          <button
+                            key={org.id}
+                            type="button"
+                            onClick={() => {
+                              setForm({ ...form, organizationId: org.id });
+                              setSelectedOrgName(org.name);
+                              setOrgSearch(org.name);
+                              setOrgResults([]);
+                              toast.success(`Selected ${org.name}`);
+                            }}
+                            className={`w-full px-4 py-3 text-left text-sm hover:bg-slate-50 flex items-center gap-3 border-b border-slate-100 last:border-0 ${
+                              form.organizationId === org.id ? "bg-blue-50" : ""
+                            }`}
+                          >
+                            <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
+                            <span className="font-medium text-slate-800">{org.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {orgSearch.length >= 2 && !orgSearching && orgResults.length === 0 && (
+                      <p className="text-xs text-slate-400">No organizations found. Try a different search term.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {step === locationStep && (
                 <div className="space-y-6">
                    <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-600">Country</Label>
@@ -263,7 +423,7 @@ function MemberCompleteProfileContent() {
                 </div>
               )}
 
-              {step === 3 && (
+              {step === educationStep && (
                 <div className="space-y-6">
                    <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-600">Degree</Label>
@@ -299,7 +459,7 @@ function MemberCompleteProfileContent() {
                 </div>
               )}
 
-              {step === 4 && (
+              {step === workStep && (
                 <div className="space-y-6">
                    <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-slate-600">Current Company</Label>
@@ -338,11 +498,11 @@ function MemberCompleteProfileContent() {
                    </Button>
                  )}
                  <Button 
-                   onClick={step === 4 ? handleComplete : nextStep} 
+                   onClick={step === workStep ? handleComplete : handleNext} 
                    disabled={saving}
                    className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold"
                  >
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 4 ? "Complete" : "Continue"}
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : step === workStep ? "Complete" : "Continue"}
                  </Button>
               </div>
            </CardContent>

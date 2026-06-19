@@ -168,12 +168,12 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
       const currentMetadata = (user.metadata as any) || {};
 
       if (payload.firstName || payload.lastName || payload.fullName) {
-        if (payload.firstName) userUpdateData.firstName = payload.firstName;
-        if (payload.lastName && payload.firstName) {
-          userUpdateData.fullName = `${payload.firstName} ${payload.lastName}`;
-        } else if (payload.fullName) {
-          userUpdateData.fullName = payload.fullName;
-        } else if (payload.firstName) {
+      if (payload.firstName) userUpdateData.firstName = payload.firstName;
+      if (payload.firstName && payload.lastName) {
+        userUpdateData.fullName = `${payload.firstName} ${payload.lastName}`;
+      } else if (payload.fullName) {
+        userUpdateData.fullName = payload.fullName;
+      } else if (payload.firstName) {
           const currentUserVal = await tx.user.findUnique({
             where: { id: user.id },
             select: { fullName: true }
@@ -207,7 +207,7 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
         where: { id: user.id },
         data: {
           ...userUpdateData,
-          status: "active",
+          ...(user.organizationId ? { status: "active" } : {}),
         },
       });
 
@@ -301,17 +301,19 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
         await addEducationEntries(tx, user.id, user.organizationId, payload.educationHistory);
       }
 
-      await tx.auditLog.create({
-        data: {
-          organizationId: user.organizationId,
-          actorId: user.id,
-          action: "profile.updated",
-          entityType: user.userType === UserType.alumni ? "alumni_profile" : "student_profile",
-          entityId: user.id,
-          afterState: { updatedFields: Object.keys(payload) },
-          severity: "info",
-        },
-      });
+      if (user.organizationId) {
+        await tx.auditLog.create({
+          data: {
+            organizationId: user.organizationId,
+            actorId: user.id,
+            action: "profile.updated",
+            entityType: user.userType === UserType.alumni ? "alumni_profile" : "student_profile",
+            entityId: user.id,
+            afterState: { updatedFields: Object.keys(payload) },
+            severity: "info",
+          },
+        });
+      }
 
       return { updatedUser, updatedProfile };
     });
@@ -324,7 +326,7 @@ export async function updateProfileAction(payload: UpdateProfilePayload) {
     
   } catch (err: any) {
     console.error("updateProfileAction error:", err);
-    throw new Error("Failed to update profile: " + err.message);
+    return { success: false, error: err.message || "Failed to update profile" };
   }
 }
 

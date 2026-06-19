@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
+import { sessionGet, sessionSet } from "@/lib/cache";
 
 interface Profile {
   id: string;
@@ -40,8 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Sync user and load profile
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async (useCache = true) => {
     if (!user) {
       setProfile(null);
       setOrganization(null);
@@ -49,58 +49,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    if (useCache) {
+      const cachedProfile = sessionGet<Profile>("auth_profile");
+      const cachedOrg = sessionGet<Organization>("auth_org");
+      if (cachedProfile) {
+        setProfile(cachedProfile);
+        if (cachedOrg) setOrganization(cachedOrg);
+        setLoading(false);
+      }
+    }
+
     try {
-      // Logic to sync user from Clerk to Prisma
-      const res = await fetch("/api/auth/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clerkId: user.id,
-          email: user.primaryEmailAddress?.emailAddress,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          imageUrl: user.imageUrl,
+      const [syncRes, orgRes] = await Promise.all([
+        fetch("/api/auth/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clerkId: user.id,
+            email: user.primaryEmailAddress?.emailAddress,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            imageUrl: user.imageUrl,
+          }),
         }),
-      });
+        fetch("/api/organizations", { cache: "no-store" }),
+      ]);
 
-      if (res.ok) {
-        const data = await res.json();
+      if (syncRes.ok) {
+        const data = await syncRes.json();
         setProfile(data.profile);
+        sessionSet("auth_profile", data.profile, 3 * 60 * 1000);
+      }
 
-        // Load organization details
-        try {
-          const orgRes = await fetch("/api/organizations", { cache: "no-store" });
-          if (orgRes.ok) {
-            const orgData = await orgRes.json();
-            // If it's a super_admin, the API returns 'organizations' as an array.
-            // We'll pick the first one as the primary context, or null if none exist.
-            if (orgData.organizations && Array.isArray(orgData.organizations)) {
-              setOrganization(orgData.organizations[0] ?? null);
-            } else {
-              setOrganization(orgData.organization ?? null);
-            }
-          } else {
-            setOrganization(null);
-          }
-        } catch {
-          setOrganization(null);
+      if (orgRes.ok) {
+        const orgData = await orgRes.json();
+        let org: Organization | null = null;
+        if (orgData.organizations && Array.isArray(orgData.organizations)) {
+          org = orgData.organizations[0] ?? null;
+        } else {
+          org = orgData.organization ?? null;
         }
+        setOrganization(org);
+        if (org) sessionSet("auth_org", org, 3 * 60 * 1000);
       }
     } catch (err) {
       console.error("Profile load/sync failed", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     if (isLoaded) {
       loadProfile();
     }
-  }, [isLoaded, user]);
+  }, [isLoaded, loadProfile]);
 
   const refreshProfile = async () => {
-    await loadProfile();
+    setLoading(true);
+    await loadProfile(false);
   };
 
   return (

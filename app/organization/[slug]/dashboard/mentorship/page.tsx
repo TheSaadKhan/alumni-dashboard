@@ -46,11 +46,15 @@ export default function MentorshipPage() {
         const loadedMentors = mData.mentors || [];
         const reqData = rData.requests || { sent: [], received: [] };
         const loadedRequests = [
-          ...(reqData.sent || []),
+          ...(reqData.sent || []).map((r: any) => ({
+            ...r,
+            isReceived: false,
+            displayUser: r.mentor || { fullName: r.mentor?.name, avatarUrl: r.mentor?.avatar, id: r.mentor?.id },
+          })),
           ...(reqData.received || []).map((r: any) => ({
             ...r,
             isReceived: true,
-            displayUser: r.student,
+            displayUser: r.student || { fullName: r.student?.name, avatarUrl: r.student?.avatar, id: r.student?.id },
           })),
         ];
 
@@ -69,16 +73,19 @@ export default function MentorshipPage() {
     if (orgId) fetchMentorshipData();
   }, [orgId, fetchMentorshipData]);
 
-  const handleRequestAction = async (requestId: string, status: "accepted" | "rejected") => {
+  const handleRequestAction = async (requestId: string, action: "accepted" | "rejected") => {
     setActionLoading(requestId);
     try {
-      const res = await fetch(`/api/mentorship/requests/${requestId}`, {
+      const res = await fetch("/api/mentorship", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          requestId,
+          action: action === "accepted" ? "accept" : "decline",
+        }),
       });
       if (res.ok) {
-        toast.success(`Request ${status} successfully`);
+        toast.success(`Request ${action === "accepted" ? "accepted" : "declined"} successfully`);
         fetchMentorshipData(true);
       } else {
         toast.error("Failed to update request");
@@ -139,24 +146,28 @@ export default function MentorshipPage() {
                   <div className="h-12 bg-gradient-to-r from-blue-50 to-indigo-50/50" />
                   <CardContent className="px-6 pb-6 -mt-8 flex flex-col items-center text-center">
                     <Avatar className="h-16 w-16 rounded-2xl border-4 border-white shadow-sm">
-                      <AvatarImage src={mentor.user?.avatarUrl} />
-                      <AvatarFallback className="bg-blue-600 text-white font-bold">{mentor.user?.fullName?.[0]}</AvatarFallback>
+                      <AvatarImage src={mentor.image || mentor.user?.avatarUrl} />
+                      <AvatarFallback className="bg-blue-600 text-white font-bold">
+                        {(mentor.name || mentor.user?.fullName)?.[0]}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="mt-3 space-y-1">
-                      <h3 className="text-base font-bold text-slate-900">{mentor.user?.fullName}</h3>
-                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{mentor.currentTitle || "Expert Mentor"}</p>
+                      <h3 className="text-base font-bold text-slate-900">{mentor.name || mentor.user?.fullName}</h3>
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
+                        {mentor.title || mentor.currentTitle || "Expert Mentor"}
+                      </p>
                     </div>
                     <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-                       {mentor.expertise?.slice(0, 3).map((e: string) => (
+                       {(mentor.skills || mentor.expertise || mentor.topics || []).slice(0, 3).map((e: string) => (
                          <Badge key={e} variant="outline" className="text-[9px] font-bold border-slate-100 bg-slate-50/50 text-slate-500 rounded-lg">{e}</Badge>
                        ))}
                     </div>
                     <p className="mt-4 text-xs text-slate-500 line-clamp-2 font-medium leading-relaxed italic">
-                      \"{mentor.headline || 'I am happy to help students and fellow alumni grow.'}\"
+                      "{mentor.headline || mentor.bio || "Happy to help students and fellow alumni grow."}"
                     </p>
                     <div className="mt-6 flex flex-col gap-2 w-full">
-                       <Button onClick={() => router.push(`/organization/${slug}/dashboard/network/${mentor.userId}`)} className="h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs">
-                          Request Mentorship
+                       <Button onClick={() => router.push(`/organization/${slug}/dashboard/network/${mentor.id}`)} className="h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs">
+                          View Profile
                        </Button>
                     </div>
                   </CardContent>

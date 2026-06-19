@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     // If no slug is provided, and user is super_admin, return all organizations
     // If user is not super_admin but searching by name, allow it for onboarding
     const nameSearch = searchParams.get("search");
-    if (!slug && (user.userType === UserType.super_admin || nameSearch)) {
+    if (!slug && (user.userType === UserType.super_admin || nameSearch || !user.organizationId)) {
       const where: any = { deletedAt: null };
       if (nameSearch) {
         where.OR = [

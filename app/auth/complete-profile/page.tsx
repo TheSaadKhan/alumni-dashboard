@@ -13,7 +13,7 @@ function CompleteProfileRouterContent() {
     if (loading) return;
 
     if (!profile) {
-      router.replace("/");
+      router.replace("/sign-in");
       return;
     }
 

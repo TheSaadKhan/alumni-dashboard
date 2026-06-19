@@ -1,11 +1,88 @@
-import { PrismaClient, PlanTier } from "@/lib/generated/prisma";
+import { config } from "dotenv";
+config({ path: ".env.local" });
+config({ path: ".env" });
+
+import {
+  PrismaClient,
+  PlanTier,
+  RoleScope,
+  UserStatus,
+  UserType,
+} from "../lib/generated/prisma";
 
 const prisma = new PrismaClient();
+
+const DEFAULT_ROLES = [
+  {
+    name: "Super Admin",
+    slug: "super-admin",
+    priority: 100,
+    isSystem: true,
+    isDefault: false,
+    description: "Full organization control",
+  },
+  {
+    name: "Admin",
+    slug: "admin",
+    priority: 80,
+    isSystem: true,
+    isDefault: false,
+    description: "Manage users and settings",
+  },
+  {
+    name: "Moderator",
+    slug: "moderator",
+    priority: 60,
+    isSystem: true,
+    isDefault: false,
+    description: "Moderate content",
+  },
+  {
+    name: "Alumni",
+    slug: "alumni",
+    priority: 30,
+    isSystem: true,
+    isDefault: true,
+    description: "Alumni member",
+  },
+  {
+    name: "Student",
+    slug: "student",
+    priority: 20,
+    isSystem: true,
+    isDefault: true,
+    description: "Student member",
+  },
+];
+
+async function ensureOrgRoles(organizationId: string) {
+  for (const role of DEFAULT_ROLES) {
+    await prisma.role.upsert({
+      where: {
+        organizationId_slug: {
+          organizationId,
+          slug: role.slug,
+        },
+      },
+      update: {},
+      create: {
+        organizationId,
+        ...role,
+        scope: RoleScope.organization,
+      },
+    });
+  }
+}
 
 async function main() {
   console.log("Seeding started...");
 
-  // 1. Create default organization
+  const superAdminEmail =
+    process.env.SUPER_ADMIN_EMAIL || "admin@alumniconnect.com";
+  const superAdminClerkId = process.env.SUPER_ADMIN_CLERK_ID || null;
+  const normalizedEmail = superAdminEmail.toLowerCase();
+
+  // 1. Default organization
   const org = await prisma.organization.upsert({
     where: { slug: "alumni-connect-univ" },
     update: {},
@@ -19,89 +96,165 @@ async function main() {
     },
   });
 
-  console.log("✔ Organization Created:", org.name);
+  console.log("✔ Organization:", org.name);
 
-  // 2. Create System Admin
-  const admin = await prisma.user.upsert({
-    where: { 
-      id: "00000000-0000-0000-0000-000000000000" // Hardcoded UUID for system admin
-    },
-    update: {},
-    create: {
-      id: "00000000-0000-0000-0000-000000000000",
-      organizationId: org.id,
-      email: "system@alumniconnect.com",
-      emailNormalized: "system@alumniconnect.com",
-      firstName: "System",
-      fullName: "System Admin",
-      status: "active",
-      userType: "super_admin",
-      emailVerified: true,
-      metadata: { clerkId: "system_admin" },
+  // 2. Default RBAC roles (required for onboarding role assignment)
+  await ensureOrgRoles(org.id);
+  console.log("✔ Default roles created");
+
+  const superAdminRole = await prisma.role.findFirst({
+    where: { organizationId: org.id, slug: "super-admin" },
+  });
+
+  // 3. Super admin user
+  const existingSuperAdmin = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { emailNormalized: normalizedEmail },
+        ...(superAdminClerkId
+          ? [{ metadata: { path: ["clerkId"], equals: superAdminClerkId } }]
+          : []),
+      ],
     },
   });
 
-  console.log("✔ System Admin Created");
-
-  // 3. Create some sample jobs
-  const jobCount = await prisma.jobPosting.count();
-  if (jobCount === 0) {
-    await prisma.jobPosting.createMany({
-      data: [
-        {
-          organizationId: org.id,
-          postedBy: admin.id,
-          title: "Senior Full Stack Engineer",
-          slug: "senior-full-stack-engineer-google",
-          companyName: "Google",
-          companyLogoUrl: "https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg",
-          locationCity: "Mountain View",
-          locationCountry: "US",
-          jobType: "full_time",
-          experienceLevel: "senior",
-          status: "active",
-          description: "We are looking for an experienced full stack engineer to join our team.",
+  const admin =
+    existingSuperAdmin ??
+    (await prisma.user.create({
+      data: {
+        organizationId: org.id,
+        email: superAdminEmail,
+        emailNormalized: normalizedEmail,
+        firstName: "Super",
+        fullName: "Super Admin",
+        status: UserStatus.active,
+        userType: UserType.super_admin,
+        emailVerified: true,
+        metadata: {
+          clerkId: superAdminClerkId || "pending_clerk_link",
+          seeded: true,
         },
-        {
+      },
+    }));
+
+  await prisma.user.update({
+    where: { id: admin.id },
+    data: {
+      organizationId: org.id,
+      userType: UserType.super_admin,
+      status: UserStatus.active,
+      email: superAdminEmail,
+      emailNormalized: normalizedEmail,
+      metadata: {
+        ...(typeof admin.metadata === "object" && admin.metadata !== null
+          ? admin.metadata
+          : {}),
+        clerkId: superAdminClerkId || (admin.metadata as any)?.clerkId || "pending_clerk_link",
+        seeded: true,
+        onboardingCompleted: true,
+      },
+    },
+  });
+
+  if (superAdminRole) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId_organizationId: {
+          userId: admin.id,
+          roleId: superAdminRole.id,
           organizationId: org.id,
-          postedBy: admin.id,
-          title: "Product Designer",
-          slug: "product-designer-meta",
-          companyName: "Meta",
-          companyLogoUrl: "https://upload.wikimedia.org/wikipedia/commons/7/7b/Meta_Platforms_Inc._logo.svg",
-          locationCity: "Remote",
-          jobType: "full_time",
-          experienceLevel: "mid",
-          status: "active",
-          description: "Help us design the future of connection.",
-        }
-      ],
+        },
+      },
+      update: {},
+      create: {
+        userId: admin.id,
+        roleId: superAdminRole.id,
+        organizationId: org.id,
+        grantedBy: admin.id,
+        grantedReason: "Seed super admin",
+      },
     });
-    console.log("✔ Sample Jobs Created");
   }
 
-  // 4. Create some sample events
-  const eventCount = await prisma.event.count();
-  if (eventCount === 0) {
-    await prisma.event.createMany({
-      data: [
-        {
-          organizationId: org.id,
-          organizerId: admin.id,
-          title: "Alumni Meetup 2026",
-          slug: "alumni-meetup-2026",
-          description: "A chance to reconnect with your peers.",
-          startsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-          endsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000),
-          mode: "online",
-          eventType: "networking",
-        }
-      ],
-    });
-    console.log("✔ Sample Events Created");
+  console.log("✔ Super admin:", superAdminEmail);
+  if (!superAdminClerkId) {
+    console.log(
+      "  → Set SUPER_ADMIN_CLERK_ID in .env after signing up, then re-run seed to link Clerk."
+    );
   }
 
-  console.log("Seeding completed successfully!");
+  // 4. Ensure common countries for sample data FKs
+  for (const code of ["US", "IN"]) {
+    await prisma.country.upsert({
+      where: { code },
+      update: {},
+      create: { code, name: code, isActive: true },
+    });
+  }
+
+  // 5. Sample jobs (optional — skip if lookup tables are incomplete)
+  try {
+    const jobCount = await prisma.jobPosting.count({
+      where: { organizationId: org.id },
+    });
+    if (jobCount === 0) {
+      await prisma.jobPosting.createMany({
+        data: [
+          {
+            organizationId: org.id,
+            postedBy: admin.id,
+            title: "Senior Full Stack Engineer",
+            slug: "senior-full-stack-engineer-google",
+            companyName: "Google",
+            locationCity: "Mountain View",
+            locationCountry: "US",
+            jobType: "full_time",
+            experienceLevel: "senior",
+            status: "active",
+            description:
+              "We are looking for an experienced full stack engineer to join our team.",
+          },
+        ],
+      });
+      console.log("✔ Sample jobs created");
+    }
+  } catch (e) {
+    console.warn("⚠ Skipped sample jobs (lookup data may be missing)");
+  }
+
+  // 6. Sample events
+  try {
+    const eventCount = await prisma.event.count({
+      where: { organizationId: org.id },
+    });
+    if (eventCount === 0) {
+      await prisma.event.createMany({
+        data: [
+          {
+            organizationId: org.id,
+            organizerId: admin.id,
+            title: "Alumni Meetup 2026",
+            slug: "alumni-meetup-2026",
+            description: "A chance to reconnect with your peers.",
+            startsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            endsAt: new Date(
+              Date.now() + 7 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000
+            ),
+            mode: "online",
+            eventType: "networking",
+            isPublished: true,
+          },
+        ],
+      });
+      console.log("✔ Sample events created");
+    }
+  } catch (e) {
+    console.warn("⚠ Skipped sample events");
+  }
+
+  console.log("\nSeeding completed successfully!");
+  console.log(`Organization slug: ${org.slug}`);
+  console.log(`Super admin email: ${superAdminEmail}`);
 }
 
 main()
@@ -112,4 +265,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

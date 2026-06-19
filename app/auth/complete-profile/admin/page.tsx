@@ -104,7 +104,7 @@ function AdminCompleteProfileContent() {
         await new Promise((r) => setTimeout(r, 800));
         router.replace("/organization/setup");
       } else {
-        toast.error("Failed to save profile. Please try again.");
+        toast.error((result as { error?: string }).error || "Failed to save profile. Please try again.");
       }
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");

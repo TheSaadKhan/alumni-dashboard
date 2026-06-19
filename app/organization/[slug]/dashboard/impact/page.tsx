@@ -58,7 +58,7 @@ export default function ImpactPage() {
       if (contributorsRes.ok) setContributors((await contributorsRes.json()).contributors);
       if (storiesRes.ok) setStories((await storiesRes.json()).stories);
     } catch (error) {
-      toast.error("Failed to synchronize philanthropy nodes");
+      toast.error("Failed to load impact data");
     } finally {
       setLoading(false);
     }
@@ -86,15 +86,15 @@ export default function ImpactPage() {
               <div className="h-1 w-1 rounded-full bg-slate-300"></div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Institutional Impact</span>
            </div>
-           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Our Collective Impact</h1>
-           <p className="text-slate-500 font-medium mt-1">Witness how alumni synergy is accelerating institutional growth.</p>
+           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Community Impact</h1>
+           <p className="text-slate-500 font-medium mt-1">Track donations, mentorship, and alumni contributions.</p>
         </div>
         <div className="flex items-center gap-3">
-           <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-400 px-6">
-             <RefreshCw className="h-4 w-4 mr-2" /> Sync Stats
+           <Button variant="outline" className="h-11 rounded-xl font-bold text-slate-600 px-6" onClick={fetchImpactData}>
+             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
            </Button>
-           <Button className="h-11 rounded-xl font-bold px-8 bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-500/10">
-              <Heart className="h-4 w-4 mr-2" /> Contribute Now
+           <Button className="h-11 rounded-xl font-bold px-8 bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-500/10" onClick={() => window.location.href = "/donate"}>
+              <Heart className="h-4 w-4 mr-2" /> Donate
            </Button>
         </div>
       </div>

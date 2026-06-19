@@ -1,35 +1,37 @@
-// /components/dashboard/quick-actions.tsx
-import React from "react";
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { UserPlus, Briefcase, Calendar } from "lucide-react";
 
-export function QuickActions({ role, org }: { role?: string; org?: any }) {
-  // Show actions depending on role. You can extend permissions mapping.
-  const canCreateEvent = ["SUPERADMIN", "ADMIN", "DEAN", "PRINCIPAL", "faculty"].includes((role ?? "").toUpperCase());
-  const canPostNews = canCreateEvent;
-  const canInvite = ["SUPERADMIN", "ADMIN", "DEAN", "PRINCIPAL"].includes((role ?? "").toUpperCase());
+export function QuickActions({ role, org }: { role?: string; org?: { slug?: string; id?: string } }) {
+  const slug = org?.slug || org?.id || "default";
+  const base = `/organization/${slug}/dashboard`;
+  const normalizedRole = (role ?? "").toLowerCase();
+  const isAdmin = ["super_admin", "admin"].includes(normalizedRole);
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm flex gap-3 items-center">
-      <div className="flex-1">
-        <p className="text-sm text-muted-foreground">Quick actions</p>
-        <div className="mt-2 flex gap-2">
-          <Link href={`/organizations/${org?.slug ?? org?.id}/events/new`}>
-            <Button disabled={!canCreateEvent} size="sm">
-              Create Event
-            </Button>
-          </Link>
-          <Link href={`/organizations/${org?.slug ?? org?.id}/news/new`}>
-            <Button disabled={!canPostNews} size="sm" variant="ghost">
-              Post News
-            </Button>
-          </Link>
-          <Link href={`/organizations/${org?.slug ?? org?.id}/members/invite`}>
-            <Button disabled={!canInvite} size="sm" variant="outline">
-              Invite Member
-            </Button>
-          </Link>
-        </div>
+    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+      <p className="text-sm font-semibold text-slate-700 mb-3">Quick actions</p>
+      <div className="flex flex-wrap gap-2">
+        <Link href={`${base}/events/create`}>
+          <Button size="sm" variant="outline" className="rounded-xl" disabled={!isAdmin}>
+            <Calendar className="h-4 w-4 mr-2" />
+            Create Event
+          </Button>
+        </Link>
+        <Link href={`${base}/jobs/new`}>
+          <Button size="sm" variant="outline" className="rounded-xl">
+            <Briefcase className="h-4 w-4 mr-2" />
+            Post Job
+          </Button>
+        </Link>
+        <Link href={`${base}/invites`}>
+          <Button size="sm" variant="outline" className="rounded-xl" disabled={!isAdmin}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Invite Member
+          </Button>
+        </Link>
       </div>
     </div>
   );

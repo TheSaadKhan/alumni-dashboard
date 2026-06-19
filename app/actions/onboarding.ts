@@ -12,6 +12,14 @@ export type OnboardingData = {
   lastName?: string;
   graduationYear?: number | string | null;
   expectedGraduation?: number | string | null;
+  headline?: string | null;
+  bio?: string | null;
+  degree?: string | null;
+  major?: string | null;
+  city?: string | null;
+  countryCode?: string | null;
+  currentCompany?: string | null;
+  currentTitle?: string | null;
 };
 
 export async function completeOnboarding(data: OnboardingData): Promise<{ success: boolean; redirectUrl: string; error?: string }> {
@@ -20,6 +28,28 @@ export async function completeOnboarding(data: OnboardingData): Promise<{ succes
   if (!userId) throw new Error("Unauthorized");
 
   const { userType, organizationId: orgSlugOrId, inviteToken, firstName, lastName } = data;
+  const profileFields = {
+    headline: data.headline || null,
+    bio: data.bio || null,
+    major: data.major || null,
+    city: data.city || null,
+    countryCode: data.countryCode?.toUpperCase().slice(0, 2) || null,
+  };
+
+  if (profileFields.countryCode) {
+    const countryExists = await prisma.country.findUnique({
+      where: { code: profileFields.countryCode },
+    });
+    if (!countryExists) {
+      await prisma.country.create({
+        data: {
+          code: profileFields.countryCode,
+          name: profileFields.countryCode,
+          isActive: true,
+        },
+      });
+    }
+  }
 
   // Find user
   const user = await prisma.user.findFirst({
@@ -77,25 +107,36 @@ export async function completeOnboarding(data: OnboardingData): Promise<{ succes
     const graduationYear = typeof gy === "string" ? parseInt(gy) : gy;
     await prisma.alumniProfile.upsert({
       where: { userId: user.id },
-      update: { graduationYear: graduationYear || null },
+      update: {
+        graduationYear: graduationYear || null,
+        ...profileFields,
+        degree: data.degree || null,
+        currentCompany: data.currentCompany || null,
+        currentTitle: data.currentTitle || null,
+      },
       create: {
         userId: user.id,
         organizationId: orgId,
         graduationYear: graduationYear || null,
         isVerified: !needsApproval,
+        ...profileFields,
+        degree: data.degree || null,
+        currentCompany: data.currentCompany || null,
+        currentTitle: data.currentTitle || null,
       },
     });
   } else if (effectiveUserType === UserType.student) {
-    const eg = data.expectedGraduation;
+    const eg = data.expectedGraduation ?? data.graduationYear;
     const expectedGraduation = typeof eg === "string" ? parseInt(eg) : eg;
     await prisma.studentProfile.upsert({
       where: { userId: user.id },
-      update: { expectedGraduation: expectedGraduation || null },
+      update: { expectedGraduation: expectedGraduation || null, ...profileFields },
       create: {
         userId: user.id,
         organizationId: orgId,
         expectedGraduation: expectedGraduation || null,
         isVerified: false,
+        ...profileFields,
       },
     });
   }
@@ -168,12 +209,22 @@ export async function completeOnboarding(data: OnboardingData): Promise<{ succes
         },
       });
     } else {
+      const roleSlug =
+        effectiveUserType === UserType.alumni
+          ? "alumni"
+          : effectiveUserType === UserType.student
+          ? "student"
+          : "member";
+
       const defaultRole = await prisma.role.findFirst({
         where: {
           organizationId: orgId,
-          isDefault: true,
-          slug: effectiveUserType.toLowerCase() === "alumni" ? "alumni" : "member",
+          OR: [
+            { isDefault: true, slug: roleSlug },
+            { slug: roleSlug },
+          ],
         },
+        orderBy: { priority: "desc" },
       });
 
       if (defaultRole) {

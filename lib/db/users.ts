@@ -56,6 +56,49 @@ export async function syncClerkUser(user: {
     return existingUser;
   }
 
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase();
+  const isConfiguredSuperAdmin =
+    !!superAdminEmail && user.email.toLowerCase() === superAdminEmail;
+
+  // Link Clerk account to seeded super admin row
+  if (isConfiguredSuperAdmin) {
+    const seededAdmin = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { emailNormalized: superAdminEmail },
+          { userType: UserType.super_admin },
+        ],
+      },
+      include: { organization: true },
+    });
+
+    if (seededAdmin) {
+      return await prisma.user.update({
+        where: { id: seededAdmin.id },
+        data: {
+          metadata: {
+            ...(typeof seededAdmin.metadata === "object" && seededAdmin.metadata !== null
+              ? seededAdmin.metadata
+              : {}),
+            clerkId: user.clerkId,
+          },
+          avatarUrl: user.imageUrl || seededAdmin.avatarUrl,
+          firstName: user.firstName || seededAdmin.firstName,
+          fullName: `${user.firstName} ${user.lastName}`.trim() || seededAdmin.fullName,
+          email: user.email,
+          emailNormalized: user.email.toLowerCase(),
+          userType: UserType.super_admin,
+          status: UserStatus.active,
+        },
+        include: {
+          organization: true,
+          alumniProfile: true,
+          studentProfile: true,
+        },
+      });
+    }
+  }
+
   const orgId = user.organizationId ?? null;
   let isSuperAdmin = false;
 
